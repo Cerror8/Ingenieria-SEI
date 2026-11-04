@@ -73,7 +73,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-[#EEF2F7] overflow-hidden">
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
       <Sidebar currentView={view} onNavigate={navigate} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -88,8 +88,8 @@ export default function App() {
               <Bell className="w-4 h-4 text-gray-400" />
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
             </button>
-            <div className="w-8 h-8 bg-[#1B3C6B]/10 rounded-full flex items-center justify-center">
-              <span className="text-xs font-black text-[#1B3C6B]">CL</span>
+            <div className="w-8 h-8 bg-[#C2410C]/10 rounded-full flex items-center justify-center">
+              <span className="text-xs font-black text-[#C2410C]">CL</span>
             </div>
           </div>
         </header>

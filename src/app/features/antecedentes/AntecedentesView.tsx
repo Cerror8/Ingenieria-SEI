@@ -41,7 +41,7 @@ export function AntecedentesView() {
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" placeholder="Buscar por código, línea o palabra clave…" className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50" />
+            <input type="text" placeholder="Buscar por código, línea o palabra clave…" className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50" />
           </div>
           {["Línea de investigación", "Tipo de documento", "Año", "Nivel"].map(f => (
             <button key={f} className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100">
@@ -59,7 +59,7 @@ export function AntecedentesView() {
               <div key={g.line}>
                 <button onClick={() => setExpanded(expanded === g.line ? null : g.line)} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left">
                   {expanded === g.line ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
-                  <Tag className="w-3.5 h-3.5 text-blue-500" />
+                  <Tag className="w-3.5 h-3.5 text-orange-500" />
                   <span className="text-xs font-semibold text-gray-700">{g.line}</span>
                 </button>
                 {expanded === g.line && (
@@ -103,15 +103,15 @@ export function AntecedentesView() {
               {docs.map((doc, i) => (
                 <tr key={i} className="hover:bg-gray-50/50">
                   <td className="px-4 py-2.5 text-sm font-semibold text-gray-800">{doc.name}</td>
-                  <td className="px-4 py-2.5"><span className="font-mono text-xs font-bold text-blue-700">{doc.code}</span></td>
+                  <td className="px-4 py-2.5"><span className="font-mono text-xs font-bold text-orange-700">{doc.code}</span></td>
                   <td className="px-4 py-2.5 text-xs text-gray-400">{doc.line}</td>
                   <td className="px-4 py-2.5 text-xs text-gray-500">{doc.type}</td>
                   <td className="px-4 py-2.5 text-xs text-gray-400">{doc.date}</td>
                   <td className="px-4 py-2.5 text-xs text-gray-500">{doc.responsible}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-0.5">
-                      <button className="p-1 text-gray-300 hover:text-blue-600 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                      <button className="p-1 text-gray-300 hover:text-blue-600 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
+                      <button className="p-1 text-gray-300 hover:text-orange-600 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                      <button className="p-1 text-gray-300 hover:text-orange-600 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
                       <button className="p-1 text-gray-300 hover:text-green-600 rounded transition-colors"><Link2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>

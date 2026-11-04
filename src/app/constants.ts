@@ -15,8 +15,8 @@ import { ProjectStatus, IndicatorStatus } from "./types";
 
 export const STATUS_CFG: Record<ProjectStatus, { bg: string; text: string; dot: string }> = {
   "En formulación": { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400" },
-  "En ejecución":   { bg: "bg-blue-50",  text: "text-blue-700",  dot: "bg-blue-500"  },
-  "Suspendido":     { bg: "bg-orange-50",text: "text-orange-700",dot: "bg-orange-500"},
+  "En ejecución":   { bg: "bg-orange-50",text: "text-orange-700",dot: "bg-orange-500"},
+  "Suspendido":     { bg: "bg-slate-100",text: "text-slate-600", dot: "bg-slate-400" },
   "Finalizado":     { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
   "Cerrado":        { bg: "bg-gray-100", text: "text-gray-600",  dot: "bg-gray-400"  },
 };
@@ -30,7 +30,7 @@ export const IND_CFG: Record<IndicatorStatus, { bg: string; text: string; bar: s
 
 export const ACT_STATUS_CFG = {
   "Completada": { bg: "bg-green-50", text: "text-green-700" },
-  "En curso":   { bg: "bg-blue-50",  text: "text-blue-700" },
+  "En curso":   { bg: "bg-orange-50",  text: "text-orange-700" },
   "Pendiente":  { bg: "bg-gray-100", text: "text-gray-600" },
   "Retrasada":  { bg: "bg-red-50",   text: "text-red-700"  },
 };

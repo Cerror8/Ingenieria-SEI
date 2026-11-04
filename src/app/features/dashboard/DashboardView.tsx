@@ -29,7 +29,7 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
           <p className="text-sm text-gray-500 mt-0.5">Período activo: Enero – Agosto 2026</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={onGenerateReport} className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B3C6B] text-white text-sm font-semibold rounded-lg hover:bg-[#152f54] transition-colors shadow-sm">
+          <button onClick={onGenerateReport} className="inline-flex items-center gap-2 px-4 py-2 bg-[#C2410C] text-white text-sm font-semibold rounded-lg hover:bg-[#9A3412] transition-colors shadow-sm">
             <FileText className="w-4 h-4" />Generar informe
           </button>
           <button className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
@@ -48,13 +48,13 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        <KpiCard title="Total Proyectos"   value="47"   icon={Briefcase}       color="text-[#1B3C6B]"    bg="bg-blue-50"   />
-        <KpiCard title="Activos"           value="19"   icon={Activity}        color="text-blue-600"     bg="bg-blue-50"   trend="up"   trendLabel="+8% vs mes ant." />
+        <KpiCard title="Total Proyectos"   value="47"   icon={Briefcase}       color="text-[#C2410C]"    bg="bg-orange-50"   />
+        <KpiCard title="Activos"           value="19"   icon={Activity}        color="text-orange-600"     bg="bg-orange-50"   trend="up"   trendLabel="+8% vs mes ant." />
         <KpiCard title="Finalizados"       value="17"   icon={CheckCircle}     color="text-green-600"    bg="bg-green-50"  trend="up"   trendLabel="+2 este mes" />
         <KpiCard title="Retrasados"        value="5"    icon={AlertTriangle}   color="text-red-600"      bg="bg-red-50"    trend="down" trendLabel="-3% vs mes ant." />
-        <KpiCard title="Avance Prom."      value="58%"  icon={Percent}         color="text-indigo-600"   bg="bg-indigo-50" />
-        <KpiCard title="Ejec. Presup."     value="63%"  icon={DollarSign}      color="text-emerald-600"  bg="bg-emerald-50" trend="up" trendLabel="+5% vs mes ant." />
-        <KpiCard title="Líneas Activas"    value="6"    icon={Tag}             color="text-purple-600"   bg="bg-purple-50" />
+        <KpiCard title="Avance Prom."      value="58%"  icon={Percent}         color="text-slate-600"   bg="bg-slate-50" />
+        <KpiCard title="Ejec. Presup."     value="63%"  icon={DollarSign}      color="text-amber-600"    bg="bg-amber-50"  trend="up" trendLabel="+5% vs mes ant." />
+        <KpiCard title="Líneas Activas"    value="6"    icon={Tag}             color="text-slate-600"   bg="bg-slate-50" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -95,7 +95,7 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
                   <span className="text-xs font-bold text-gray-800 ml-2">{d.value}%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                  <div className="h-2 rounded-full" style={{ width: `${d.value}%`, backgroundColor: d.value >= 70 ? "#10B981" : d.value >= 40 ? "#2563EB" : "#F59E0B" }} />
+                  <div className="h-2 rounded-full" style={{ width: `${d.value}%`, backgroundColor: d.value >= 70 ? "#10B981" : d.value >= 40 ? "#EA580C" : "#F59E0B" }} />
                 </div>
               </div>
             ))}
@@ -110,8 +110,8 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
             <AreaChart data={BUDGET_TIMELINE} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
               <defs>
                 <linearGradient id="gE" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563EB" stopOpacity={0.12} />
-                  <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#EA580C" stopOpacity={0.12} />
+                  <stop offset="95%" stopColor="#EA580C" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -120,7 +120,7 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
               <Tooltip key="tooltip" contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
               <Legend key="legend" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
               <Area key="area-plan" type="monotone" dataKey="planificado" name="Planificado" stroke="#CBD5E1" strokeWidth={1.5} fill="none" strokeDasharray="4 2" />
-              <Area key="area-exec" type="monotone" dataKey="ejecutado" name="Ejecutado" stroke="#2563EB" strokeWidth={2} fill="url(#gE)" />
+              <Area key="area-exec" type="monotone" dataKey="ejecutado" name="Ejecutado" stroke="#EA580C" strokeWidth={2} fill="url(#gE)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -133,7 +133,7 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
               <XAxis key="xaxis" type="number" tick={{ fontSize: 11 }} />
               <YAxis key="yaxis" type="category" dataKey="line" tick={{ fontSize: 10 }} width={138} />
               <Tooltip key="tooltip" contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-              <Bar key="bar" dataKey="count" name="Proyectos" fill="#1B3C6B" radius={[0, 4, 4, 0]} barSize={13} />
+              <Bar key="bar" dataKey="count" name="Proyectos" fill="#C2410C" radius={[0, 4, 4, 0]} barSize={13} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -144,15 +144,15 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
           <h3 className="text-sm font-bold text-gray-800 mb-3">Próximos a finalizar</h3>
           <div className="space-y-3">
             {PROJECTS.filter(p => p.status === "En ejecución").slice(0, 3).map(p => (
-              <div key={p.id} onClick={() => onProjectSelect(p.id)} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-blue-100 hover:bg-blue-50/20 transition-all cursor-pointer">
+              <div key={p.id} onClick={() => onProjectSelect(p.id)} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-orange-100 hover:bg-orange-50/20 transition-all cursor-pointer">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono font-semibold text-blue-700">{p.id}</span>
+                    <span className="text-xs font-mono font-semibold text-orange-700">{p.id}</span>
                     <StatusBadge status={p.status} />
                   </div>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{p.name}</p>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <Bar2 value={p.progress} color="bg-blue-500" h="h-1.5" />
+                    <Bar2 value={p.progress} color="bg-orange-500" h="h-1.5" />
                     <span className="text-xs font-bold text-gray-700 flex-shrink-0">{p.progress}%</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
@@ -160,7 +160,7 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
                   </div>
                 </div>
                 <div className="flex-shrink-0 text-center px-2">
-                  <span className="text-xl font-black text-blue-700">{p.daysLeft}</span>
+                  <span className="text-xl font-black text-orange-700">{p.daysLeft}</span>
                   <p className="text-[10px] text-gray-400 font-medium">días</p>
                 </div>
               </div>
@@ -190,7 +190,7 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
               </div>
             ))}
           </div>
-          <button className="mt-3 w-full text-center text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors py-1">
+          <button className="mt-3 w-full text-center text-xs font-semibold text-orange-600 hover:text-orange-800 transition-colors py-1">
             Ver todos los indicadores →
           </button>
         </div>

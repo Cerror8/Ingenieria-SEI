@@ -25,14 +25,14 @@ export function DocumentosView() {
           <h1 className="text-xl font-bold text-gray-900">Documentos</h1>
           <p className="text-sm text-gray-500 mt-0.5">Repositorio documental consolidado del módulo PMO</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B3C6B] text-white text-sm font-semibold rounded-lg hover:bg-[#152f54] transition-colors">
+        <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#C2410C] text-white text-sm font-semibold rounded-lg hover:bg-[#9A3412] transition-colors">
           <Upload className="w-4 h-4" />Cargar documento
         </button>
       </div>
       <div className="flex gap-2 flex-wrap">
         {categories.map(c => (
           <button key={c} onClick={() => setCat(c)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${cat === c ? "bg-[#1B3C6B] text-white border-[#1B3C6B]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${cat === c ? "bg-[#C2410C] text-white border-[#C2410C]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
             {c}
           </button>
         ))}
@@ -55,7 +55,7 @@ export function DocumentosView() {
                     <span className="text-sm font-semibold text-gray-800">{doc.name}</span>
                   </div>
                 </td>
-                <td className="px-4 py-2.5"><span className="font-mono text-xs font-bold text-blue-700">{doc.projectId}</span></td>
+                <td className="px-4 py-2.5"><span className="font-mono text-xs font-bold text-orange-700">{doc.projectId}</span></td>
                 <td className="px-4 py-2.5 text-xs text-gray-500">{doc.type}</td>
                 <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{doc.version}</td>
                 <td className="px-4 py-2.5 text-xs text-gray-400">{doc.date}</td>
@@ -67,8 +67,8 @@ export function DocumentosView() {
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-0.5">
-                    <button className="p-1 text-gray-300 hover:text-blue-600 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                    <button className="p-1 text-gray-300 hover:text-blue-600 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
+                    <button className="p-1 text-gray-300 hover:text-orange-600 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                    <button className="p-1 text-gray-300 hover:text-orange-600 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
                     <button className="p-1 text-gray-300 hover:text-amber-600 rounded transition-colors" title="Nueva versión"><Clock className="w-3.5 h-3.5" /></button>
                   </div>
                 </td>

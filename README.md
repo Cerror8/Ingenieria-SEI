@@ -36,5 +36,6 @@ Verificación del frontend: `npm run typecheck` y `npm run build`.
 ## Estado
 
 - Fase 0 completada: repo unificado, prototipo portado al Vite actual y build en verde.
+- Fase 1 completada: paleta naranja/gris/blanco y sidebar gris oscuro con acento naranja.
 - El frontend todavía usa datos de ejemplo (`src/app/data/mock.ts`); la conexión con la API se hará por módulos.
 - Documentación detallada en `docs/`.

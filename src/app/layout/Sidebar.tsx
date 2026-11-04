@@ -17,7 +17,7 @@ export function Sidebar({ currentView, onNavigate }: { currentView: string; onNa
   const isActive = (id: string) => currentView === id || (id === "projects" && (currentView === "project-detail" || currentView === "create-project"));
 
   return (
-    <aside className="w-56 flex-shrink-0 flex flex-col bg-[#1B3C6B] select-none">
+    <aside className="w-56 flex-shrink-0 flex flex-col bg-[#1F2937] select-none">
       <div className="px-4 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center">
@@ -34,11 +34,11 @@ export function Sidebar({ currentView, onNavigate }: { currentView: string; onNa
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(item => (
           <button key={item.id} onClick={() => onNavigate(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${isActive(item.id) ? "bg-white/15 text-white" : "text-white/55 hover:bg-white/8 hover:text-white/85"}`}>
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${isActive(item.id) ? "bg-[#EA580C] text-white shadow-sm" : "text-white/55 hover:bg-white/10 hover:text-white/85"}`}>
             <item.icon className="w-4 h-4 flex-shrink-0" />
             {item.label}
             {item.id === "informes" && (
-              <span className="ml-auto text-[10px] font-black bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full">3</span>
+              <span className="ml-auto text-[10px] font-black bg-[#EA580C] text-white px-1.5 py-0.5 rounded-full">3</span>
             )}
           </button>
         ))}

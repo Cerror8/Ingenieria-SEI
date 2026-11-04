@@ -88,14 +88,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-2">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-mono text-sm font-black text-blue-700">{project.id}</span>
+                <span className="font-mono text-sm font-black text-orange-700">{project.id}</span>
                 <StatusBadge status={project.status} />
                 <span className="text-sm text-gray-400">Avance: <strong className="text-gray-900">{project.progress}%</strong></span>
               </div>
               <h1 className="text-lg font-bold text-gray-900 mt-1 leading-tight">{project.name}</h1>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              <button onClick={onGenerateReport} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+              <button onClick={onGenerateReport} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                 <FileText className="w-3.5 h-3.5" /> Informe
               </button>
               <button onClick={() => onShowToast("Proyecto actualizado correctamente.")} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors bg-white">
@@ -111,7 +111,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
           <div className="flex min-w-max">
             {PROJ_TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? "border-[#1B3C6B] text-[#1B3C6B] bg-blue-50/30" : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}>
+                className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? "border-[#C2410C] text-[#C2410C] bg-orange-50/30" : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}>
                 {t.label}
               </button>
             ))}
@@ -125,7 +125,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
             <div className="space-y-5">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: "Avance técnico", value: `${project.progress}%`, color: "bg-blue-600", bg: "bg-blue-50", tc: "text-blue-800" },
+                  { label: "Avance técnico", value: `${project.progress}%`, color: "bg-orange-600", bg: "bg-orange-50", tc: "text-orange-800" },
                   { label: "Ejec. presupuestal", value: `${project.budgetExecuted}%`, color: "bg-emerald-500", bg: "bg-emerald-50", tc: "text-emerald-800" },
                   { label: "Inicio", value: project.startDate, color: "", bg: "bg-gray-50", tc: "text-gray-800" },
                   { label: "Finalización", value: project.endDate, color: "", bg: "bg-gray-50", tc: "text-gray-800" },
@@ -182,7 +182,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                       <div className="px-4 py-4">
                         <textarea rows={3} placeholder={`Ingrese información sobre ${sec.toLowerCase()}…`}
                           defaultValue={sec === "Información general" ? `Proyecto: ${project.name}\nResponsable: ${project.responsible}\nLínea: ${project.line}` : ""}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 bg-gray-50/50 resize-none" />
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-gray-50/50 resize-none" />
                       </div>
                     )}
                   </div>
@@ -203,7 +203,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: "Avance técnico",        value: `${project.progress}%`,        bg: "bg-blue-50",    tc: "text-blue-800"   },
+                  { label: "Avance técnico",        value: `${project.progress}%`,        bg: "bg-orange-50",    tc: "text-orange-800"   },
                   { label: "Avance financiero",     value: `${project.budgetExecuted}%`,   bg: "bg-emerald-50", tc: "text-emerald-800" },
                   { label: "Indicadores cumplidos", value: "3 / 5",                        bg: "bg-green-50",   tc: "text-green-800"  },
                   { label: "Alertas activas",       value: "2",                            bg: "bg-red-50",     tc: "text-red-700"    },
@@ -224,7 +224,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                       <YAxis key="yaxis" tick={{ fontSize: 11 }} domain={[0, 100]} />
                       <Tooltip key="tooltip" contentStyle={{ fontSize: 11, borderRadius: 8 }} />
                       <Area key="area-plan" type="monotone" dataKey="plan" name="Planificado" stroke="#CBD5E1" fill="none" strokeDasharray="4 2" strokeWidth={1.5} />
-                      <Area key="area-real" type="monotone" dataKey="real" name="Ejecutado" stroke="#2563EB" fill="#EFF6FF" strokeWidth={2} />
+                      <Area key="area-real" type="monotone" dataKey="real" name="Ejecutado" stroke="#EA580C" fill="#FFF7ED" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -250,11 +250,11 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               <h2 className="text-sm font-bold text-gray-800">Seguimiento del proyecto</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { label: "Avance técnico",     value: `${project.progress}%`,      color: "text-blue-700",   bg: "bg-blue-50" },
+                  { label: "Avance técnico",     value: `${project.progress}%`,      color: "text-orange-700",   bg: "bg-orange-50" },
                   { label: "Avance presupuestal",value: `${project.budgetExecuted}%`, color: "text-emerald-700",bg: "bg-emerald-50" },
-                  { label: "Indicadores",        value: "3 / 5",                     color: "text-purple-700", bg: "bg-purple-50" },
+                  { label: "Indicadores",        value: "3 / 5",                     color: "text-slate-700", bg: "bg-slate-50" },
                   { label: "Actividades",        value: "5 / 8",                     color: "text-orange-700", bg: "bg-orange-50" },
-                  { label: "Entregables",        value: "3",                         color: "text-teal-700",   bg: "bg-teal-50" },
+                  { label: "Entregables",        value: "3",                         color: "text-gray-700",   bg: "bg-gray-50" },
                   { label: "Alertas",            value: "2",                         color: "text-red-700",    bg: "bg-red-50" },
                 ].map(k => (
                   <div key={k.label} className={`${k.bg} rounded-xl p-3`}>
@@ -269,19 +269,19 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-gray-700">Porcentaje de avance</span>
-                    <span className="text-lg font-black text-blue-700">{seguimientoAvance}%</span>
+                    <span className="text-lg font-black text-orange-700">{seguimientoAvance}%</span>
                   </div>
                   <input type="range" min={0} max={100} value={seguimientoAvance} onChange={e => setSeguimientoAvance(+e.target.value)}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-                  <div className="mt-2"><Bar2 value={seguimientoAvance} color="bg-blue-500" h="h-2" /></div>
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
+                  <div className="mt-2"><Bar2 value={seguimientoAvance} color="bg-orange-500" h="h-2" /></div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Descripción del avance técnico</label>
                   <textarea rows={3} value={seguimientoDesc} onChange={e => setSeguimientoDesc(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50 resize-none" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50 resize-none" />
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => onShowToast("Proyecto actualizado correctamente.")} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                  <button onClick={() => onShowToast("Proyecto actualizado correctamente.")} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                     <Sliders className="w-3.5 h-3.5" />Actualizar avance
                   </button>
                   <span className="text-xs text-gray-400">Última actualización: hace 5 segundos</span>
@@ -291,7 +291,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               <div className="rounded-xl border border-gray-100 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
                   <h3 className="text-sm font-bold text-gray-800">Actividades</h3>
-                  <button onClick={() => setShowActModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                  <button onClick={() => setShowActModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                     <Plus className="w-3.5 h-3.5" />Nueva actividad
                   </button>
                 </div>
@@ -312,7 +312,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         <td className="px-4 py-2.5 text-xs text-gray-400">{GANTT_MONTHS[a.endMonth - 1]} 2026</td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2 min-w-[80px]">
-                            <Bar2 value={a.progress} color="bg-blue-500" h="h-1.5" />
+                            <Bar2 value={a.progress} color="bg-orange-500" h="h-1.5" />
                             <span className="text-xs font-bold text-gray-700 flex-shrink-0">{a.progress}%</span>
                           </div>
                         </td>
@@ -339,7 +339,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                       {["Nombre", "Responsable"].map(f => (
                         <div key={f} className="col-span-2 first:col-span-2">
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">{f}</label>
-                          <input type="text" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50" />
+                          <input type="text" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50" />
                         </div>
                       ))}
                       <div><label className="block text-xs font-semibold text-gray-700 mb-1.5">Fecha inicio</label><input type="date" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none bg-gray-50/50" /></div>
@@ -354,7 +354,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                     </div>
                     <div className="flex gap-3 pt-2">
                       <button onClick={() => setShowActModal(false)} className="flex-1 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">Cancelar</button>
-                      <button onClick={() => { setShowActModal(false); onShowToast("Actividad agregada correctamente."); }} className="flex-1 py-2 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54]">Guardar actividad</button>
+                      <button onClick={() => { setShowActModal(false); onShowToast("Actividad agregada correctamente."); }} className="flex-1 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412]">Guardar actividad</button>
                     </div>
                   </div>
                 </div>
@@ -370,7 +370,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                   <h2 className="text-sm font-bold text-gray-800">Cronograma Gantt</h2>
                   <p className="text-xs text-gray-400 mt-0.5">{project.id} · {new Date().getFullYear()}</p>
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                   <Plus className="w-3.5 h-3.5" />Nueva actividad
                 </button>
               </div>
@@ -398,9 +398,9 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                     {ganttActivities.map((a, idx) => {
                       const barLeft = ((a.startMonth - 1) / 12) * 100;
                       const barWidth = ((a.endMonth - a.startMonth + 1) / 12) * 100;
-                      const barColor = a.isMilestone ? "#F59E0B" : a.status === "Completada" ? "#10B981" : a.status === "En curso" ? "#2563EB" : a.status === "Retrasada" ? "#EF4444" : "#CBD5E1";
+                      const barColor = a.isMilestone ? "#F59E0B" : a.status === "Completada" ? "#10B981" : a.status === "En curso" ? "#EA580C" : a.status === "Retrasada" ? "#EF4444" : "#CBD5E1";
                       return (
-                        <div key={a.id} className={`flex border-b border-gray-50 hover:bg-blue-50/5 transition-colors ${a.isMilestone ? "bg-amber-50/20" : ""}`}>
+                        <div key={a.id} className={`flex border-b border-gray-50 hover:bg-orange-50/5 transition-colors ${a.isMilestone ? "bg-amber-50/20" : ""}`}>
                           <div className="w-52 flex-shrink-0 px-4 py-3 border-r border-gray-100">
                             <div className="flex items-center gap-1.5">
                               {a.isMilestone && <span className="text-amber-500">◆</span>}
@@ -432,7 +432,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                             </div>
                           </div>
                           <div className="w-20 flex-shrink-0 px-2 py-3 border-l border-gray-100 flex items-center gap-0.5">
-                            <button className="p-1 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"><Edit2 className="w-3 h-3" /></button>
+                            <button className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><Edit2 className="w-3 h-3" /></button>
                             <button onClick={() => setGanttActivities(p => p.filter((_, j) => j !== idx))} className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3 h-3" /></button>
                           </div>
                         </div>
@@ -443,7 +443,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               </div>
 
               <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
-                {[["#10B981", "Completada"], ["#2563EB", "En curso"], ["#CBD5E1", "Pendiente"], ["#EF4444", "Retrasada"], ["#F59E0B", "Hito"]].map(([color, label]) => (
+                {[["#10B981", "Completada"], ["#EA580C", "En curso"], ["#CBD5E1", "Pendiente"], ["#EF4444", "Retrasada"], ["#F59E0B", "Hito"]].map(([color, label]) => (
                   <div key={label} className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: color }} />
                     {label}
@@ -459,7 +459,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: "Valor total",       value: fmt(project.budget),                                               tc: "text-gray-900" },
-                  { label: "Ejecutado",         value: fmt(Math.round(project.budget * project.budgetExecuted / 100)),    tc: "text-blue-700" },
+                  { label: "Ejecutado",         value: fmt(Math.round(project.budget * project.budgetExecuted / 100)),    tc: "text-orange-700" },
                   { label: "Disponible",        value: fmt(Math.round(project.budget * (100 - project.budgetExecuted) / 100)), tc: "text-emerald-700" },
                   { label: "% Ejecución",       value: `${project.budgetExecuted}%`,                                      tc: "text-orange-600" },
                 ].map(k => (
@@ -474,7 +474,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
                 {["ingresos", "gastos", "contrapartidas", "desembolsos"].map(st => (
                   <button key={st} onClick={() => setPresupuestoTab(st)}
-                    className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors capitalize ${presupuestoTab === st ? "bg-white text-[#1B3C6B] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors capitalize ${presupuestoTab === st ? "bg-white text-[#C2410C] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                     {st.charAt(0).toUpperCase() + st.slice(1)}
                   </button>
                 ))}
@@ -484,7 +484,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                 <div className="rounded-xl border border-gray-100 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
                     <h3 className="text-sm font-bold text-gray-800">Ingresos</h3>
-                    <button className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"><Plus className="w-3 h-3" />Agregar</button>
+                    <button className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-800"><Plus className="w-3 h-3" />Agregar</button>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
@@ -499,14 +499,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         <tr key={i} className="hover:bg-gray-50/50">
                           <td className="px-4 py-2.5 text-sm text-gray-600">{r.tipo}</td>
                           <td className="px-4 py-2.5 text-sm text-gray-800 font-semibold">{r.concepto}</td>
-                          <td className="px-4 py-2.5 text-sm text-right font-semibold text-blue-700">{fmt(r.valor)}</td>
+                          <td className="px-4 py-2.5 text-sm text-right font-semibold text-orange-700">{fmt(r.valor)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-gray-50 border-t border-gray-200">
                         <td colSpan={2} className="px-4 py-2.5 text-sm font-bold text-gray-900">Total ingresos</td>
-                        <td className="px-4 py-2.5 text-sm font-bold text-right text-blue-700">{fmt(ingresos.reduce((a, r) => a + r.valor, 0))}</td>
+                        <td className="px-4 py-2.5 text-sm font-bold text-right text-orange-700">{fmt(ingresos.reduce((a, r) => a + r.valor, 0))}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -517,7 +517,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                 <div className="rounded-xl border border-gray-100 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
                     <h3 className="text-sm font-bold text-gray-800">Gastos</h3>
-                    <button className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"><Plus className="w-3 h-3" />Agregar</button>
+                    <button className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-800"><Plus className="w-3 h-3" />Agregar</button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -536,14 +536,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                             <td className="px-4 py-2.5 text-sm text-right text-gray-500">{r.unidad}</td>
                             <td className="px-4 py-2.5 text-sm text-right text-gray-500">{r.cant}</td>
                             <td className="px-4 py-2.5 text-sm text-right text-gray-500">{fmt(r.valorUnit)}</td>
-                            <td className="px-4 py-2.5 text-sm text-right font-semibold text-blue-700">{fmt(r.total)}</td>
+                            <td className="px-4 py-2.5 text-sm text-right font-semibold text-orange-700">{fmt(r.total)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-gray-50 border-t border-gray-200">
                           <td colSpan={5} className="px-4 py-2.5 text-sm font-bold text-gray-900">Total gastos</td>
-                          <td className="px-4 py-2.5 text-sm font-bold text-right text-blue-700">{fmt(gastos.reduce((a, r) => a + r.total, 0))}</td>
+                          <td className="px-4 py-2.5 text-sm font-bold text-right text-orange-700">{fmt(gastos.reduce((a, r) => a + r.total, 0))}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -555,7 +555,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                 <div className="rounded-xl border border-gray-100 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
                     <h3 className="text-sm font-bold text-gray-800">Contrapartidas</h3>
-                    <button className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"><Plus className="w-3 h-3" />Agregar contrapartida</button>
+                    <button className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-800"><Plus className="w-3 h-3" />Agregar contrapartida</button>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
@@ -587,7 +587,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                 <div className="rounded-xl border border-gray-100 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
                     <h3 className="text-sm font-bold text-gray-800">Desembolsos</h3>
-                    <button className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"><Plus className="w-3 h-3" />Agregar desembolso</button>
+                    <button className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-800"><Plus className="w-3 h-3" />Agregar desembolso</button>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
@@ -602,14 +602,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         <tr key={i} className="hover:bg-gray-50/50">
                           <td className="px-4 py-2.5 text-xs text-gray-400">{r.fecha}</td>
                           <td className="px-4 py-2.5 text-sm font-semibold text-gray-800">{r.concepto}</td>
-                          <td className="px-4 py-2.5 text-sm text-right font-semibold text-blue-700">{fmt(r.valor)}</td>
+                          <td className="px-4 py-2.5 text-sm text-right font-semibold text-orange-700">{fmt(r.valor)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-gray-50 border-t border-gray-200">
                         <td colSpan={2} className="px-4 py-2.5 text-sm font-bold text-gray-900">Total desembolsado</td>
-                        <td className="px-4 py-2.5 text-sm font-bold text-right text-blue-700">{fmt(desembolsos.reduce((a, r) => a + r.valor, 0))}</td>
+                        <td className="px-4 py-2.5 text-sm font-bold text-right text-orange-700">{fmt(desembolsos.reduce((a, r) => a + r.valor, 0))}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -623,7 +623,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-800">Indicadores del proyecto</h2>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Nuevo indicador
                 </button>
               </div>
@@ -647,7 +647,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                           <span className="text-xs font-black text-gray-700 flex-shrink-0">{ind.compliance}%</span>
                         </div>
                       </div>
-                      <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                      <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -662,14 +662,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-800">Repositorio documental</h2>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                   <Upload className="w-3.5 h-3.5" /> Cargar documento
                 </button>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {docCategories.map(cat => (
                   <button key={cat} onClick={() => setDocCat(cat)}
-                    className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${docCat === cat ? "bg-[#1B3C6B] text-white border-[#1B3C6B]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${docCat === cat ? "bg-[#C2410C] text-white border-[#C2410C]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
                     {cat}
                   </button>
                 ))}
@@ -703,8 +703,8 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-0.5">
-                            <button className="p-1 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver"><Eye className="w-3.5 h-3.5" /></button>
-                            <button className="p-1 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Descargar"><Download className="w-3.5 h-3.5" /></button>
+                            <button className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Ver"><Eye className="w-3.5 h-3.5" /></button>
+                            <button className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Descargar"><Download className="w-3.5 h-3.5" /></button>
                             <button className="p-1 text-gray-300 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Nueva versión"><Clock className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
@@ -721,24 +721,24 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-800">Antecedentes asociados</h2>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-orange-200 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors">
                   <Link2 className="w-3.5 h-3.5" /> Asociar antecedente
                 </button>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input type="text" placeholder="Buscar por código, línea o palabra clave…" className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50" />
+                <input type="text" placeholder="Buscar por código, línea o palabra clave…" className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50" />
               </div>
               <div className="space-y-3">
                 {[
                   { id: "PRY-2024-008", name: "Sistema de riego inteligente v1.0", line: "Tecnología e Innovación", docs: 12, year: 2024 },
                   { id: "PRY-2023-015", name: "Competencias docentes digitales", line: "Educación y Pedagogía", docs: 8, year: 2023 },
                 ].map(ant => (
-                  <div key={ant.id} className="rounded-xl border border-gray-100 p-4 hover:border-blue-100 hover:bg-blue-50/10 transition-all">
+                  <div key={ant.id} className="rounded-xl border border-gray-100 p-4 hover:border-orange-100 hover:bg-orange-50/10 transition-all">
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-black text-blue-700">{ant.id}</span>
+                          <span className="font-mono text-xs font-black text-orange-700">{ant.id}</span>
                           <span className="text-xs text-gray-400">· {ant.year}</span>
                         </div>
                         <p className="text-sm font-semibold text-gray-900 mt-0.5">{ant.name}</p>
@@ -748,7 +748,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         </div>
                       </div>
                       <div className="flex gap-1.5">
-                        <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
+                        <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                         <button className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
                       </div>
                     </div>
@@ -768,7 +768,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                   <p className="text-xs text-gray-400 mt-0.5">Última actualización: {new Date().toLocaleDateString("es-CO")}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={onGenerateReport} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                  <button onClick={onGenerateReport} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                     <FileText className="w-3.5 h-3.5" /> Generar informe
                   </button>
                 </div>
@@ -776,13 +776,13 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
                 {["Informe diario", "Informe semanal", "Informe del proyecto"].map(tipo => (
-                  <div key={tipo} className="rounded-xl border border-gray-100 p-4 hover:border-blue-100 hover:bg-blue-50/10 transition-all">
+                  <div key={tipo} className="rounded-xl border border-gray-100 p-4 hover:border-orange-100 hover:bg-orange-50/10 transition-all">
                     <p className="text-sm font-semibold text-gray-900 mb-3">{tipo}</p>
                     <div className="flex gap-2">
-                      <button onClick={onGenerateReport} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                      <button onClick={onGenerateReport} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                         <FileText className="w-3 h-3" />PDF
                       </button>
-                      <button className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
+                      <button className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold border border-orange-200 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors">
                         <FileDown className="w-3 h-3" />Word
                       </button>
                     </div>
@@ -795,14 +795,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                   <div key={r.id} className="rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors">
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-50 text-blue-700">{r.type}</span>
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-orange-50 text-orange-700">{r.type}</span>
                         <p className="text-sm font-semibold text-gray-900 mt-1.5">{r.period}</p>
                         <p className="text-xs text-gray-400 mt-0.5">Generado: {r.date} · {r.generatedBy}</p>
                       </div>
                       <div className="flex gap-1">
-                        <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"><Eye className="w-4 h-4" /></button>
-                        <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Descargar PDF"><Download className="w-4 h-4" /></button>
-                        <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Descargar Word"><FileDown className="w-4 h-4" /></button>
+                        <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><Eye className="w-4 h-4" /></button>
+                        <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Descargar PDF"><Download className="w-4 h-4" /></button>
+                        <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Descargar Word"><FileDown className="w-4 h-4" /></button>
                       </div>
                     </div>
                   </div>
@@ -830,14 +830,14 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         <td className="px-4 py-3 text-xs text-gray-500">{r.date}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-800">{r.type}</td>
                         <td className="px-4 py-3 text-xs text-gray-400">{r.period}</td>
-                        <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-blue-700">{r.project}</span></td>
+                        <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-orange-700">{r.project}</span></td>
                         <td className="px-4 py-3 text-xs text-gray-500">{r.generatedBy}</td>
                         <td className="px-4 py-3"><span className="px-2 py-0.5 bg-red-50 text-red-700 text-xs font-bold rounded">{r.format}</span></td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
-                            <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                            <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
-                            <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"><FileDown className="w-3.5 h-3.5" /></button>
+                            <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                            <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
+                            <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><FileDown className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -865,7 +865,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="font-mono text-xs font-semibold text-gray-500">{entry.date}</span>
                           <span className="text-xs font-bold text-gray-800">{entry.user}</span>
-                          <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${entry.action === "Creación" ? "bg-green-50 text-green-700" : entry.action === "Carga documento" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${entry.action === "Creación" ? "bg-green-50 text-green-700" : entry.action === "Carga documento" ? "bg-orange-50 text-orange-700" : "bg-amber-50 text-amber-700"}`}>
                             {entry.action}
                           </span>
                         </div>
@@ -873,7 +873,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                           <span className="text-gray-400">Entidad:</span>
                           <span className="font-semibold text-gray-700">{entry.entity}</span>
                           <span className="text-gray-300">·</span>
-                          <span className="font-mono font-bold text-blue-700">{entry.record}</span>
+                          <span className="font-mono font-bold text-orange-700">{entry.record}</span>
                         </div>
                         {entry.prevValue !== "—" && (
                           <div className="flex items-center gap-2 mt-1.5 text-xs flex-wrap">

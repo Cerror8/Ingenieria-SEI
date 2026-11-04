@@ -27,7 +27,7 @@ export function ProjectCreatedModal({ onGoToProject, onGoToDashboard }: {
           <div className="space-y-2 my-5 text-left bg-gray-50 rounded-xl p-4 border border-gray-100">
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-gray-400 w-16 flex-shrink-0">Código</span>
-              <span className="font-mono text-sm font-black text-blue-700">PRY-2026-009</span>
+              <span className="font-mono text-sm font-black text-orange-700">PRY-2026-009</span>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-xs font-bold text-gray-400 w-16 flex-shrink-0">Nombre</span>
@@ -44,7 +44,7 @@ export function ProjectCreatedModal({ onGoToProject, onGoToDashboard }: {
             <button onClick={onGoToDashboard} className="flex-1 py-2.5 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
               Ver dashboard
             </button>
-            <button onClick={onGoToProject} className="flex-1 py-2.5 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors shadow-sm">
+            <button onClick={onGoToProject} className="flex-1 py-2.5 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors shadow-sm">
               Ir al proyecto
             </button>
           </div>

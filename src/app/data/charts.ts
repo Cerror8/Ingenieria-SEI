@@ -14,8 +14,8 @@ import {
 
 export const STATUS_DONUT = [
   { name: "En formulación", value: 8, color: "#F59E0B" },
-  { name: "En ejecución", value: 19, color: "#2563EB" },
-  { name: "Suspendido", value: 3, color: "#F97316" },
+  { name: "En ejecución", value: 19, color: "#EA580C" },
+  { name: "Suspendido", value: 3, color: "#64748B" },
   { name: "Finalizado", value: 12, color: "#10B981" },
   { name: "Cerrado", value: 5, color: "#9CA3AF" },
 ];

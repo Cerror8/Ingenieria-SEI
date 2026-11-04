@@ -24,10 +24,10 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {active.map(p => (
-          <div key={p.id} onClick={() => onSelectProject(p.id)} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-100 hover:shadow-md transition-all cursor-pointer">
+          <div key={p.id} onClick={() => onSelectProject(p.id)} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-orange-100 hover:shadow-md transition-all cursor-pointer">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <span className="font-mono text-xs font-black text-blue-700">{p.id}</span>
+                <span className="font-mono text-xs font-black text-orange-700">{p.id}</span>
                 <p className="text-sm font-bold text-gray-900 mt-0.5">{p.name}</p>
                 <p className="text-xs text-gray-400">{p.responsible}</p>
               </div>
@@ -39,7 +39,7 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
                   <span className="text-gray-500 font-medium">Avance técnico</span>
                   <span className="font-bold text-gray-800">{p.progress}%</span>
                 </div>
-                <Bar2 value={p.progress} color="bg-blue-500" h="h-2" />
+                <Bar2 value={p.progress} color="bg-orange-500" h="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1">

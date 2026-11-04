@@ -83,7 +83,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
     setShowSuccess(true);
   };
 
-  const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 bg-gray-50/50";
+  const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-gray-50/50";
   const labelCls = "block text-xs font-semibold text-gray-700 mb-1.5";
 
   const fr019Sections = [
@@ -128,16 +128,16 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
             <div className="space-y-3 mb-5">
               <div className="flex gap-3 text-sm">
                 <span className="text-gray-400 w-24 flex-shrink-0">Proyecto:</span>
-                <span className="font-mono font-bold text-blue-700">{form.codigo || "PRY-2026-009"}</span>
+                <span className="font-mono font-bold text-orange-700">{form.codigo || "PRY-2026-009"}</span>
               </div>
               <div className="flex gap-3 text-sm">
                 <span className="text-gray-400 w-24 flex-shrink-0">Antecedente:</span>
-                <span className="font-mono font-bold text-blue-700">{assocModal}</span>
+                <span className="font-mono font-bold text-orange-700">{assocModal}</span>
               </div>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setAssocModal(null)} className="flex-1 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
-              <button onClick={() => { setAssocModal(null); }} className="flex-1 py-2 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">Asociar</button>
+              <button onClick={() => { setAssocModal(null); }} className="flex-1 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">Asociar</button>
             </div>
           </div>
         </div>
@@ -159,10 +159,10 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
           {WIZARD_STEPS.map((s, i) => (
             <div key={i} className="flex items-center flex-1 last:flex-none">
               <button onClick={() => i + 1 < step && setStep(i + 1)} className="flex flex-col items-center gap-1 group">
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-[#1B3C6B] text-white ring-4 ring-blue-100" : "bg-gray-100 text-gray-400"}`}>
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-[#C2410C] text-white ring-4 ring-orange-100" : "bg-gray-100 text-gray-400"}`}>
                   {i + 1 < step ? <Check className="w-4 h-4" /> : i + 1}
                 </span>
-                <span className={`text-[10px] font-semibold hidden sm:block whitespace-nowrap ${i + 1 === step ? "text-[#1B3C6B]" : i + 1 < step ? "text-green-600" : "text-gray-400"}`}>{s}</span>
+                <span className={`text-[10px] font-semibold hidden sm:block whitespace-nowrap ${i + 1 === step ? "text-[#C2410C]" : i + 1 < step ? "text-green-600" : "text-gray-400"}`}>{s}</span>
               </button>
               {i < WIZARD_STEPS.length - 1 && (
                 <div className={`flex-1 h-px mx-2 ${i + 1 < step ? "bg-green-400" : "bg-gray-200"}`} />
@@ -245,7 +245,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
               <div>
                 <h2 className="text-base font-bold text-gray-900">Ficha Técnica FR-019</h2>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="font-mono text-xs font-bold text-blue-700">{form.codigo || "PRY-2026-009"}</span>
+                  <span className="font-mono text-xs font-bold text-orange-700">{form.codigo || "PRY-2026-009"}</span>
                   <span className="text-xs text-gray-400">{form.nombre ? form.nombre.slice(0, 30) + "..." : "Sistema de fortalecimiento..."}</span>
                 </div>
               </div>
@@ -256,10 +256,10 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                 </div>
                 <div className="mt-1">
                   <span className="text-xs text-gray-500 font-medium">Diligenciamiento </span>
-                  <span className="text-xs font-bold text-blue-700">75%</span>
+                  <span className="text-xs font-bold text-orange-700">75%</span>
                 </div>
                 <div className="w-32 bg-gray-100 rounded-full h-1.5 mt-1 ml-auto">
-                  <div className="h-1.5 rounded-full bg-blue-500" style={{ width: "75%" }} />
+                  <div className="h-1.5 rounded-full bg-orange-500" style={{ width: "75%" }} />
                 </div>
               </div>
             </div>
@@ -289,7 +289,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               </button>
                             </div>
                           ))}
-                          <button onClick={() => setObjetivos(prev => [...prev, { desc: "", orden: prev.length + 1 }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                          <button onClick={() => setObjetivos(prev => [...prev, { desc: "", orden: prev.length + 1 }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-800 transition-colors">
                             <Plus className="w-3.5 h-3.5" />Agregar objetivo
                           </button>
                         </div>
@@ -307,7 +307,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                             <div className="flex flex-wrap gap-2">
                               {Array.from({ length: 17 }, (_, i) => i + 1).map(n => (
                                 <button key={n} onClick={() => toggleODS(n)}
-                                  className={`w-10 h-10 rounded-lg text-xs font-bold border transition-colors ${odsSelected.includes(n) ? "bg-[#1B3C6B] text-white border-[#1B3C6B]" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
+                                  className={`w-10 h-10 rounded-lg text-xs font-bold border transition-colors ${odsSelected.includes(n) ? "bg-[#C2410C] text-white border-[#C2410C]" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
                                   {n}
                                 </button>
                               ))}
@@ -348,7 +348,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               </tbody>
                             </table>
                           </div>
-                          <button onClick={() => setRiesgos(p => [...p, { riesgo: "", prob: "Media", cons: "Media", plan: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800">
+                          <button onClick={() => setRiesgos(p => [...p, { riesgo: "", prob: "Media", cons: "Media", plan: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-800">
                             <Plus className="w-3.5 h-3.5" />Agregar riesgo
                           </button>
                         </div>
@@ -364,7 +364,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               <button onClick={() => setCoberturas(p => p.filter((_, j) => j !== i))} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
-                          <button onClick={() => setCoberturas(p => [...p, { pais: "Colombia", depto: "", municipio: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setCoberturas(p => [...p, { pais: "Colombia", depto: "", municipio: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar cobertura
                           </button>
                         </div>
@@ -390,7 +390,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               </tbody>
                             </table>
                           </div>
-                          <button onClick={() => setPoblacion(p => [...p, { cat: "", cant: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setPoblacion(p => [...p, { cat: "", cant: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar categoría
                           </button>
                         </div>
@@ -407,7 +407,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               <button onClick={() => setEnfoques(p => p.filter((_, j) => j !== i))} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
-                          <button onClick={() => setEnfoques(p => [...p, { tipo: "Género", desc: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setEnfoques(p => [...p, { tipo: "Género", desc: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar enfoque
                           </button>
                         </div>
@@ -424,7 +424,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               <button onClick={() => setGrupos(p => p.filter((_, j) => j !== i))} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
-                          <button onClick={() => setGrupos(p => [...p, { tipo: "Directo", desc: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setGrupos(p => [...p, { tipo: "Directo", desc: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar grupo
                           </button>
                         </div>
@@ -444,7 +444,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               <textarea placeholder="Actividades del componente" rows={2} value={c.actividades} onChange={e => setComponentes(p => p.map((x, j) => j === i ? { ...x, actividades: e.target.value } : x))} className={`${inputCls} resize-none`} />
                             </div>
                           ))}
-                          <button onClick={() => setComponentes(p => [...p, { nombre: "", desc: "", resultado: "", actividades: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setComponentes(p => [...p, { nombre: "", desc: "", resultado: "", actividades: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar componente
                           </button>
                         </div>
@@ -480,7 +480,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               </tbody>
                             </table>
                           </div>
-                          <button onClick={() => setIndicadoresFR(p => [...p, { actividad: "", indicador: "", meta: "", avance: "", tiempo: "", responsable: "", estado: "Pendiente" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setIndicadoresFR(p => [...p, { actividad: "", indicador: "", meta: "", avance: "", tiempo: "", responsable: "", estado: "Pendiente" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar indicador
                           </button>
                         </div>
@@ -511,7 +511,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               </tbody>
                             </table>
                           </div>
-                          <button onClick={() => setIngresos(p => [...p, { tipo: "Recursos propios", concepto: "", valor: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setIngresos(p => [...p, { tipo: "Recursos propios", concepto: "", valor: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar ingreso
                           </button>
                         </div>
@@ -536,14 +536,14 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                                     <td className="px-2 py-1.5"><input value={g.unidad} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, unidad: e.target.value } : x))} className="w-16 px-2 py-1 border border-gray-200 rounded" /></td>
                                     <td className="px-2 py-1.5"><input value={g.cant} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, cant: e.target.value } : x))} className="w-14 px-2 py-1 border border-gray-200 rounded" /></td>
                                     <td className="px-2 py-1.5"><input value={g.valorUnit} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, valorUnit: e.target.value } : x))} className="w-24 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><span className="font-semibold text-blue-700">{fmt(+(g.cant || 0) * +(g.valorUnit || 0))}</span></td>
+                                    <td className="px-2 py-1.5"><span className="font-semibold text-orange-700">{fmt(+(g.cant || 0) * +(g.valorUnit || 0))}</span></td>
                                     <td className="px-2 py-1.5"><button onClick={() => setGastos(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
-                          <button onClick={() => setGastos(p => [...p, { cat: "", concepto: "", unidad: "", cant: "", valorUnit: "", valorTotal: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setGastos(p => [...p, { cat: "", concepto: "", unidad: "", cant: "", valorUnit: "", valorTotal: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar gasto
                           </button>
                         </div>
@@ -575,7 +575,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                               </tbody>
                             </table>
                           </div>
-                          <button onClick={() => setAprobaciones(p => [...p, { rol: "", nombre: "", fecha: "", estado: "Pendiente" }])} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                          <button onClick={() => setAprobaciones(p => [...p, { rol: "", nombre: "", fecha: "", estado: "Pendiente" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
                             <Plus className="w-3.5 h-3.5" />Agregar aprobador
                           </button>
                         </div>
@@ -617,7 +617,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
             <div className="rounded-xl border border-gray-100 overflow-hidden bg-white">
               <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/40 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-gray-800">Resultados</h3>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-orange-200 text-orange-700 rounded-lg hover:bg-orange-50">
                   <Upload className="w-3.5 h-3.5" />Cargar nuevo antecedente
                 </button>
               </div>
@@ -632,16 +632,16 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                 <tbody className="divide-y divide-gray-50">
                   {antecedentes.map(ant => (
                     <tr key={ant.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-blue-700">{ant.id}</span></td>
+                      <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-orange-700">{ant.id}</span></td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900">{ant.name}</td>
                       <td className="px-4 py-3 text-xs text-gray-500">{ant.line}</td>
                       <td className="px-4 py-3 text-xs text-gray-500">{ant.tipo}</td>
                       <td className="px-4 py-3 text-xs text-gray-500">{ant.year}</td>
-                      <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-50 text-blue-700">{ant.nivel}</span></td>
+                      <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs font-semibold rounded bg-orange-50 text-orange-700">{ant.nivel}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => setAssocModal(ant.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                          <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setAssocModal(ant.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
                             <Link2 className="w-3 h-3" />Asociar
                           </button>
                         </div>
@@ -663,11 +663,11 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                { label: "Avance técnico", value: "0%", color: "text-blue-700", bg: "bg-blue-50", icon: Activity },
+                { label: "Avance técnico", value: "0%", color: "text-orange-700", bg: "bg-orange-50", icon: Activity },
                 { label: "Avance presupuestal", value: "0%", color: "text-emerald-700", bg: "bg-emerald-50", icon: DollarSign },
-                { label: "Indicadores", value: "0%", color: "text-purple-700", bg: "bg-purple-50", icon: Percent },
+                { label: "Indicadores", value: "0%", color: "text-slate-700", bg: "bg-slate-50", icon: Percent },
                 { label: "Actividades", value: "0", color: "text-orange-700", bg: "bg-orange-50", icon: CheckCircle },
-                { label: "Entregables", value: "0", color: "text-teal-700", bg: "bg-teal-50", icon: FileText },
+                { label: "Entregables", value: "0", color: "text-gray-700", bg: "bg-gray-50", icon: FileText },
                 { label: "Alertas", value: "0", color: "text-red-700", bg: "bg-red-50", icon: AlertTriangle },
               ].map(k => (
                 <div key={k.label} className={`${k.bg} rounded-xl p-3 flex items-center gap-3`}>
@@ -684,19 +684,19 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className={labelCls + " mb-0"}>Porcentaje de avance</label>
-                  <span className="text-lg font-black text-blue-700">{avanceTecnico}%</span>
+                  <span className="text-lg font-black text-orange-700">{avanceTecnico}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={avanceTecnico} onChange={e => setAvanceTecnico(+e.target.value)}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
                 <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
-                <Bar2 value={avanceTecnico} color="bg-blue-500" h="h-2" />
+                <Bar2 value={avanceTecnico} color="bg-orange-500" h="h-2" />
               </div>
               <div>
                 <label className={labelCls}>Descripción del avance técnico</label>
                 <textarea rows={3} placeholder="Describe el estado actual del proyecto..." value={avanceDesc} onChange={e => setAvanceDesc(e.target.value)} className={`${inputCls} resize-none`} />
               </div>
               <div className="flex items-center gap-3">
-                <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+                <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                   <Sliders className="w-3.5 h-3.5" />Actualizar avance
                 </button>
                 <span className="text-xs text-gray-400">Última actualización: —</span>
@@ -778,7 +778,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
             </button>
           )}
           {step < 5
-            ? <button onClick={handleNext} className="px-5 py-2 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors shadow-sm">Continuar</button>
+            ? <button onClick={handleNext} className="px-5 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors shadow-sm">Continuar</button>
             : <button onClick={handleSave} className="px-5 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm">Guardar proyecto</button>
           }
         </div>

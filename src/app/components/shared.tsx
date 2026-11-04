@@ -33,7 +33,7 @@ export function IndBadge({ status }: { status: IndicatorStatus }) {
   );
 }
 
-export function Bar2({ value, color = "bg-blue-500", h = "h-1.5" }: { value: number; color?: string; h?: string }) {
+export function Bar2({ value, color = "bg-orange-500", h = "h-1.5" }: { value: number; color?: string; h?: string }) {
   return (
     <div className={`w-full bg-gray-100 rounded-full overflow-hidden ${h}`}>
       <div className={`${h} rounded-full transition-all ${color}`} style={{ width: `${Math.min(value, 100)}%` }} />
@@ -48,7 +48,7 @@ export function Crumb({ items }: { items: { label: string; onClick?: () => void 
         <span key={i} className="flex items-center gap-1">
           {i > 0 && <ChevronRight className="w-3 h-3 text-gray-300" />}
           {item.onClick
-            ? <button onClick={item.onClick} className="hover:text-blue-700 transition-colors">{item.label}</button>
+            ? <button onClick={item.onClick} className="hover:text-orange-700 transition-colors">{item.label}</button>
             : <span className={i === items.length - 1 ? "text-gray-800 font-semibold" : ""}>{item.label}</span>
           }
         </span>
@@ -57,7 +57,7 @@ export function Crumb({ items }: { items: { label: string; onClick?: () => void 
   );
 }
 
-export function KpiCard({ title, value, icon: Icon, trend, trendLabel, color = "text-blue-700", bg = "bg-blue-50" }: {
+export function KpiCard({ title, value, icon: Icon, trend, trendLabel, color = "text-orange-700", bg = "bg-orange-50" }: {
   title: string; value: string; icon: React.ElementType;
   trend?: "up" | "down"; trendLabel?: string; color?: string; bg?: string;
 }) {

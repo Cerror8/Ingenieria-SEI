@@ -35,13 +35,13 @@ export function PDFModal({ onClose, onGenerate }: { onClose: () => void; onGener
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Tipo de informe</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50">
+                <select className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50">
                   {["Informe ejecutivo", "Informe mensual", "Informe semanal"].map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Proyecto</label>
-                <select className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50">
+                <select className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50">
                   <option>Todos los proyectos</option>
                   {PROJECTS.slice(0, 5).map(p => <option key={p.id}>{p.id}</option>)}
                 </select>
@@ -50,11 +50,11 @@ export function PDFModal({ onClose, onGenerate }: { onClose: () => void; onGener
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Período desde</label>
-                <input type="date" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50" />
+                <input type="date" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Período hasta</label>
-                <input type="date" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50/50" />
+                <input type="date" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-gray-50/50" />
               </div>
             </div>
             <div>
@@ -71,7 +71,7 @@ export function PDFModal({ onClose, onGenerate }: { onClose: () => void; onGener
                   { key: "antecedentes", label: "Antecedentes" },
                 ] as const).map(s => (
                   <label key={s.key} className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={sections[s.key]} onChange={() => setSections(p => ({ ...p, [s.key]: !p[s.key] }))} className="w-4 h-4 accent-blue-600 rounded" />
+                    <input type="checkbox" checked={sections[s.key]} onChange={() => setSections(p => ({ ...p, [s.key]: !p[s.key] }))} className="w-4 h-4 accent-orange-600 rounded" />
                     <span className="text-sm text-gray-700">{s.label}</span>
                   </label>
                 ))}
@@ -79,7 +79,7 @@ export function PDFModal({ onClose, onGenerate }: { onClose: () => void; onGener
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={onClose} className="flex-1 py-2.5 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
-              <button onClick={handleGen} className="flex-1 py-2.5 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors shadow-sm">Generar</button>
+              <button onClick={handleGen} className="flex-1 py-2.5 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors shadow-sm">Generar</button>
             </div>
           </div>
         ) : (
@@ -93,10 +93,10 @@ export function PDFModal({ onClose, onGenerate }: { onClose: () => void; onGener
               <button onClick={onClose} className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                 <Eye className="w-4 h-4" />Ver PDF
               </button>
-              <button onClick={onClose} className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold bg-[#1B3C6B] text-white rounded-lg hover:bg-[#152f54] transition-colors">
+              <button onClick={onClose} className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                 <Download className="w-4 h-4" />Descargar PDF
               </button>
-              <button onClick={onClose} className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
+              <button onClick={onClose} className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold border border-orange-200 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors">
                 <FileDown className="w-4 h-4" />Word
               </button>
             </div>

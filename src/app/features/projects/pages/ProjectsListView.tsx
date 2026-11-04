@@ -35,7 +35,7 @@ export function ProjectsListView({ onSelectProject, onCreateProject }: {
           <h1 className="text-xl font-bold text-gray-900">Gestión de Proyectos</h1>
           <p className="text-sm text-gray-500 mt-0.5">{PROJECTS.length} proyectos registrados</p>
         </div>
-        <button onClick={onCreateProject} className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B3C6B] text-white text-sm font-semibold rounded-lg hover:bg-[#152f54] transition-colors shadow-sm">
+        <button onClick={onCreateProject} className="inline-flex items-center gap-2 px-4 py-2 bg-[#C2410C] text-white text-sm font-semibold rounded-lg hover:bg-[#9A3412] transition-colors shadow-sm">
           <Plus className="w-4 h-4" />Nuevo proyecto
         </button>
       </div>
@@ -46,11 +46,11 @@ export function ProjectsListView({ onSelectProject, onCreateProject }: {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" placeholder="Buscar por código o nombre..." value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 bg-gray-50" />
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-gray-50" />
           </div>
           {(["Todos", "En ejecución", "En formulación", "Suspendido", "Finalizado"] as const).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${statusFilter === s ? "bg-[#1B3C6B] text-white border-[#1B3C6B]" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
+              className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${statusFilter === s ? "bg-[#C2410C] text-white border-[#C2410C]" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
               {s}
             </button>
           ))}
@@ -72,15 +72,15 @@ export function ProjectsListView({ onSelectProject, onCreateProject }: {
             </thead>
             <tbody className="divide-y divide-gray-50/80">
               {filtered.map(p => (
-                <tr key={p.id} className="hover:bg-blue-50/10 transition-colors">
-                  <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-blue-700">{p.id}</span></td>
+                <tr key={p.id} className="hover:bg-orange-50/10 transition-colors">
+                  <td className="px-4 py-3"><span className="font-mono text-xs font-bold text-orange-700">{p.id}</span></td>
                   <td className="px-4 py-3"><p className="font-semibold text-gray-900 max-w-[200px] truncate text-sm">{p.name}</p></td>
                   <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{p.line.split(" ").slice(0, 2).join(" ")}</td>
                   <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{p.responsible}</td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 min-w-[100px]">
-                      <Bar2 value={p.progress} color="bg-blue-500" h="h-1.5" />
+                      <Bar2 value={p.progress} color="bg-orange-500" h="h-1.5" />
                       <span className="text-xs font-bold text-gray-700 flex-shrink-0">{p.progress}%</span>
                     </div>
                   </td>
@@ -88,9 +88,9 @@ export function ProjectsListView({ onSelectProject, onCreateProject }: {
                   <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{p.endDate}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-0.5">
-                      <button onClick={() => onSelectProject(p.id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver"><Eye className="w-3.5 h-3.5" /></button>
-                      <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Dashboard"><BarChart2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => onSelectProject(p.id)} className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Ver"><Eye className="w-3.5 h-3.5" /></button>
+                      <button className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Dashboard"><BarChart2 className="w-3.5 h-3.5" /></button>
                       <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"><MoreHorizontal className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
@@ -103,7 +103,7 @@ export function ProjectsListView({ onSelectProject, onCreateProject }: {
           <span className="text-xs text-gray-400">Mostrando {filtered.length} de {PROJECTS.length} proyectos</span>
           <div className="flex items-center gap-1">
             <button className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-100 transition-colors"><ChevronLeft className="w-3.5 h-3.5" /></button>
-            <button className="w-7 h-7 rounded-lg text-xs font-bold bg-[#1B3C6B] text-white">1</button>
+            <button className="w-7 h-7 rounded-lg text-xs font-bold bg-[#C2410C] text-white">1</button>
             <button className="w-7 h-7 rounded-lg text-xs text-gray-600 hover:bg-gray-100">2</button>
             <button className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-100 transition-colors"><ChevronRight className="w-3.5 h-3.5" /></button>
           </div>
