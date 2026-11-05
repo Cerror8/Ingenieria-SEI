@@ -12,6 +12,15 @@ export type Usuario = {
   ultimoAcceso: string | null;
 };
 
+export type UsuarioAsignable = Pick<Usuario, "id" | "nombre" | "fotoUrl" | "rol">;
+
+export type UsuarioAdmin = Usuario & {
+  activo: boolean;
+  creadoEn: string;
+  tareasAsignadas: number;
+  tareasCompletadas: number;
+};
+
 export type ProjectStatus = "En formulación" | "En ejecución" | "Suspendido" | "Finalizado" | "Cerrado";
 export type IndicatorStatus = "Cumplido" | "En riesgo" | "No cumplido" | "Pendiente";
 export type DocStatus = "Aprobado" | "En revisión" | "Borrador" | "Rechazado";
@@ -26,6 +35,7 @@ export type ViewType =
   | "seguimiento"
   | "tableros"
   | "calendario"
+  | "usuarios"
   | "perfil";
 
 export interface Project {
@@ -110,16 +120,44 @@ export interface TareaTablero {
   descripcion: string;
   columna: ColumnaTablero;
   responsable: string;
+  responsableId: string | null;
+  responsableFoto: string | null;
   prioridad: PrioridadTablero;
   fechaLimite: string;
   etiqueta: string;
+  completadoEn: string | null;
+  comentarios: number;
+  adjuntos: number;
 }
+
+export type ComentarioTarea = {
+  id: string;
+  contenido: string;
+  autor: string;
+  usuarioId: string | null;
+  autorFoto: string | null;
+  creadoEn: string;
+};
+
+export type AdjuntoTarea = {
+  id: string;
+  nombre: string;
+  mime: string | null;
+  tamano: number;
+  usuarioId: string | null;
+  subidoPor: string;
+  autorFoto: string | null;
+  creadoEn: string;
+};
+
+export type AlcanceNotificaciones = "todas" | "mias";
 
 export type NotificacionTarea = {
   id: string;
   titulo: string;
   prioridad: PrioridadTablero;
   columna: ColumnaTablero;
+  responsable: string;
   fechaLimite: string;
   tableroId: string;
   tablero: string;

@@ -14,6 +14,8 @@ import { informes } from "./routes/informes.js";
 import { notificaciones } from "./routes/notificaciones.js";
 import { proyectos } from "./routes/proyectos.js";
 import { tableros } from "./routes/tableros.js";
+import { tareas } from "./routes/tareas.js";
+import { usuarios } from "./routes/usuarios.js";
 
 export const app = express();
 
@@ -43,7 +45,9 @@ app.use("/api/documentos", requireAuth, documentos);
 app.use("/api/informes", requireAuth, informes);
 app.use("/api/auditoria", requireAuth, auditoria);
 app.use("/api/tableros", requireAuth, tableros);
+app.use("/api/tableros", requireAuth, tareas);
 app.use("/api/notificaciones", requireAuth, notificaciones);
 app.use("/api/calendario", requireAuth, calendario);
+app.use("/api/usuarios", requireAuth, usuarios);
 
 app.use(errorHandler);

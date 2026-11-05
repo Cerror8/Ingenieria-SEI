@@ -74,3 +74,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     next(e);
   }
 }
+
+export function requireAdmin(_req: Request, res: Response, next: NextFunction) {
+  const usuario = res.locals.usuario as UsuarioSesion | undefined;
+  if (!usuario) return res.status(401).json({ error: "No autenticado" });
+  if (usuario.rol !== "admin") {
+    return res.status(403).json({ error: "Esta acción requiere rol de administrador" });
+  }
+  next();
+}

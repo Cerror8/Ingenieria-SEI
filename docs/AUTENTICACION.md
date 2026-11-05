@@ -59,6 +59,39 @@ Respuesta de usuario:
 }
 ```
 
+## Roles y administración de usuarios
+
+Roles disponibles: `admin`, `docente`, `estudiante` y `usuario`. El rol viaja en la sesión y en `GET /api/auth/me`. El backend aplica dos guardas:
+
+- `requireAuth`: exige sesión activa y usuario activo.
+- `requireAdmin`: exige además `rol = 'admin'`; responde `403` con `{ "error": "Esta acción requiere rol de administrador" }`.
+
+Endpoints de administración (montados en `/api/usuarios`):
+
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| `GET` | `/api/usuarios/asignables` | Cualquier sesión | Usuarios activos (`id`, `nombre`, `fotoUrl`, `rol`) para asignar tareas. |
+| `GET` | `/api/usuarios` | **admin** | Listado completo con `proveedor`, `rol`, `activo`, `ultimoAcceso`, `creadoEn`, `tareasAsignadas` y `tareasCompletadas`. |
+| `POST` | `/api/usuarios` | **admin** | Crea una cuenta local: `{ email, nombre, rol, password }`. Contraseña de 8 a 72 caracteres, hash bcrypt (12 rondas). Correo duplicado devuelve `409`. |
+| `PATCH` | `/api/usuarios/:id` | **admin** | Actualiza `nombre`, `rol` y/o `activo`. |
+
+Reglas de protección:
+
+- Un administrador no puede cambiar su propio rol ni desactivar su propia cuenta.
+- No se puede desactivar ni degradar al último administrador activo.
+- Cada alta o cambio se registra en `app.auditoria` con entidad `Usuario`.
+
+Permisos de colaboración en tableros:
+
+- Cualquier sesión activa puede crear tareas, moverlas, comentar y adjuntar archivos.
+- Solo `admin` y `docente` pueden eliminar tareas.
+- Un comentario o adjunto solo lo puede eliminar quien lo creó o un `admin`.
+- Las notificaciones muestran las tareas asignadas a cada usuario; el `admin` ve las de todo el equipo.
+
+El módulo **Usuarios** del frontend solo aparece en la barra lateral para `admin`; el resto de usuarios no lo ve y la API igualmente responde `403` si intentan llamarla.
+
+Las cuentas desactivadas (`activo = false`) no pueden iniciar sesión ni aparecen en los filtros de responsables de los tableros; sus tareas asignadas se conservan.
+
 ## Configurar Google Cloud Console
 
 1. Entra a <https://console.cloud.google.com> y crea (o selecciona) un proyecto.

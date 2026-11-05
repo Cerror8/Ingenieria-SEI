@@ -1,4 +1,5 @@
 import { BarChart2, X } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
 import { NAV_ITEMS } from "../constants";
 
 export function Sidebar({
@@ -14,6 +15,8 @@ export function Sidebar({
   onClose: () => void;
   collapsed: boolean;
 }) {
+  const { usuario } = useAuth();
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || usuario?.rol === "admin");
   const isActive = (id: string) =>
     currentView === id ||
     (id === "projects" && (currentView === "project-detail" || currentView === "create-project"));
@@ -64,7 +67,7 @@ export function Sidebar({
             collapsed ? "px-3 lg:px-2" : "px-3"
           }`}
         >
-          {NAV_ITEMS.map((item) => (
+          {items.map((item) => (
             <button
               key={item.id}
               onClick={() => {

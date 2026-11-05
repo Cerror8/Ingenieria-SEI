@@ -157,7 +157,7 @@ Cronograma tipo Gantt por proyecto: `nombre`, `responsable`, `mes_inicio`/`mes_f
 
 #### `app.auditoria`
 
-Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y `valor_nuevo`. Se escribe desde la API al crear proyectos, documentos y tableros; al crear, mover, editar o eliminar tareas; y al crear, editar o eliminar eventos de calendario.
+Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y `valor_nuevo`. Se escribe desde la API al crear proyectos, documentos y tableros; al crear, mover, editar o eliminar tareas; al subir o eliminar adjuntos de tareas; al crear, editar o eliminar eventos de calendario; y al crear o actualizar usuarios.
 
 ### Tableros estilo Monday
 
@@ -167,7 +167,34 @@ Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y
 
 #### `app.tareas_tablero`
 
-`id` UUID, `tablero_id` (FK con `ON DELETE CASCADE`), `titulo`, `descripcion`, `columna` (`por-hacer`, `en-curso`, `en-revision`, `completado`), `responsable`, `prioridad` (`Alta`, `Media`, `Baja`), `fecha_limite`, `etiqueta` y `orden`. Índice compuesto `(tablero_id, columna, orden)`.
+`id` UUID, `tablero_id` (FK con `ON DELETE CASCADE`), `titulo`, `descripcion`, `columna` (`por-hacer`, `en-curso`, `en-revision`, `completado`), `responsable` (nombre visible), `responsable_id` (FK a `usuarios`, `ON DELETE SET NULL`), `prioridad` (`Alta`, `Media`, `Baja`), `fecha_limite`, `etiqueta`, `orden` y `completado_en`. Índice compuesto `(tablero_id, columna, orden)`, índice `ix_tareas_tablero_responsable` sobre `responsable_id` e índice `ix_tareas_tablero_completado` sobre `completado_en`.
+
+`responsable_id` permite asignar la tarea a una cuenta real del sistema; `responsable` conserva el nombre para mostrar y se rellena desde la cuenta al asignarla. Si la cuenta se elimina, la tarea queda sin asignar (`SET NULL`) pero conserva el texto. `completado_en` se llena automáticamente cuando la tarea pasa a la columna `completado` y se limpia si se reabre; con esa fecha se calcula el ritmo semanal y el avance por persona. Las columnas se añadieron sobre el volumen existente con:
+
+```sql
+ALTER TABLE app.tareas_tablero
+  ADD COLUMN IF NOT EXISTS responsable_id UUID REFERENCES app.usuarios(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS completado_en TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_responsable ON tareas_tablero (responsable_id);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
+UPDATE app.tareas_tablero
+   SET completado_en = actualizado_en
+ WHERE columna = 'completado' AND completado_en IS NULL;
+```
+
+#### `app.comentarios_tarea`
+
+Comentarios de cada tarea: `tarea_id` (FK con `ON DELETE CASCADE`), `usuario_id` (FK a `usuarios`, `SET NULL`), `autor` (nombre al momento de comentar), `contenido` (máximo 2000 caracteres en la API) y `creado_en`. Índice `ix_comentarios_tarea` sobre `(tarea_id, creado_en)`.
+
+#### `app.adjuntos_tarea`
+
+Archivos adjuntos de cada tarea: `tarea_id` (FK con `ON DELETE CASCADE`), `usuario_id` (FK a `usuarios`, `SET NULL`), `nombre` (nombre original), `ruta` (nombre generado en `backend/uploads/tareas/`), `mime`, `tamano` y `creado_en`. Índice `ix_adjuntos_tarea` sobre `(tarea_id, creado_en)`.
+
+Los archivos físicos viven en `backend/uploads/tareas/` (ignorado por Git); la base solo guarda sus metadatos y la descarga pasa por la API con sesión activa. Al respaldar, copia también esa carpeta.
+
+#### Administración de usuarios
+
+No requiere tablas nuevas: el módulo **Usuarios** opera sobre `app.usuarios` (`nombre`, `rol`, `activo`, `password_hash`). La API impide que un administrador se quite a sí mismo el rol o se desactive y que desaparezca el último administrador activo; cada alta o cambio queda registrado en `app.auditoria` con entidad `Usuario`. Los usuarios activos alimentan el selector de responsables de los tableros.
 
 ### Calendario personal
 

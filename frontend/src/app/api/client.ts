@@ -1,6 +1,9 @@
 import type {
+  AdjuntoTarea,
+  AlcanceNotificaciones,
   AuditEntry,
   CalendarioDatos,
+  ComentarioTarea,
   Document,
   EventoCalendario,
   GanttActivity,
@@ -11,8 +14,11 @@ import type {
   Project,
   ProjectStatus,
   Report,
+  Rol,
   TareaTablero,
   Usuario,
+  UsuarioAdmin,
+  UsuarioAsignable,
 } from "../types";
 
 const API_URL = (
@@ -60,6 +66,26 @@ const query = (params: Record<string, string | undefined>) => {
   const activos = Object.entries(params).filter(([, v]) => v) as [string, string][];
   return activos.length ? `?${new URLSearchParams(activos).toString()}` : "";
 };
+
+const tareaPath = (tableroId: string, tareaId: string) =>
+  `/tableros/${encodeURIComponent(tableroId)}/tareas/${encodeURIComponent(tareaId)}`;
+
+async function subirArchivo<T>(path: string, datos: FormData): Promise<T> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      credentials: "include",
+      body: datos,
+    });
+  } catch {
+    throw new ApiError(0, "No se pudo conectar con el servidor. Verifica que el backend esté activo.");
+  }
+
+  const json = (await respuesta.json().catch(() => ({}))) as { error?: string };
+  if (!respuesta.ok) throw new ApiError(respuesta.status, json.error ?? "No se pudo subir el archivo");
+  return json as T;
+}
 
 export function fechaCorta(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -173,7 +199,7 @@ export type NuevaTarea = {
   titulo: string;
   descripcion: string;
   columna: TareaTablero["columna"];
-  responsable: string;
+  responsableId: string | null;
   prioridad: TareaTablero["prioridad"];
   fechaLimite: string | null;
   etiqueta: string;
@@ -322,10 +348,54 @@ export const api = {
       body: datos,
     }),
   eliminarTarea: (tableroId: string, tareaId: string) =>
-    request<{ ok: boolean }>(`/tableros/${tableroId}/tareas/${tareaId}`, { method: "DELETE" }),
+    request<{ ok: boolean }>(tareaPath(tableroId, tareaId), { method: "DELETE" }),
+
+  comentariosTarea: (tableroId: string, tareaId: string) =>
+    request<{ comentarios: ComentarioTarea[] }>(`${tareaPath(tableroId, tareaId)}/comentarios`),
+  crearComentario: (tableroId: string, tareaId: string, contenido: string) =>
+    request<{ comentario: ComentarioTarea }>(`${tareaPath(tableroId, tareaId)}/comentarios`, {
+      method: "POST",
+      body: { contenido },
+    }),
+  eliminarComentario: (tableroId: string, tareaId: string, comentarioId: string) =>
+    request<{ ok: boolean }>(
+      `${tareaPath(tableroId, tareaId)}/comentarios/${encodeURIComponent(comentarioId)}`,
+      { method: "DELETE" },
+    ),
+  adjuntosTarea: (tableroId: string, tareaId: string) =>
+    request<{ adjuntos: AdjuntoTarea[] }>(`${tareaPath(tableroId, tareaId)}/adjuntos`),
+  subirAdjunto: (tableroId: string, tareaId: string, archivo: File) => {
+    const datos = new FormData();
+    datos.append("archivo", archivo);
+    return subirArchivo<{ adjunto: AdjuntoTarea }>(`${tareaPath(tableroId, tareaId)}/adjuntos`, datos);
+  },
+  eliminarAdjunto: (tableroId: string, tareaId: string, adjuntoId: string) =>
+    request<{ ok: boolean }>(
+      `${tareaPath(tableroId, tareaId)}/adjuntos/${encodeURIComponent(adjuntoId)}`,
+      { method: "DELETE" },
+    ),
+  adjuntoUrl: (tableroId: string, tareaId: string, adjuntoId: string, descargar = false) =>
+    `${API_URL}${tareaPath(tableroId, tareaId)}/adjuntos/${encodeURIComponent(adjuntoId)}/archivo${
+      descargar ? "?descargar=1" : ""
+    }`,
+
+  usuariosAsignables: () =>
+    request<{ usuarios: UsuarioAsignable[] }>("/usuarios/asignables"),
+  usuarios: () => request<{ usuarios: UsuarioAdmin[] }>("/usuarios"),
+  crearUsuario: (datos: { email: string; nombre: string; rol: Rol; password: string }) =>
+    request<{ usuario: UsuarioAdmin }>("/usuarios", { method: "POST", body: datos }),
+  actualizarUsuario: (id: string, datos: { nombre?: string; rol?: Rol; activo?: boolean }) =>
+    request<{ usuario: UsuarioAdmin }>(`/usuarios/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
 
   notificaciones: () =>
-    request<{ notificaciones: NotificacionTarea[]; total: number }>("/notificaciones"),
+    request<{
+      notificaciones: NotificacionTarea[];
+      total: number;
+      alcance: AlcanceNotificaciones;
+    }>("/notificaciones"),
 
   calendario: (desde: string, hasta: string) =>
     request<CalendarioDatos>(`/calendario${query({ desde, hasta })}`),

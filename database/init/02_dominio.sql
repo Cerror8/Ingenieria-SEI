@@ -167,19 +167,50 @@ CREATE TABLE IF NOT EXISTS tareas_tablero (
   columna        TEXT NOT NULL DEFAULT 'por-hacer'
                  CHECK (columna IN ('por-hacer', 'en-curso', 'en-revision', 'completado')),
   responsable    TEXT NOT NULL DEFAULT 'Sin asignar',
+  responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   prioridad      TEXT NOT NULL DEFAULT 'Media' CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
   fecha_limite   DATE,
   etiqueta       TEXT NOT NULL DEFAULT 'General',
   orden          INTEGER NOT NULL DEFAULT 0,
+  completado_en  TIMESTAMPTZ,
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero ON tareas_tablero (tablero_id, columna, orden);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_responsable ON tareas_tablero (responsable_id);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
 
 CREATE TRIGGER tareas_tablero_touch
 BEFORE UPDATE ON tareas_tablero
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- ---------------------------------------------------------------------
+-- Colaboración por tarea: comentarios y archivos adjuntos
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS comentarios_tarea (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tarea_id   UUID NOT NULL REFERENCES tareas_tablero(id) ON DELETE CASCADE,
+  usuario_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  autor      TEXT NOT NULL,
+  contenido  TEXT NOT NULL,
+  creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_comentarios_tarea ON comentarios_tarea (tarea_id, creado_en);
+
+CREATE TABLE IF NOT EXISTS adjuntos_tarea (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tarea_id   UUID NOT NULL REFERENCES tareas_tablero(id) ON DELETE CASCADE,
+  usuario_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  nombre     TEXT NOT NULL,
+  ruta       TEXT NOT NULL,
+  mime       TEXT,
+  tamano     BIGINT NOT NULL DEFAULT 0,
+  creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_adjuntos_tarea ON adjuntos_tarea (tarea_id, creado_en);
 
 -- ---------------------------------------------------------------------
 -- Calendario personal: reuniones y horario propio de cada usuario

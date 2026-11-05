@@ -18,6 +18,7 @@ import { SeguimientoView } from "../features/seguimiento/SeguimientoView";
 import { DocumentosView } from "../features/documentos/DocumentosView";
 import { CalendarView } from "../features/calendario/CalendarView";
 import { ProfileView } from "../features/perfil/ProfileView";
+import { UsuariosView } from "../features/usuarios/UsuariosView";
 
 const ETIQUETAS_VISTA: Record<string, string> = {
   dashboard: "Dashboard",
@@ -28,6 +29,7 @@ const ETIQUETAS_VISTA: Record<string, string> = {
   documentos: "Documentos",
   seguimiento: "Seguimiento",
   calendario: "Calendario",
+  usuarios: "Usuarios",
   perfil: "Mi perfil",
 };
 
@@ -164,6 +166,7 @@ export function AppShell() {
           {view === "documentos" && <DocumentosView />}
           {view === "seguimiento" && <SeguimientoView onSelectProject={selectProject} />}
           {view === "calendario" && <CalendarView />}
+          {view === "usuarios" && <UsuariosView onShowToast={showToast} />}
           {view === "perfil" && <ProfileView onShowToast={showToast} />}
         </main>
       </div>

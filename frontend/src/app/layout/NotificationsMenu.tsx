@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, CalendarClock, CheckCircle2, ChevronRight } from "lucide-react";
 import { api } from "../api/client";
-import type { NotificacionTarea, PrioridadTablero } from "../types";
+import type { AlcanceNotificaciones, NotificacionTarea, PrioridadTablero } from "../types";
 
 const COLOR_PRIORIDAD: Record<PrioridadTablero, string> = {
   Alta: "border-l-red-500",
@@ -22,14 +22,16 @@ function textoVencimiento(dias: number) {
 export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => void }) {
   const [abierto, setAbierto] = useState(false);
   const [items, setItems] = useState<NotificacionTarea[]>([]);
+  const [alcance, setAlcance] = useState<AlcanceNotificaciones>("mias");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(async () => {
     try {
-      const { notificaciones } = await api.notificaciones();
-      setItems(notificaciones);
+      const respuesta = await api.notificaciones();
+      setItems(respuesta.notificaciones);
+      setAlcance(respuesta.alcance);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron cargar las notificaciones");
@@ -94,8 +96,18 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
               <p className="text-sm font-bold text-gray-800">Notificaciones</p>
               <p className="text-[11px] text-gray-500">
                 {total > 0
-                  ? `${total} ${total === 1 ? "tarea próxima" : "tareas próximas"} a vencer`
-                  : "Tareas con fecha límite en los próximos 7 días"}
+                  ? `${total} ${
+                      total === 1
+                        ? alcance === "todas"
+                          ? "tarea del equipo"
+                          : "tarea tuya"
+                        : alcance === "todas"
+                          ? "tareas del equipo"
+                          : "tareas tuyas"
+                    } próxima${total === 1 ? "" : "s"} a vencer`
+                  : alcance === "todas"
+                    ? "Tareas del equipo con fecha límite en los próximos 7 días"
+                    : "Tus tareas asignadas con fecha límite en los próximos 7 días"}
               </p>
             </div>
             <Bell className="h-4 w-4 text-gray-300" />
@@ -141,7 +153,9 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
                         {item.titulo}
                       </span>
                       <span className="mt-0.5 block truncate text-[11px] text-gray-400">
-                        {item.tablero}
+                        {alcance === "todas"
+                          ? `${item.responsable} · ${item.tablero}`
+                          : item.tablero}
                       </span>
                       <span
                         className={`mt-0.5 block text-[11px] font-semibold ${
