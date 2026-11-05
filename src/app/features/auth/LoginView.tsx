@@ -92,7 +92,7 @@ export function LoginView() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] px-4 py-4 sm:px-6 sm:py-6">
       <p className="mx-auto mb-3 max-w-6xl text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-        RAP-16 (ADMIN)
+        Ingeniería SEI · Acceso RAP
       </p>
 
       <div className="mx-auto grid max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl lg:grid-cols-[42%_58%]">
@@ -104,12 +104,12 @@ export function LoginView() {
           <div className="relative">
             <Escudo />
             <h1 className="mt-8 text-4xl font-black leading-[1.05] tracking-tight">
-              Sistema RAP
+              Ingeniería
               <br />
-              <span className="text-[#EA580C]">CESMAG</span>
+              <span className="text-[#EA580C]">SEI</span>
             </h1>
             <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/60">
-              Gestión de Resultados de Aprendizaje
+              Gestión de Resultados de Aprendizaje · Acceso RAP
             </p>
           </div>
 
@@ -130,8 +130,8 @@ export function LoginView() {
                 <GraduationCap className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm font-black leading-tight text-slate-800">Sistema RAP CESMAG</p>
-                <p className="text-[11px] text-slate-500">Gestión de Resultados de Aprendizaje</p>
+                <p className="text-sm font-black leading-tight text-slate-800">Ingeniería SEI</p>
+                <p className="text-[11px] text-slate-500">Acceso RAP · Universidad CESMAG</p>
               </div>
             </div>
 

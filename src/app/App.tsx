@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { GraduationCap } from "lucide-react";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { LoginView } from "./features/auth/LoginView";
-import { HomeView } from "./features/home/HomeView";
+import { AppShell } from "./layout/AppShell";
 
 function PantallaCarga() {
   return (
@@ -21,7 +21,7 @@ function PantallaCarga() {
 function RutaPrivada() {
   const { usuario, cargando } = useAuth();
   if (cargando) return <PantallaCarga />;
-  return usuario ? <HomeView /> : <Navigate to="/login" replace />;
+  return usuario ? <AppShell /> : <Navigate to="/login" replace />;
 }
 
 function RutaPublica() {

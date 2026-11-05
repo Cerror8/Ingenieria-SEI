@@ -1,12 +1,12 @@
-# Ingenieria-SEI · Sistema RAP CESMAG
+# Ingeniería SEI · Universidad CESMAG
 
-Sistema de gestión de Resultados de Aprendizaje (RAP) para el programa de Ingeniería de Sistemas de la Universidad CESMAG. Autenticación con cuenta institucional de Google y acceso administrativo local.
+Plataforma institucional del programa de Ingeniería de Sistemas. El acceso se realiza con el login RAP-16 (administrador local o cuenta institucional de Google) y, una vez dentro, se trabaja sobre los módulos de dashboard, tableros, proyectos, seguimiento, antecedentes, informes y documentos.
 
 ## Stack
 
 | Capa | Tecnología |
 |------|------------|
-| Frontend | React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · Lucide |
+| Frontend | React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · Lucide · Recharts |
 | Backend | Node + Express 4 · TypeScript · pg · zod · bcryptjs |
 | Base de datos | PostgreSQL 16 en Docker (puerto host **5433**) |
 | Autenticación | Sesión opaca en cookie `httpOnly` + OAuth 2.0 con Google |
@@ -19,7 +19,18 @@ Sistema de gestión de Resultados de Aprendizaje (RAP) para el programa de Ingen
 │   ├── app/
 │   │   ├── api/            Cliente HTTP y manejo de errores
 │   │   ├── auth/           AuthProvider (contexto de sesión)
-│   │   ├── features/       Login y panel de inicio
+│   │   ├── components/     Componentes compartidos, PDF y notificaciones
+│   │   ├── data/           Datos de ejemplo de la estructura inicial
+│   │   ├── features/
+│   │   │   ├── auth/       Login RAP-16
+│   │   │   ├── dashboard/  Panel general
+│   │   │   ├── tableros/   Tablero de trabajo estilo Monday
+│   │   │   ├── projects/   Listado, creación y detalle de proyectos
+│   │   │   ├── seguimiento/
+│   │   │   ├── antecedentes/
+│   │   │   ├── informes/
+│   │   │   └── documentos/
+│   │   ├── layout/         Sidebar y shell de la aplicación
 │   │   └── App.tsx         Rutas pública y privada
 │   └── styles/             Tema, Tailwind y fuentes
 ├── backend/                API REST (Express + TypeScript)
@@ -75,17 +86,24 @@ Contraseña: Admin12345!
 | `npm run db:up` / `npm run db:down` | Levanta / detiene PostgreSQL |
 | `npm run backend` | Backend en modo watch |
 
+## Módulos actuales
+
+- **Dashboard:** indicadores generales, estados, avance y alertas.
+- **Tableros:** asignación de trabajo estilo Monday/Brix24 con columnas, arrastrar y soltar, responsables, prioridades y fechas. Por ahora guarda en `localStorage`; la persistencia en PostgreSQL queda para la siguiente fase.
+- **Proyectos:** listado, creación guiada y detalle con ficha, Gantt, presupuesto, indicadores, documentos e historial.
+- **Seguimiento, antecedentes, informes y documentos:** estructura base heredada del prototipo, lista para conectar datos reales.
+
 ## Autenticación
 
 - **Administrador local:** correo y contraseña con hash bcrypt (12 rondas), definidos por variables de entorno.
 - **Usuarios institucionales:** inicio de sesión con Google; la cuenta se crea automáticamente en el primer acceso con rol `usuario` y se restringe a `ALLOWED_DOMAIN`.
 - La sesión viaja en una cookie `httpOnly` `rap_sid`; solo se guarda el hash SHA-256 del token en la tabla `sesiones`.
 
-Detalle completo de configuración, endpoints y despliegue en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
+Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
 
 ## Estado
 
-- Repo unificado con frontend, backend y base de datos.
-- Módulo PMO anterior eliminado por completo.
-- Login RAP-16 (ADMIN) implementado y probado de extremo a extremo.
-- Pendiente: módulos de resultados de aprendizaje, tableros de asignación de trabajo estilo Monday/Brix24, informes y documentación de usuario en Word.
+- Estructura de módulos restaurada y renombrada a Ingeniería SEI.
+- Login RAP-16 probado de extremo a extremo: acceso local, sesión, rutas protegidas y cierre de sesión.
+- Tablero de trabajo funcional con alta, movimiento y eliminación de tareas.
+- Pendiente: conectar tableros y módulos a la API/PostgreSQL, construir el modelo RAP y elaborar el manual de usuario en Word.

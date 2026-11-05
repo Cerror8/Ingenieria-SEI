@@ -1,4 +1,4 @@
-# Autenticación · Sistema RAP CESMAG
+# Autenticación · Ingeniería SEI
 
 ## Resumen
 
