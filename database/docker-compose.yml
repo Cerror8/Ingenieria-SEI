@@ -1,14 +1,14 @@
 services:
   db:
     image: postgres:16
-    container_name: sei_pmo_db
+    container_name: sei_rap_db
     environment:
-      POSTGRES_DB: sei_pmo
+      POSTGRES_DB: sei_rap
       POSTGRES_USER: sei
       POSTGRES_PASSWORD: sei_dev_password   # cámbiala fuera de desarrollo
-    ports: ["5432:5432"]
+    ports: ["5433:5432"]   # 5433 en el host porque 5432 puede estar ocupado por otro PostgreSQL
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d:ro   # se ejecuta 01..04 solo la primera vez
+      - ./init:/docker-entrypoint-initdb.d:ro   # ejecuta 01_schema.sql la primera vez
 volumes:
   pgdata:

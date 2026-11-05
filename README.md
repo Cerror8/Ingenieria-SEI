@@ -1,41 +1,91 @@
-# Ingenieria-SEI · Módulo Gestión de Proyectos (PMO)
+# Ingenieria-SEI · Sistema RAP CESMAG
 
-Plataforma de gestión de proyectos para el entorno institucional, organizada en tres capas sobre un solo repositorio.
+Sistema de gestión de Resultados de Aprendizaje (RAP) para el programa de Ingeniería de Sistemas de la Universidad CESMAG. Autenticación con cuenta institucional de Google y acceso administrativo local.
+
+## Stack
+
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · Lucide |
+| Backend | Node + Express 4 · TypeScript · pg · zod · bcryptjs |
+| Base de datos | PostgreSQL 16 en Docker (puerto host **5433**) |
+| Autenticación | Sesión opaca en cookie `httpOnly` + OAuth 2.0 con Google |
 
 ## Estructura
 
 ```
 .
-├── src/          Frontend React 19 + Vite 8 + Tailwind 4 (prototipo PMO)
-├── backend/      API REST · Node + Express + TypeScript + pg + zod
-├── database/     PostgreSQL 16 · esquema, auditoría, vistas y seed
-├── docs/         Guías de base de datos, backend y frontend
-└── public/       Recursos estáticos del frontend
+├── src/                    Frontend (React + Vite)
+│   ├── app/
+│   │   ├── api/            Cliente HTTP y manejo de errores
+│   │   ├── auth/           AuthProvider (contexto de sesión)
+│   │   ├── features/       Login y panel de inicio
+│   │   └── App.tsx         Rutas pública y privada
+│   └── styles/             Tema, Tailwind y fuentes
+├── backend/                API REST (Express + TypeScript)
+│   └── src/
+│       ├── auth/           Sesiones, Google OAuth y admin local
+│       └── routes/         Endpoints de autenticación
+├── database/               Docker Compose y esquema inicial
+├── docs/                   Documentación técnica
+└── public/                 Recursos estáticos (escudo institucional)
 ```
+
+## Requisitos
+
+- Node.js 20 o superior
+- Docker Desktop en ejecución
+- Credenciales OAuth de Google (opcionales; el login local funciona sin ellas)
 
 ## Arranque rápido
 
 ```bash
-# Frontend → http://localhost:5173
-npm install
-npm run dev
+# 1. Base de datos
+npm run db:up
 
-# Backend → http://localhost:4000/api
+# 2. Backend (primera vez)
 cd backend
 cp .env.example .env
 npm install
-npm run dev
+npm run dev          # http://localhost:4000/api
 
-# Base de datos (Docker)
-cd database
-docker compose up -d
+# 3. Frontend (en otra terminal, desde la raíz)
+npm install
+npm run dev          # http://localhost:5173
 ```
 
-Verificación del frontend: `npm run typecheck` y `npm run build`.
+El backend crea automáticamente el administrador local al arrancar si no existe.
+
+Credenciales de desarrollo:
+
+```
+Correo:     admin@unicesmag.edu.co
+Contraseña: Admin12345!
+```
+
+> Cambia `ADMIN_EMAIL` y `ADMIN_PASSWORD` en `backend/.env` antes de desplegar.
+
+## Scripts
+
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Frontend en desarrollo |
+| `npm run typecheck` | Verificación de tipos del frontend |
+| `npm run build` | Build de producción |
+| `npm run db:up` / `npm run db:down` | Levanta / detiene PostgreSQL |
+| `npm run backend` | Backend en modo watch |
+
+## Autenticación
+
+- **Administrador local:** correo y contraseña con hash bcrypt (12 rondas), definidos por variables de entorno.
+- **Usuarios institucionales:** inicio de sesión con Google; la cuenta se crea automáticamente en el primer acceso con rol `usuario` y se restringe a `ALLOWED_DOMAIN`.
+- La sesión viaja en una cookie `httpOnly` `rap_sid`; solo se guarda el hash SHA-256 del token en la tabla `sesiones`.
+
+Detalle completo de configuración, endpoints y despliegue en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
 
 ## Estado
 
-- Fase 0 completada: repo unificado, prototipo portado al Vite actual y build en verde.
-- Fase 1 completada: paleta naranja/gris/blanco y sidebar gris oscuro con acento naranja.
-- El frontend todavía usa datos de ejemplo (`src/app/data/mock.ts`); la conexión con la API se hará por módulos.
-- Documentación detallada en `docs/`.
+- Repo unificado con frontend, backend y base de datos.
+- Módulo PMO anterior eliminado por completo.
+- Login RAP-16 (ADMIN) implementado y probado de extremo a extremo.
+- Pendiente: módulos de resultados de aprendizaje, tableros de asignación de trabajo estilo Monday/Brix24, informes y documentación de usuario en Word.
