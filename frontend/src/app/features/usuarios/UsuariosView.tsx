@@ -85,6 +85,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [rolesSolicitud, setRolesSolicitud] = useState<Record<string, Rol>>({});
   const [nuevo, setNuevo] = useState({
     nombre: "",
     email: "",
@@ -109,24 +110,34 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
     void cargar();
   }, [cargar]);
 
+  const pendientes = useMemo(
+    () => usuarios.filter((u) => u.pendienteAprobacion),
+    [usuarios],
+  );
+  const cuentas = useMemo(
+    () => usuarios.filter((u) => !u.pendienteAprobacion),
+    [usuarios],
+  );
+
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
-    if (!texto) return usuarios;
-    return usuarios.filter((u) =>
+    if (!texto) return cuentas;
+    return cuentas.filter((u) =>
       [u.nombre, u.email, ROLES.find((r) => r.id === u.rol)?.label ?? u.rol]
         .join(" ")
         .toLowerCase()
         .includes(texto),
     );
-  }, [usuarios, busqueda]);
+  }, [cuentas, busqueda]);
 
   const resumen = useMemo(
     () => ({
-      total: usuarios.length,
-      activos: usuarios.filter((u) => u.activo).length,
-      admins: usuarios.filter((u) => u.rol === "admin" && u.activo).length,
+      total: cuentas.length,
+      activos: cuentas.filter((u) => u.activo).length,
+      admins: cuentas.filter((u) => u.rol === "admin" && u.activo).length,
+      pendientes: pendientes.length,
     }),
-    [usuarios],
+    [cuentas, pendientes],
   );
 
   async function actualizar(id: string, datos: { rol?: Rol; activo?: boolean }, mensaje: string) {
@@ -137,13 +148,70 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
       setUsuarios((prev) =>
         prev.map((u) =>
           u.id === id
-            ? { ...u, rol: usuario.rol, activo: usuario.activo, nombre: usuario.nombre }
+            ? {
+                ...u,
+                rol: usuario.rol,
+                activo: usuario.activo,
+                nombre: usuario.nombre,
+                pendienteAprobacion: usuario.pendienteAprobacion,
+              }
             : u,
         ),
       );
       onShowToast(mensaje);
     } catch (e) {
       setAviso(e instanceof Error ? e.message : "No se pudo actualizar el usuario.");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function aprobarSolicitud(id: string) {
+    setOcupado(id);
+    setAviso(null);
+    try {
+      const rol = rolesSolicitud[id] ?? "usuario";
+      const { usuario } = await api.aprobarUsuario(id, rol);
+      setUsuarios((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, ...usuario, pendienteAprobacion: false } : u)),
+      );
+      setRolesSolicitud((prev) => {
+        const siguiente = { ...prev };
+        delete siguiente[id];
+        return siguiente;
+      });
+      onShowToast(`Acceso aprobado para ${usuario.nombre}.`);
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "No se pudo aprobar la solicitud.");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function rechazarSolicitud(id: string) {
+    const solicitud = pendientes.find((u) => u.id === id);
+    if (!solicitud) return;
+    if (
+      !window.confirm(
+        `¿Rechazar la solicitud de ${solicitud.nombre} (${solicitud.email})? Se eliminará la cuenta pendiente.`,
+      )
+    ) {
+      return;
+    }
+
+    setOcupado(id);
+    setAviso(null);
+    try {
+      await api.rechazarSolicitud(id);
+      setUsuarios((prev) => prev.filter((u) => u.id !== id));
+      setRolesSolicitud((prev) => {
+        const siguiente = { ...prev };
+        delete siguiente[id];
+        return siguiente;
+      });
+      onShowToast(`Solicitud de ${solicitud.nombre} rechazada.`);
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "No se pudo rechazar la solicitud.");
     } finally {
       setOcupado(null);
     }
@@ -207,15 +275,20 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Cuentas registradas", valor: resumen.total, icon: Users },
           { label: "Cuentas activas", valor: resumen.activos, icon: CheckCircle2 },
           { label: "Administradores activos", valor: resumen.admins, icon: ShieldCheck },
+          { label: "Solicitudes pendientes", valor: resumen.pendientes, icon: Mail },
         ].map((item) => (
           <div
             key={item.label}
-            className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
+            className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-sm ${
+              item.label === "Solicitudes pendientes" && item.valor > 0
+                ? "border-orange-200 bg-orange-50/70"
+                : "border-gray-100 bg-white"
+            }`}
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 text-[#C2410C]">
               <item.icon className="h-4 w-4" />
@@ -227,6 +300,85 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
           </div>
         ))}
       </div>
+
+      {pendientes.length > 0 && (
+        <section className="overflow-hidden rounded-xl border border-orange-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-1 border-b border-orange-100 bg-orange-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[#9A3412]">
+                Solicitudes pendientes ({pendientes.length})
+              </h2>
+              <p className="text-[11px] text-orange-800/70">
+                Cuentas creadas con correo o Google que esperan aprobación para ingresar.
+              </p>
+            </div>
+          </div>
+
+          <ul className="divide-y divide-orange-50">
+            {pendientes.map((u) => {
+              const ocupada = ocupado === u.id;
+              return (
+                <li
+                  key={u.id}
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar nombre={u.nombre} fotoUrl={u.fotoUrl} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-800">{u.nombre}</p>
+                      <p className="flex items-center gap-1 truncate text-[11px] text-gray-500">
+                        <Mail className="h-3 w-3 flex-shrink-0" />
+                        {u.email}
+                        <span className="text-gray-300">·</span>
+                        {u.proveedor === "google" ? "Google" : "Cuenta local"}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-400">
+                        Solicitada el {fechaHora(u.creadoEn)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <select
+                      value={rolesSolicitud[u.id] ?? "usuario"}
+                      disabled={ocupada}
+                      onChange={(e) =>
+                        setRolesSolicitud((prev) => ({ ...prev, [u.id]: e.target.value as Rol }))
+                      }
+                      aria-label={`Rol para ${u.nombre}`}
+                      className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#EA580C] disabled:opacity-60"
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={ocupada}
+                      onClick={() => void aprobarSolicitud(u.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Aprobar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={ocupada}
+                      onClick={() => void rechazarSolicitud(u.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Rechazar
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -240,7 +392,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
             />
           </div>
           <span className="text-xs font-medium text-gray-400">
-            {filtrados.length} de {usuarios.length} cuentas
+            {filtrados.length} de {cuentas.length} cuentas
           </span>
         </div>
 
@@ -382,8 +534,8 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
 
       <p className="flex items-start gap-2 text-[11px] text-slate-400">
         <UserRound className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-        Al desactivar una cuenta, la persona pierde el acceso de inmediato. Debe quedar al menos un
-        administrador activo.
+        Al desactivar una cuenta, la persona pierde el acceso de inmediato. Aprobar una solicitud
+        habilita el ingreso con el rol elegido. Debe quedar al menos un administrador activo.
       </p>
 
       {mostrarFormulario && (

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff, GraduationCap, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { api, ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -10,6 +10,9 @@ const MENSAJES_ERROR: Record<string, string> = {
   oauth_state: "La sesión de Google expiró. Inténtalo de nuevo.",
   dominio: "Esta cuenta de Google no está autorizada para ingresar.",
   google: "No se pudo completar el inicio de sesión con Google.",
+  pendiente:
+    "Tu solicitud está pendiente de aprobación. Un administrador debe habilitar la cuenta.",
+  inactivo: "Tu cuenta está inactiva. Contacta a un administrador.",
 };
 
 function GoogleIcon() {
@@ -32,27 +35,6 @@ function GoogleIcon() {
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"
       />
     </svg>
-  );
-}
-
-function Escudo() {
-  const [error, setError] = useState(false);
-
-  if (error) {
-    return (
-      <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/25 bg-white/10">
-        <GraduationCap className="h-10 w-10 text-white" />
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src="/escudo-cesmag.png"
-      alt="Escudo Universidad CESMAG"
-      className="h-20 w-20 object-contain"
-      onError={() => setError(true)}
-    />
   );
 }
 
@@ -97,7 +79,9 @@ export function LoginView() {
           <div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-white/5" />
 
           <div className="relative">
-            <Escudo />
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-black tracking-tight text-[#FDBA74] shadow-sm">
+              SEI
+            </div>
             <h1 className="mt-8 text-4xl font-black leading-[1.05] tracking-tight">
               Ingeniería
               <br />
@@ -122,8 +106,8 @@ export function LoginView() {
         <main className="flex items-center justify-center px-6 py-10 sm:px-12 sm:py-14">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1F2937]">
-                <GraduationCap className="h-6 w-6 text-white" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-[11px] font-black tracking-tight text-[#C2410C]">
+                SEI
               </div>
               <div>
                 <p className="text-sm font-black leading-tight text-slate-800">Ingeniería SEI</p>
@@ -231,7 +215,14 @@ export function LoginView() {
               Acceder con Google
             </button>
 
-            <p className="mt-8 text-center text-[11px] leading-relaxed text-slate-400">
+            <p className="mt-6 text-center text-xs text-slate-500">
+              ¿No tienes cuenta?{" "}
+              <Link to="/registro" className="font-semibold text-[#C2410C] hover:underline">
+                Solicita acceso
+              </Link>
+            </p>
+
+            <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-400">
               ¿Necesitas ayuda? Contacta a la oficina de software.
             </p>
           </div>

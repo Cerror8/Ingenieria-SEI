@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   Circle,
   Clock,
-  GripVertical,
   MessageSquare,
   Paperclip,
   Plus,
@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api } from "../../api/client";
+import { api, type ProyectoApi, type TableroApi } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import type {
   ColumnaTablero,
@@ -225,15 +225,25 @@ function fechaCorta(valor: string) {
   );
 }
 
+function esGestorDe(tarea: TareaTablero, usuarioId: string, rol: string) {
+  return (
+    rol === "admin" ||
+    tarea.creadoPor === usuarioId ||
+    tarea.proyectoLiderId === usuarioId ||
+    tarea.tableroCreadoPor === usuarioId
+  );
+}
+
 const campoCls =
   "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10";
 
-export function TablerosView() {
+export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }) {
   const { usuario } = useAuth();
   const [tableroId, setTableroId] = useState<string | null>(null);
-  const [tableroNombre, setTableroNombre] = useState("");
+  const [tablero, setTablero] = useState<TableroApi | null>(null);
   const [tareas, setTareas] = useState<TareaTablero[]>([]);
   const [usuariosAsignables, setUsuariosAsignables] = useState<UsuarioAsignable[]>([]);
+  const [proyectos, setProyectos] = useState<ProyectoApi[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -242,39 +252,39 @@ export function TablerosView() {
   const [busqueda, setBusqueda] = useState("");
   const [prioridad, setPrioridad] = useState<PrioridadTablero | "Todas">("Todas");
   const [asignacion, setAsignacion] = useState("todas");
-  const [arrastrando, setArrastrando] = useState<string | null>(null);
-  const [columnaActiva, setColumnaActiva] = useState<ColumnaTablero | null>(null);
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [nueva, setNueva] = useState({
     titulo: "",
     descripcion: "",
+    proyectoId: "",
     responsableId: "",
     prioridad: "Media" as PrioridadTablero,
     fechaLimite: "",
     etiqueta: "General",
-    columna: "por-hacer" as ColumnaTablero,
   });
 
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
-      const [{ tableros }, { usuarios }] = await Promise.all([
+      const [{ tableros }, { usuarios }, { proyectos: listaProyectos }] = await Promise.all([
         api.tableros(),
         api.usuariosAsignables(),
+        api.proyectos(),
       ]);
       setUsuariosAsignables(usuarios);
+      setProyectos(listaProyectos);
       if (!tableros.length) {
         setTableroId(null);
-        setTableroNombre("");
+        setTablero(null);
         setTareas([]);
         return;
       }
       const detalle = await api.tablero(tableros[0].id);
       setTableroId(detalle.tablero.id);
-      setTableroNombre(detalle.tablero.nombre);
+      setTablero(detalle.tablero);
       setTareas(detalle.tareas);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar el tablero.");
@@ -292,7 +302,14 @@ export function TablerosView() {
     return tareas.filter((tarea) => {
       const coincideTexto =
         !texto ||
-        [tarea.titulo, tarea.responsable, tarea.etiqueta, tarea.descripcion]
+        [
+          tarea.titulo,
+          tarea.responsable,
+          tarea.etiqueta,
+          tarea.descripcion,
+          tarea.proyectoNombre ?? "",
+          tarea.proyectoId ?? "",
+        ]
           .join(" ")
           .toLowerCase()
           .includes(texto);
@@ -307,21 +324,9 @@ export function TablerosView() {
     });
   }, [tareas, busqueda, prioridad, asignacion, usuario?.id]);
 
-  async function moverTarea(id: string, columna: ColumnaTablero) {
-    const anterior = tareas.find((tarea) => tarea.id === id);
-    if (!tableroId || !anterior || anterior.columna === columna) return;
-
-    setTareas((prev) => prev.map((tarea) => (tarea.id === id ? { ...tarea, columna } : tarea)));
-    try {
-      const { tarea: actualizada } = await api.actualizarTarea(tableroId, id, { columna });
-      setTareas((prev) => prev.map((tarea) => (tarea.id === id ? actualizada : tarea)));
-    } catch (e) {
-      setTareas((prev) =>
-        prev.map((tarea) => (tarea.id === id ? { ...tarea, columna: anterior.columna } : tarea)),
-      );
-      setAviso(e instanceof Error ? e.message : "No se pudo mover la tarea.");
-    }
-  }
+  const actualizarTarea = useCallback((actualizada: TareaTablero) => {
+    setTareas((prev) => prev.map((tarea) => (tarea.id === actualizada.id ? actualizada : tarea)));
+  }, []);
 
   async function eliminarTarea(id: string) {
     if (!tableroId) return;
@@ -357,13 +362,13 @@ export function TablerosView() {
 
     setCreandoTablero(true);
     try {
-      const { tablero } = await api.crearTablero({
+      const { tablero: creado } = await api.crearTablero({
         nombre: nuevoTablero.nombre.trim(),
         descripcion: nuevoTablero.descripcion.trim(),
       });
       setNuevoTablero({ nombre: "", descripcion: "" });
-      setTableroId(tablero.id);
-      setTableroNombre(tablero.nombre);
+      setTableroId(creado.id);
+      setTablero(creado);
       setTareas([]);
     } catch (e) {
       setAviso(e instanceof Error ? e.message : "No se pudo crear el tablero.");
@@ -374,28 +379,28 @@ export function TablerosView() {
 
   async function crearTarea(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!nueva.titulo.trim() || !tableroId) return;
+    if (!nueva.titulo.trim() || !tableroId || !nueva.proyectoId) return;
 
     setGuardando(true);
     try {
       const { tarea } = await api.crearTarea(tableroId, {
         titulo: nueva.titulo.trim(),
         descripcion: nueva.descripcion.trim(),
+        proyectoId: nueva.proyectoId,
         responsableId: nueva.responsableId || null,
         prioridad: nueva.prioridad,
         fechaLimite: nueva.fechaLimite || null,
         etiqueta: nueva.etiqueta.trim() || "General",
-        columna: nueva.columna,
       });
       setTareas((prev) => [...prev, tarea]);
       setNueva({
         titulo: "",
         descripcion: "",
+        proyectoId: "",
         responsableId: "",
         prioridad: "Media",
         fechaLimite: "",
         etiqueta: "General",
-        columna: "por-hacer",
       });
       setMostrarFormulario(false);
     } catch (e) {
@@ -432,8 +437,8 @@ export function TablerosView() {
             <div>
               <h2 className="text-base font-bold text-slate-800">Crear el primer tablero</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Define un nombre y una descripción. Después podrás agregar tareas y moverlas entre
-                columnas.
+                Define un nombre y una descripción. Después podrás agregar tareas ligadas a un
+                proyecto.
               </p>
             </div>
             <div className="space-y-1.5">
@@ -485,8 +490,13 @@ export function TablerosView() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Tablero de asignación de trabajo</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {tableroNombre} · Arrastra desde la manija · Abre una tarjeta para comentar y adjuntar
+            {tablero?.nombre} · Cada tarea está ligada a un proyecto y avanza con aprobación
           </p>
+          {tablero?.creadoPorNombre && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              Líder del tablero: {tablero.creadoPorNombre}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -513,7 +523,7 @@ export function TablerosView() {
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar tarea, responsable o etiqueta…"
+            placeholder="Buscar tarea, proyecto, responsable o etiqueta…"
             className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
           />
         </div>
@@ -567,26 +577,11 @@ export function TablerosView() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {COLUMNAS.map((columna) => {
           const tareasColumna = filtradas.filter((tarea) => tarea.columna === columna.id);
-          const activa = columnaActiva === columna.id;
 
           return (
             <section
               key={columna.id}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setColumnaActiva(columna.id);
-              }}
-              onDragLeave={() => setColumnaActiva(null)}
-              onDrop={(e) => {
-                e.preventDefault();
-                const id = e.dataTransfer.getData("text/plain") || arrastrando;
-                if (id) void moverTarea(id, columna.id);
-                setArrastrando(null);
-                setColumnaActiva(null);
-              }}
-              className={`flex min-h-[360px] flex-col rounded-xl border bg-slate-50/80 transition-colors sm:min-h-[420px] ${
-                activa ? "border-[#EA580C] bg-orange-50/50" : "border-slate-200"
-              }`}
+              className="flex min-h-[360px] flex-col rounded-xl border border-slate-200 bg-slate-50/80 sm:min-h-[420px]"
             >
               <header className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -608,34 +603,19 @@ export function TablerosView() {
                   const mostrarAlerta = tarea.columna !== "completado" && dias !== null && dias <= 2;
                   const tituloFecha =
                     tarea.columna === "completado" ? "Tarea completada" : textoUrgencia(dias);
+                  const esAsignado = Boolean(usuario && tarea.responsableId === usuario.id);
+                  const esGestor = Boolean(
+                    usuario && esGestorDe(tarea, usuario.id, usuario.rol),
+                  );
 
                   return (
-                  <article
-                    key={tarea.id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("text/plain", tarea.id);
-                      setArrastrando(tarea.id);
-                    }}
-                    onDragEnd={() => {
-                      setArrastrando(null);
-                      setColumnaActiva(null);
-                    }}
-                    className={`group cursor-grab rounded-lg border border-l-4 p-3 shadow-sm transition hover:shadow-md active:cursor-grabbing ${cfg.tarjeta} ${cfg.borde} ${
-                      arrastrando === tarea.id ? "opacity-50" : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A3412]">
-                        {tarea.etiqueta}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <span
-                          title="Arrastrar tarea"
-                          aria-hidden="true"
-                          className="hidden cursor-grab items-center rounded-md border border-slate-300 bg-slate-50 px-0.5 py-1 text-slate-500 transition group-hover:border-[#EA580C]/60 group-hover:bg-orange-50 group-hover:text-[#C2410C] active:cursor-grabbing sm:inline-flex"
-                        >
-                          <GripVertical className="h-4 w-4" />
+                    <article
+                      key={tarea.id}
+                      className={`group rounded-lg border border-l-4 p-3 shadow-sm transition hover:shadow-md ${cfg.tarjeta} ${cfg.borde}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A3412]">
+                          {tarea.etiqueta}
                         </span>
                         {puedeEliminar && (
                           <button
@@ -648,110 +628,131 @@ export function TablerosView() {
                           </button>
                         )}
                       </div>
-                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setDetalleAbierto(tarea.id)}
-                      className="mt-2 block w-full rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-[#EA580C]/40"
-                    >
-                      <h3 className="text-sm font-semibold leading-snug text-slate-800">
-                        {tarea.titulo}
-                      </h3>
-                      {tarea.descripcion && (
-                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">
-                          {tarea.descripcion}
-                        </p>
-                      )}
-                    </button>
-
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${cfg.badge}`}
-                      >
-                        {tarea.prioridad}
-                      </span>
-                      <span
-                        title={tituloFecha}
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.fechaChip}`}
-                      >
-                        <CalendarDays className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {fechaCorta(tarea.fechaLimite ?? "")}
-                          {mostrarAlerta ? ` · ${textoUrgencia(dias)}` : ""}
-                        </span>
-                      </span>
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-2.5">
-                      <AvatarResponsable
-                        nombre={tarea.responsable}
-                        fotoUrl={tarea.responsableFoto}
-                      />
-                      <span className="truncate text-[11px] font-medium text-slate-500">
-                        {tarea.responsable}
-                      </span>
                       <button
                         type="button"
                         onClick={() => setDetalleAbierto(tarea.id)}
-                        title="Comentarios y adjuntos"
-                        className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-semibold text-slate-400 transition hover:bg-white hover:text-[#C2410C]"
+                        className="mt-2 block w-full rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-[#EA580C]/40"
                       >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        {tarea.comentarios}
-                        <Paperclip className="ml-1 h-3.5 w-3.5" />
-                        {tarea.adjuntos}
+                        <h3 className="text-sm font-semibold leading-snug text-slate-800">
+                          {tarea.titulo}
+                        </h3>
+                        {tarea.descripcion && (
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">
+                            {tarea.descripcion}
+                          </p>
+                        )}
+                        <p className="mt-2 truncate text-[10px] font-semibold text-slate-400">
+                          {tarea.proyectoId
+                            ? `${tarea.proyectoId} · ${tarea.proyectoNombre ?? "Proyecto"}`
+                            : "Sin proyecto"}
+                        </p>
                       </button>
-                      {tarea.columna === "completado" ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : tarea.columna === "en-curso" ? (
-                        <Clock className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-slate-300" />
-                      )}
-                    </div>
 
-                    <select
-                      value={tarea.columna}
-                      onChange={(e) => void moverTarea(tarea.id, e.target.value as ColumnaTablero)}
-                      aria-label={`Mover ${tarea.titulo} de columna`}
-                      className="mt-2 w-full rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600 sm:hidden"
-                    >
-                      {COLUMNAS.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          Mover a: {c.titulo}
-                        </option>
-                      ))}
-                    </select>
-                  </article>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${cfg.badge}`}
+                        >
+                          {tarea.prioridad}
+                        </span>
+                        <span
+                          title={tituloFecha}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.fechaChip}`}
+                        >
+                          <CalendarDays className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            {fechaCorta(tarea.fechaLimite ?? "")}
+                            {mostrarAlerta ? ` · ${textoUrgencia(dias)}` : ""}
+                          </span>
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-2.5">
+                        <AvatarResponsable
+                          nombre={tarea.responsable}
+                          fotoUrl={tarea.responsableFoto}
+                        />
+                        <span className="truncate text-[11px] font-medium text-slate-500">
+                          {tarea.responsable}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDetalleAbierto(tarea.id)}
+                          title="Comentarios y adjuntos"
+                          className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-semibold text-slate-400 transition hover:bg-white hover:text-[#C2410C]"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          {tarea.comentarios}
+                          <Paperclip className="ml-1 h-3.5 w-3.5" />
+                          {tarea.adjuntos}
+                        </button>
+                        {tarea.columna === "completado" ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : tarea.columna === "en-curso" ? (
+                          <Clock className="h-4 w-4 text-blue-500" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-slate-300" />
+                        )}
+                      </div>
+
+                      {tarea.columna === "por-hacer" && esAsignado && (
+                        <button
+                          type="button"
+                          onClick={() => setDetalleAbierto(tarea.id)}
+                          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-blue-700"
+                        >
+                          Entendido, iniciar tarea
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+
+                      {tarea.columna === "en-curso" && esAsignado && (
+                        <button
+                          type="button"
+                          onClick={() => setDetalleAbierto(tarea.id)}
+                          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
+                        >
+                          Comentar avance y adjuntar evidencia
+                        </button>
+                      )}
+
+                      {tarea.columna === "en-revision" && esGestor && (
+                        <button
+                          type="button"
+                          onClick={() => setDetalleAbierto(tarea.id)}
+                          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#C2410C] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#9A3412]"
+                        >
+                          Revisar entrega
+                        </button>
+                      )}
+
+                      {tarea.columna === "por-hacer" && !tarea.responsableId && esGestor && (
+                        <button
+                          type="button"
+                          onClick={() => setDetalleAbierto(tarea.id)}
+                          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-[#EA580C] hover:text-[#C2410C]"
+                        >
+                          Asignar responsable
+                        </button>
+                      )}
+                    </article>
                   );
                 })}
 
                 {tareasColumna.length === 0 && (
                   <p className="rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-400">
-                    Suelta una tarea aquí
+                    No hay tareas en esta columna
                   </p>
                 )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setNueva((prev) => ({ ...prev, columna: columna.id }));
-                  setMostrarFormulario(true);
-                }}
-                className="m-3 mt-0 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-500 transition hover:border-[#EA580C] hover:text-[#C2410C]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar tarea
-              </button>
             </section>
           );
         })}
       </div>
 
       <p className="text-[11px] text-slate-400">
-        Las tareas se sincronizan con la base de datos institucional.
+        El flujo es condicional: la persona asignada confirma el inicio, entrega con comentario y
+        evidencia, y quien creó la tarea o lidera el proyecto aprueba o devuelve.
       </p>
 
       {mostrarFormulario && (
@@ -770,6 +771,48 @@ export function TablerosView() {
             </div>
 
             <form onSubmit={crearTarea} className="space-y-4 px-5 py-5">
+              {proyectos.length === 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+                  <p className="text-xs font-semibold text-amber-800">
+                    Primero debes registrar un proyecto.
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+                    Toda tarea debe quedar relacionada con un proyecto. Créalo en el módulo
+                    Proyectos y vuelve a intentarlo.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarFormulario(false);
+                      onNavigate("projects");
+                    }}
+                    className="mt-2 inline-flex items-center gap-1 rounded-lg bg-[#C2410C] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#9A3412]"
+                  >
+                    Ir a Proyectos
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label htmlFor="proyecto-tarea" className="text-xs font-semibold text-slate-700">
+                  Proyecto <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="proyecto-tarea"
+                  required
+                  value={nueva.proyectoId}
+                  onChange={(e) => setNueva((prev) => ({ ...prev, proyectoId: e.target.value }))}
+                  className={campoCls}
+                >
+                  <option value="">Selecciona un proyecto</option>
+                  {proyectos.map((proyecto) => (
+                    <option key={proyecto.id} value={proyecto.id}>
+                      {proyecto.id} · {proyecto.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-1.5">
                 <label htmlFor="titulo" className="text-xs font-semibold text-slate-700">
                   Título
@@ -819,7 +862,7 @@ export function TablerosView() {
                     ))}
                   </select>
                   <p className="text-[11px] text-slate-400">
-                    Aparecerá en “Mis tareas” y en el filtro por persona.
+                    Solo tú o el líder del proyecto pueden cambiarlo después.
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -869,28 +912,10 @@ export function TablerosView() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="columna" className="text-xs font-semibold text-slate-700">
-                  Columna
-                </label>
-                <select
-                  id="columna"
-                  value={nueva.columna}
-                  onChange={(e) =>
-                    setNueva((prev) => ({
-                      ...prev,
-                      columna: e.target.value as ColumnaTablero,
-                    }))
-                  }
-                  className={campoCls}
-                >
-                  {COLUMNAS.map((columna) => (
-                    <option key={columna.id} value={columna.id}>
-                      {columna.titulo}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+                La tarea inicia en “Por hacer”. La persona asignada deberá confirmar con
+                “Entendido” antes de pasar a “En curso”.
+              </p>
 
               <div className="flex flex-col-reverse justify-end gap-2 pt-1 sm:flex-row">
                 <button
@@ -902,8 +927,8 @@ export function TablerosView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={guardando}
-                  className="rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9A3412] disabled:opacity-60"
+                  disabled={guardando || proyectos.length === 0}
+                  className="rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {guardando ? "Guardando…" : "Crear tarea"}
                 </button>
@@ -913,13 +938,16 @@ export function TablerosView() {
         </div>
       )}
 
-      {tareaDetalle && tableroId && usuario && (
+      {tareaDetalle && tableroId && tablero && usuario && (
         <TareaDetalle
           tableroId={tableroId}
+          tablero={tablero}
           tarea={tareaDetalle}
           usuario={usuario}
+          usuariosAsignables={usuariosAsignables}
           onCerrar={cerrarDetalle}
           onContadores={actualizarContadores}
+          onTareaActualizada={actualizarTarea}
           onAviso={setAviso}
         />
       )}

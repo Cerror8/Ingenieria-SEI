@@ -1,6 +1,6 @@
 # Ingeniería SEI · Universidad CESMAG
 
-Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (administrador local o cuenta de Google) y, una vez dentro, se trabaja sobre los módulos de dashboard, tableros, calendario, proyectos, seguimiento, antecedentes, informes, documentos y usuarios.
+Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (administrador local o cuenta de Google) y, una vez dentro, se trabaja sobre los módulos de dashboard, mi tablero, tableros, calendario, proyectos, seguimiento, antecedentes, informes, documentos y usuarios.
 
 ## Stack
 
@@ -25,8 +25,9 @@ Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (ad
 │       │   ├── constants.ts Navegación y configuración visual
 │       │   ├── lib/        Utilidades de formato
 │       │   ├── features/
-│       │   │   ├── auth/         Login RAP-16
+│       │   │   ├── auth/         Login RAP-16 y solicitud de acceso
 │       │   │   ├── dashboard/    Panel general
+│       │   │   ├── mi-tablero/   Tablero personal por usuario
 │       │   │   ├── tableros/     Tablero de trabajo estilo Monday
 │       │   │   ├── projects/     Listado, creación y detalle de proyectos
 │       │   │   ├── calendario/   Agenda personal y fechas límite
@@ -132,6 +133,8 @@ Contraseña: Admin12345!
 
 > Cambia `ADMIN_EMAIL` y `ADMIN_PASSWORD` en `backend/.env` antes de desplegar.
 
+Las cuentas nuevas no se crean activas: quien se registra con correo y contraseña desde **Solicita acceso**, o entra por primera vez con Google, queda como **solicitud pendiente**. Un administrador la revisa en **Usuarios → Solicitudes pendientes**, elige el rol y la aprueba o la rechaza. Mientras esté pendiente, el ingreso responde `403`.
+
 ## Scripts
 
 | Comando (raíz) | Descripción |
@@ -148,16 +151,18 @@ Contraseña: Admin12345!
 ## Módulos
 
 - **Dashboard:** KPIs, estados, avances, ejecución presupuestal y alertas calculados desde la API.
-- **Tableros:** tablero estilo Monday con columnas, arrastrar y soltar desde una manija visible, alta, movimiento y eliminación de tareas persistidas en PostgreSQL. Cada tarea se asigna a una **persona real** registrada (avatar y nombre) o queda sin asignar, y el tablero muestra el trabajo de todo el equipo con filtros **Todas las personas / Mis tareas / Sin asignar / por persona**. La prioridad define el tono (alta = rojo, media = ámbar, baja = azul claro) y la intensidad aumenta al acercarse la fecha límite: vencida, crítica (≤2 días), próxima (≤7 días), lejana y sin fecha. Las tarjetas vencidas o por vencer muestran además el aviso de días restantes. Si la base está vacía, permite crear el primer tablero. En móvil el movimiento se hace desde un selector por tarjeta.
-- **Seguimiento del tablero:** arriba de las columnas se muestra el avance general (porcentaje y conteo por columna), el avance por persona (tareas asignadas y completadas) y el ritmo semanal (tareas completadas en los últimos 7 días, usando la fecha real de finalización). Al mover una tarea a **Completado** se registra su fecha y, si se reabre, se limpia.
-- **Detalle de tarea:** al abrir una tarjeta se muestra su ficha con prioridad, fecha límite, responsable, descripción, **comentarios** y **archivos adjuntos** (PDF, Word, Excel, PowerPoint, imágenes o texto hasta 20 MB). Los comentarios y adjuntos se guardan en PostgreSQL y los archivos en `backend/uploads/tareas/`; abrir o descargar exige sesión activa. Las tarjetas muestran el número de comentarios y adjuntos.
-- **Usuarios:** módulo exclusivo del rol `admin`. Lista todas las cuentas con su proveedor (local o Google), rol, estado activo/inactivo, último acceso y avance de tareas asignadas/completadas. Permite crear cuentas locales con contraseña, cambiar el rol (`admin`, `docente`, `estudiante`, `usuario`) y activar o desactivar cuentas. El sistema impide que un administrador se quite a sí mismo el rol o se desactive, y que se elimine el último administrador activo.
-- **Proyectos:** listado y detalle alimentados por la API; creación guiada de cinco pasos que registra el proyecto y vuelve a abrir su detalle.
+- **Mi tablero:** espacio personal y privado de cada usuario. Reúne en un solo lugar todas las tareas de los tableros de proyecto donde la persona está asignada, sin duplicarlas ni modificarlas: al abrir una tarjeta se usa el mismo detalle y flujo condicional del tablero de origen. Debajo, cada usuario gestiona sus **tareas personales** independientes (título, descripción, prioridad, etiqueta y fecha límite) en tres columnas: **Por hacer**, **En curso** y **Completado**. Solo el dueño ve y edita sus tareas personales; si tienen fecha límite aparecen automáticamente en su **calendario personal**. Incluye resumen de tareas de proyecto, personales y vencidas.
+- **Tableros:** tablero estilo Monday con columnas y tareas persistidas en PostgreSQL. El botón **Nueva tarea** existe solo en la cabecera del tablero; cada tarea debe pertenecer a un **proyecto** y se crea siempre en **Por hacer**. La persona que crea la tarea o lidera el proyecto es quien asigna o reasigna al responsable; el resto de usuarios no puede hacerlo. Cada tarea se asigna a una **persona real** registrada (avatar y nombre) o queda sin asignar, y el tablero se filtra por **Todas las personas / Mis tareas / Sin asignar / por persona**. La prioridad define el tono (alta = rojo, media = ámbar, baja = azul claro) y la intensidad aumenta al acercarse la fecha límite: vencida, crítica (≤2 días), próxima (≤7 días), lejana y sin fecha. Las tarjetas vencidas o por vencer muestran además el aviso de días restantes. Si la base está vacía, permite crear el primer tablero.
+- **Flujo condicional de tareas:** el avance no es libre. La persona asignada pulsa **Entendido, iniciar tarea** (solo visible para ella) para pasar de **Por hacer** a **En curso**. Para pasar de **En curso** a **En revisión** debe publicar un comentario de lo realizado y subir al menos una evidencia o documento, ambos de su autoría. Quien creó la tarea, lidera el proyecto o administra el sistema puede **Aprobar y completar** (pasa a **Completado** y registra la fecha) o **Devolver con correcciones** (vuelve a **En curso** con el motivo como comentario y exige nueva evidencia). Las tarjetas muestran solo las acciones que corresponden a cada rol.
+- **Seguimiento del tablero:** arriba de las columnas se muestra el avance general (porcentaje y conteo por columna), el avance por persona (tareas asignadas y completadas) y el ritmo semanal (tareas completadas en los últimos 7 días, usando la fecha real de finalización). Al aprobar una tarea se registra su fecha de finalización.
+- **Detalle de tarea:** al abrir una tarjeta se muestra su ficha con proyecto, creador, líder del proyecto, líder del tablero, prioridad, fecha límite, responsable, descripción, **comentarios** y **archivos adjuntos** (PDF, Word, Excel, PowerPoint, imágenes o texto hasta 20 MB). Incluye el panel de flujo con las acciones disponibles y el estado de los requisitos de entrega. Los comentarios y adjuntos se guardan en PostgreSQL y los archivos en `backend/uploads/tareas/`; abrir o descargar exige sesión activa.
+- **Usuarios:** módulo exclusivo del rol `admin`. Incluye una bandeja de **solicitudes pendientes** para cuentas creadas con el formulario de registro o con Google que aún no fueron aprobadas: el administrador elige el rol y aprueba o rechaza cada solicitud. La tabla principal lista las cuentas con proveedor (local o Google), rol, estado activo/inactivo, último acceso y avance de tareas. Permite crear cuentas locales con contraseña, cambiar el rol (`admin`, `docente`, `estudiante`, `usuario`) y activar o desactivar cuentas. El sistema impide que un administrador se quite a sí mismo el rol o se desactive, y que se elimine el último administrador activo.
+- **Proyectos:** listado y detalle alimentados por la API; creación guiada de cinco pasos que registra el proyecto, permite elegir un **líder del proyecto** y vuelve a abrir su detalle. El líder puede asignar tareas del proyecto y aprobar o devolver sus entregas.
 - **Seguimiento:** tarjetas de avance técnico y presupuestal por proyecto activo.
 - **Antecedentes:** proyectos finalizados agrupados por línea y documentos del repositorio con búsqueda y filtros.
 - **Informes:** generación mediante el modal de informe (queda registrada en la base) e historial de informes desde la API.
 - **Documentos:** repositorio documental con filtros por categoría y carga real de archivos (PDF, Word, Excel, PowerPoint, imágenes y texto hasta 20 MB). Los archivos se guardan en `backend/uploads/` y los metadatos en PostgreSQL; ver y descargar exige sesión activa.
-- **Calendario:** mes navegable que muestra las fechas límite de las tareas y la agenda personal de cada usuario (reuniones y eventos propios, de día completo o con horario). Permite crear, editar y eliminar eventos (doble clic en un día abre el formulario); las tareas se consultan pero no se modifican desde aquí.
+- **Calendario:** mes navegable que muestra las fechas límite de las tareas de proyecto asignadas, las **tareas personales** con fecha y la agenda personal de cada usuario (reuniones y eventos propios, de día completo o con horario). Permite crear, editar y eliminar eventos (doble clic en un día abre el formulario); las tareas se consultan pero no se modifican desde aquí.
 - **Perfil y notificaciones:** menú de usuario con acceso al perfil (nombre y foto personalizables, conservados aunque se vuelva a entrar con Google) y cierre de sesión. La campana lista las tareas vencidas o que vencen en los próximos 7 días, ordenadas por fecha y prioridad: cada persona ve **sus tareas asignadas** y el administrador ve las de **todo el equipo**.
 
 La interfaz es responsiva: debajo de `lg` la barra lateral se abre como panel deslizante con botón hamburguesa y, en escritorio, se puede retraer a solo iconos con el botón de la cabecera (el estado se recuerda en el navegador). Las tablas se desplazan horizontalmente y los formularios pasan a una columna.
@@ -168,9 +173,10 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/api/auth/login` | Acceso local de administrador |
+| `POST` | `/api/auth/login` | Acceso local |
+| `POST` | `/api/auth/registro` | Solicitud de acceso con correo y contraseña (queda pendiente de aprobación) |
 | `GET` | `/api/auth/google` | Inicia OAuth con Google |
-| `GET` | `/api/auth/google/callback` | Retorno de Google |
+| `GET` | `/api/auth/google/callback` | Retorno de Google; las cuentas desconocidas quedan pendientes |
 | `GET` | `/api/auth/me` | Usuario de la sesión |
 | `PATCH` | `/api/auth/me` | Actualiza nombre y foto del perfil |
 | `POST` | `/api/auth/logout` | Cierra la sesión |
@@ -186,8 +192,16 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `GET` | `/api/auditoria` | Bitácora (filtro `?registro=`) |
 | `GET` | `/api/tableros` · `GET /api/tableros/:id` | Tableros y tareas |
 | `POST` | `/api/tableros` | Crea un tablero |
-| `POST` | `/api/tableros/:id/tareas` | Crea una tarea |
-| `PATCH` | `/api/tableros/:id/tareas/:tareaId` | Mueve o edita una tarea |
+| `GET` | `/api/mi-tablero` | Tareas de proyecto asignadas al usuario y sus tareas personales |
+| `POST` | `/api/mi-tablero/personales` | Crea una tarea personal del usuario |
+| `PATCH` | `/api/mi-tablero/personales/:id` | Edita o cambia de columna una tarea personal propia |
+| `DELETE` | `/api/mi-tablero/personales/:id` | Elimina una tarea personal propia |
+| `POST` | `/api/tableros/:id/tareas` | Crea una tarea ligada a un proyecto |
+| `PATCH` | `/api/tableros/:id/tareas/:tareaId` | Edita campos o asigna responsable (creador, líder o **admin**) |
+| `POST` | `/api/tableros/:id/tareas/:tareaId/entendido` | El asignado pasa la tarea a **En curso** |
+| `POST` | `/api/tableros/:id/tareas/:tareaId/enviar-revision` | El asignado envía a revisión con comentario y evidencia |
+| `POST` | `/api/tableros/:id/tareas/:tareaId/aprobar` | El gestor aprueba y completa la tarea |
+| `POST` | `/api/tableros/:id/tareas/:tareaId/devolver` | El gestor devuelve con correcciones a **En curso** |
 | `DELETE` | `/api/tableros/:id/tareas/:tareaId` | Elimina una tarea (**admin** o **docente**) |
 | `GET` · `POST` | `/api/tableros/:id/tareas/:tareaId/comentarios` | Lista y publica comentarios |
 | `DELETE` | `/api/tableros/:id/tareas/:tareaId/comentarios/:comentarioId` | Elimina un comentario (autor o **admin**) |
@@ -203,28 +217,37 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `GET` | `/api/usuarios` | **admin** · Listado con rol, estado y conteo de tareas |
 | `POST` | `/api/usuarios` | **admin** · Crea una cuenta local |
 | `PATCH` | `/api/usuarios/:id` | **admin** · Actualiza nombre, rol o estado activo |
+| `POST` | `/api/usuarios/:id/aprobar` | **admin** · Aprueba una solicitud y asigna el rol |
+| `DELETE` | `/api/usuarios/:id/solicitud` | **admin** · Rechaza y elimina una solicitud pendiente |
 
 Los errores se devuelven como `{ "error": "mensaje" }`; los fallos de validación con zod añaden `detalles` por campo. Cuerpos principales:
 
 - `POST /api/auth/login`: `{ "email", "password" }`.
+- `POST /api/auth/registro`: `{ "email", "nombre", "password" }` (contraseña de 8 a 72 caracteres). Crea la solicitud inactiva y pendiente.
 - `PATCH /api/auth/me`: `{ "nombre": "…", "fotoUrl": "https://…" | null }`.
 - `POST /api/documentos` (`multipart/form-data`): campos `proyectoId`, `tipo`, `nombre`, `version`, `estado` y archivo `archivo`.
 - `POST /api/tableros`: `{ "nombre", "descripcion" }`.
-- `POST /api/tableros/:id/tareas`: `{ "titulo", "descripcion", "columna", "responsableId": "uuid" | null, "prioridad", "fechaLimite", "etiqueta" }`. `responsableId` debe ser un usuario activo; al asignarlo, el nombre mostrado se toma de la cuenta.
-- `PATCH /api/tableros/:id/tareas/:tareaId`: acepta los mismos campos, incluido `responsableId` (`null` para dejar la tarea sin asignar).
+- `POST /api/tableros/:id/tareas`: `{ "titulo", "descripcion", "proyectoId", "responsableId": "uuid" | null, "prioridad", "fechaLimite", "etiqueta" }`. `proyectoId` es obligatorio; la tarea siempre nace en **Por hacer**. `responsableId` debe ser un usuario activo; al asignarlo, el nombre mostrado se toma de la cuenta.
+- `POST /api/mi-tablero/personales`: `{ "titulo", "descripcion", "prioridad", "fechaLimite", "etiqueta", "columna"? }`. La tarea queda asociada al usuario de la sesión; `columna` solo admite `por-hacer`, `en-curso` o `completado`.
+- `PATCH /api/mi-tablero/personales/:id`: acepta los mismos campos que la creación; al pasar a `completado` se registra la fecha de finalización y al reabrirla se limpia. Solo el dueño puede modificarla o eliminarla.
+- `PATCH /api/tableros/:id/tareas/:tareaId`: acepta `titulo`, `descripcion`, `prioridad`, `fechaLimite`, `etiqueta` y `responsableId` (`null` para dejar sin asignar). Solo el creador de la tarea, el líder del proyecto o un **admin** pueden cambiar el responsable; la API responde `403` al resto. No permite cambiar `columna`: el avance pasa por los endpoints de flujo.
+- `POST …/aprobar` y `POST …/devolver`: sin cuerpo el primero; el segundo recibe `{ "motivo": "…" }`. Solo el creador, el líder del proyecto, el líder del tablero o un **admin** pueden aprobar o devolver.
 - `POST /api/tableros/:id/tareas/:tareaId/comentarios`: `{ "contenido": "…" }` (máximo 2000 caracteres).
 - `POST /api/tableros/:id/tareas/:tareaId/adjuntos` (`multipart/form-data`): campo `archivo` con un único archivo de hasta 20 MB.
 - `POST`/`PATCH /api/calendario/eventos`: `{ "titulo", "descripcion", "fechaInicio", "fechaFin", "todoElDia" }`, con fechas en ISO 8601.
 - `POST /api/usuarios`: `{ "email", "nombre", "rol", "password" }` (contraseña de 8 a 72 caracteres, hash bcrypt de 12 rondas).
 - `PATCH /api/usuarios/:id`: `{ "nombre"?, "rol"?, "activo"? }`.
+- `POST /api/usuarios/:id/aprobar`: `{ "rol"?: "usuario" }`; activa la cuenta y limpia la marca de pendiente.
 
 ## Autenticación
 
 - **Administrador local:** correo y contraseña con hash bcrypt (12 rondas), definidos por variables de entorno.
-- **Cuentas de Google:** inicio de sesión con Google; la cuenta se crea automáticamente en el primer acceso con rol `usuario`. Por ahora se acepta cualquier cuenta; para restringir, asigna un dominio en `ALLOWED_DOMAIN`.
-- **Roles:** `admin`, `docente`, `estudiante` y `usuario`. Solo `admin` ve y usa el módulo **Usuarios** y las rutas `/api/usuarios` de administración; el resto recibe `403`. Cualquier usuario autenticado puede consultar `/api/usuarios/asignables` para asignar tareas.
-- **Colaboración:** cualquier sesión puede crear tareas, comentar y adjuntar archivos. Solo `admin` y `docente` pueden eliminar tareas; cada comentario o adjunto solo lo puede borrar quien lo subió o un `admin`.
-- Las cuentas desactivadas no pueden iniciar sesión.
+- **Registro con correo:** formulario público en `/registro`. La cuenta se crea inactiva y marcada como pendiente; no puede iniciar sesión hasta que un administrador la apruebe y le asigne un rol.
+- **Cuentas de Google:** inicio de sesión con Google. Si el correo ya fue aprobado, entra con su rol; si es desconocido, se crea como solicitud pendiente y Google lo devuelve al login con el aviso correspondiente. Por ahora se acepta cualquier cuenta; para restringir, asigna un dominio en `ALLOWED_DOMAIN`.
+- **Roles:** `admin`, `docente`, `estudiante` y `usuario`. Solo `admin` ve y usa el módulo **Usuarios** y las rutas de administración; el resto recibe `403`.
+- **Colaboración:** cualquier sesión puede crear tareas y comentar o adjuntar en las tareas que tenga permitidas. Solo el creador de la tarea, el líder del proyecto, el líder del tablero o un `admin` pueden asignar responsable y aprobar o devolver; solo el asignado puede pulsar **Entendido** y enviar a revisión. Solo `admin` y `docente` pueden eliminar tareas; cada comentario o adjunto solo lo puede borrar quien lo subió o un `admin`.
+- Las cuentas desactivadas o pendientes no pueden iniciar sesión.
+- La pantalla de login y registro usa un monograma **SEI** provisional sobre la paleta naranja/gris/blanco del sistema, a la espera de la imagen institucional definitiva.
 - La sesión viaja en una cookie `httpOnly` `rap_sid`; solo se guarda el hash SHA-256 del token en la tabla `sesiones`.
 
 Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
@@ -233,10 +256,13 @@ Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_
 
 - Login RAP-16 probado de extremo a extremo: acceso local, sesión, rutas protegidas y cierre de sesión.
 - Dominio modelado en PostgreSQL, **sin datos de ejemplo**: se llenará con los documentos institucionales nuevos.
-- Dashboard, tableros, proyectos, seguimiento, antecedentes, informes, documentos, calendario, usuarios y perfil conectados a la API, con estados vacíos.
+- Dashboard, mi tablero, tableros, proyectos, seguimiento, antecedentes, informes, documentos, calendario, usuarios y perfil conectados a la API, con estados vacíos.
 - Administración de usuarios probada de extremo a extremo: alta local, cambio de rol, activación/desactivación, protección del último administrador y respuesta `403` para no administradores.
 - Asignación real de tareas probada: creación con responsable, avatares, filtros por persona y edición desde la API.
 - Seguimiento progresivo probado: fecha de finalización al mover a **Completado**, porcentaje general, avance por persona y ritmo semanal.
+- Mi tablero probado de extremo a extremo: agrega las tareas de proyecto del usuario, permite crear, editar, completar, reabrir y eliminar tareas personales, y aísla los datos entre cuentas (otra persona recibe `404` al intentar modificarlas).
+- Registro y aprobación probados de extremo a extremo: alta pendiente, bloqueo de login `403`, aprobación con rol, rechazo y acceso posterior.
+- Flujo condicional probado de extremo a extremo: solo el asignado confirma **Entendido**; el envío a revisión exige comentario y evidencia del asignado; solo el gestor aprueba o devuelve; tras una devolución se exige evidencia nueva.
 - Comentarios y adjuntos probados de extremo a extremo: publicación y borrado, subida, descarga con sesión, límites de formato y tamaño, y permisos por autor/rol.
 - Notificaciones de tareas próximas a vencer y calendario personal probados de extremo a extremo (alta, edición y eliminación de eventos).
 - Interfaz responsiva con barra lateral desplegable en móvil y retráctil en escritorio.

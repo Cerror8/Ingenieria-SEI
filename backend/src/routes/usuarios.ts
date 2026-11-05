@@ -23,6 +23,7 @@ const actualizarSchema = z.object({
 
 const CAMPOS_USUARIO = `
   u.id, u.email, u.nombre, u.foto_url AS "fotoUrl", u.proveedor, u.rol, u.activo,
+  u.pendiente_aprobacion AS "pendienteAprobacion",
   u.ultimo_acceso AS "ultimoAcceso", u.creado_en AS "creadoEn"
 `;
 
@@ -34,6 +35,7 @@ type UsuarioFila = {
   proveedor: string;
   rol: string;
   activo: boolean;
+  pendienteAprobacion: boolean;
 };
 
 export const usuarios = Router();
@@ -64,7 +66,7 @@ usuarios.get(
          FROM usuarios u
          LEFT JOIN tareas_tablero t ON t.responsable_id = u.id
         GROUP BY u.id
-        ORDER BY u.rol, u.nombre`,
+        ORDER BY u.pendiente_aprobacion DESC, u.rol, u.nombre`,
     );
     res.json({ usuarios: rows });
   }),
@@ -82,6 +84,7 @@ usuarios.post(
       `INSERT INTO usuarios (email, nombre, proveedor, password_hash, rol)
        VALUES ($1, $2, 'local', $3, $4)
        RETURNING id, email, nombre, foto_url AS "fotoUrl", proveedor, rol, activo,
+                 pendiente_aprobacion AS "pendienteAprobacion",
                  ultimo_acceso AS "ultimoAcceso", creado_en AS "creadoEn"`,
       [email, datos.nombre, passwordHash, datos.rol],
     ).catch((e: { code?: string }) => {
@@ -144,9 +147,11 @@ usuarios.patch(
       `UPDATE usuarios
           SET nombre = COALESCE($2, nombre),
               rol = COALESCE($3, rol),
-              activo = COALESCE($4, activo)
+              activo = COALESCE($4, activo),
+              pendiente_aprobacion = CASE WHEN $4::boolean THEN false ELSE pendiente_aprobacion END
         WHERE id = $1
         RETURNING id, email, nombre, foto_url AS "fotoUrl", proveedor, rol, activo,
+                  pendiente_aprobacion AS "pendienteAprobacion",
                   ultimo_acceso AS "ultimoAcceso", creado_en AS "creadoEn"`,
       [id, datos.nombre ?? null, datos.rol ?? null, datos.activo ?? null],
     );
@@ -161,5 +166,76 @@ usuarios.patch(
     });
 
     res.json({ usuario: rows[0] });
+  }),
+);
+
+const aprobarSchema = z.object({
+  rol: z.enum(ROLES).optional().default("usuario"),
+});
+
+usuarios.post(
+  "/:id/aprobar",
+  ah(async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    const datos = aprobarSchema.parse(req.body ?? {});
+    const actor = res.locals.usuario as UsuarioSesion;
+
+    const { rows: solicitudes } = await pool.query<UsuarioFila>(
+      `SELECT id, email, nombre, foto_url AS "fotoUrl", proveedor, rol, activo,
+              pendiente_aprobacion AS "pendienteAprobacion"
+         FROM usuarios
+        WHERE id = $1 AND pendiente_aprobacion = true`,
+      [id],
+    );
+    const solicitud = solicitudes[0];
+    if (!solicitud) throw new HttpError(404, "No hay una solicitud pendiente para ese usuario.");
+
+    const { rows } = await pool.query<UsuarioFila>(
+      `UPDATE usuarios
+          SET activo = true, pendiente_aprobacion = false, rol = $2
+        WHERE id = $1
+        RETURNING id, email, nombre, foto_url AS "fotoUrl", proveedor, rol, activo,
+                  pendiente_aprobacion AS "pendienteAprobacion",
+                  ultimo_acceso AS "ultimoAcceso", creado_en AS "creadoEn"`,
+      [id, datos.rol],
+    );
+
+    await registrarAuditoria({
+      usuario: actor.nombre,
+      accion: "Aprobación",
+      entidad: "Usuario",
+      registro: solicitud.nombre,
+      previo: "Solicitud pendiente",
+      nuevo: `Acceso activo · Rol: ${datos.rol}`,
+    });
+
+    res.json({ usuario: { ...rows[0], tareasAsignadas: 0, tareasCompletadas: 0 } });
+  }),
+);
+
+usuarios.delete(
+  "/:id/solicitud",
+  ah(async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    const actor = res.locals.usuario as UsuarioSesion;
+
+    const { rows } = await pool.query<{ nombre: string; email: string }>(
+      `DELETE FROM usuarios
+        WHERE id = $1 AND pendiente_aprobacion = true
+        RETURNING nombre, email`,
+      [id],
+    );
+    if (!rows[0]) throw new HttpError(404, "No hay una solicitud pendiente para ese usuario.");
+
+    await registrarAuditoria({
+      usuario: actor.nombre,
+      accion: "Rechazo",
+      entidad: "Usuario",
+      registro: rows[0].nombre,
+      previo: `Solicitud de ${rows[0].email}`,
+      nuevo: "Solicitud rechazada",
+    });
+
+    res.json({ ok: true });
   }),
 );

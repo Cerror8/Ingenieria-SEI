@@ -68,7 +68,7 @@ Los scripts de `database/init/` solo se ejecutan cuando el volumen está vacío.
 docker exec -i sei_rap_db psql -U sei -d sei_rap -v ON_ERROR_STOP=1 < database/init/02_dominio.sql
 ```
 
-En `02_dominio.sql` las tablas e índices usan `IF NOT EXISTS`, pero los triggers no. Para reaplicar el script sobre un volumen existente, elimina antes todos los triggers que define (`proyectos_touch`, `indicadores_touch`, `documentos_touch`, `actividades_touch`, `tableros_touch`, `tareas_tablero_touch`, `eventos_calendario_touch`) o envuelve cada `CREATE TRIGGER` en un bloque condicional.
+En `02_dominio.sql` las tablas e índices usan `IF NOT EXISTS`, pero los triggers no. Para reaplicar el script sobre un volumen existente, elimina antes todos los triggers que define (`proyectos_touch`, `indicadores_touch`, `documentos_touch`, `actividades_touch`, `tableros_touch`, `tareas_tablero_touch`, `tareas_personales_touch`, `eventos_calendario_touch`) o envuelve cada `CREATE TRIGGER` en un bloque condicional.
 
 ## Esquema `app`
 
@@ -87,15 +87,19 @@ En `02_dominio.sql` las tablas e índices usan `IF NOT EXISTS`, pero los trigger
 | `password_hash` | `TEXT` | Obligatorio si `proveedor = 'local'` |
 | `rol` | `TEXT` | `admin`, `docente`, `estudiante` o `usuario` |
 | `activo` | `BOOLEAN` | Desactiva el acceso sin borrar el registro |
+| `pendiente_aprobacion` | `BOOLEAN` | `true` mientras la cuenta espera aprobación de un administrador |
 | `ultimo_acceso` | `TIMESTAMPTZ` | Se actualiza en cada login |
 | `perfil_editado` | `BOOLEAN` | Si es `true`, un nuevo login con Google no sobrescribe nombre ni foto |
 | `creado_en` / `actualizado_en` | `TIMESTAMPTZ` | `actualizado_en` se mantiene con trigger |
 
-La columna `perfil_editado` se añadió sobre el volumen existente con:
+Las solicitudes creadas con el formulario de registro o con un correo de Google desconocido se guardan con `activo = false` y `pendiente_aprobacion = true`. Al aprobarlas, la API las activa, limpia la marca y asigna el rol elegido; al rechazarlas, borra el registro.
+
+Las columnas `perfil_editado` y `pendiente_aprobacion` se añadieron sobre el volumen existente con:
 
 ```sql
 ALTER TABLE app.usuarios
-  ADD COLUMN IF NOT EXISTS perfil_editado BOOLEAN NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS perfil_editado BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS pendiente_aprobacion BOOLEAN NOT NULL DEFAULT false;
 ```
 
 Índices: `ux_usuarios_email` sobre `lower(email)` y `ix_usuarios_rol`.
@@ -117,6 +121,14 @@ ALTER TABLE app.usuarios
 #### `app.proyectos`
 
 Clave `TEXT` (código `PRY-XXXX-XXX`). Almacena `nombre`, `linea`, `responsable`, `dependencia`, `objetivo`, `estado` (`En formulación`, `En ejecución`, `Suspendido`, `Finalizado`, `Cerrado`), `avance` y `ejecucion_pct` (0–100), `presupuesto`, `fecha_inicio`/`fecha_fin`, `dias_restantes` y marcas de tiempo. Índices por `estado` y `linea`.
+
+`lider_id` (FK a `usuarios`, `ON DELETE SET NULL`) identifica al líder del proyecto. Esa persona, además del creador de la tarea y los administradores, puede asignar responsables y aprobar o devolver entregas de las tareas del proyecto. Se añadió con:
+
+```sql
+ALTER TABLE app.proyectos
+  ADD COLUMN IF NOT EXISTS lider_id UUID REFERENCES app.usuarios(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_proyectos_lider ON app.proyectos (lider_id);
+```
 
 #### `app.indicadores`
 
@@ -157,7 +169,7 @@ Cronograma tipo Gantt por proyecto: `nombre`, `responsable`, `mes_inicio`/`mes_f
 
 #### `app.auditoria`
 
-Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y `valor_nuevo`. Se escribe desde la API al crear proyectos, documentos y tableros; al crear, mover, editar o eliminar tareas; al subir o eliminar adjuntos de tareas; al crear, editar o eliminar eventos de calendario; y al crear o actualizar usuarios.
+Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y `valor_nuevo`. Se escribe desde la API al crear proyectos, documentos y tableros; al crear, editar o eliminar tareas; al confirmar **Entendido**, enviar a revisión, aprobar o devolver una tarea; al asignar responsables; al subir o eliminar adjuntos; al crear, editar o eliminar eventos de calendario; y al registrar, aprobar, rechazar o actualizar usuarios.
 
 ### Tableros estilo Monday
 
@@ -167,20 +179,35 @@ Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y
 
 #### `app.tareas_tablero`
 
-`id` UUID, `tablero_id` (FK con `ON DELETE CASCADE`), `titulo`, `descripcion`, `columna` (`por-hacer`, `en-curso`, `en-revision`, `completado`), `responsable` (nombre visible), `responsable_id` (FK a `usuarios`, `ON DELETE SET NULL`), `prioridad` (`Alta`, `Media`, `Baja`), `fecha_limite`, `etiqueta`, `orden` y `completado_en`. Índice compuesto `(tablero_id, columna, orden)`, índice `ix_tareas_tablero_responsable` sobre `responsable_id` e índice `ix_tareas_tablero_completado` sobre `completado_en`.
+`id` UUID, `tablero_id` (FK con `ON DELETE CASCADE`), `proyecto_id` (FK a `proyectos`, `ON DELETE SET NULL`), `creado_por` (FK a `usuarios`, `SET NULL`), `titulo`, `descripcion`, `columna` (`por-hacer`, `en-curso`, `en-revision`, `completado`), `responsable` (nombre visible), `responsable_id` (FK a `usuarios`, `ON DELETE SET NULL`), `prioridad` (`Alta`, `Media`, `Baja`), `fecha_limite`, `etiqueta`, `orden`, `completado_en` y `ultima_devolucion_en`. Índice compuesto `(tablero_id, columna, orden)` e índices sobre `proyecto_id`, `responsable_id`, `completado_en` y `creado_por`.
 
-`responsable_id` permite asignar la tarea a una cuenta real del sistema; `responsable` conserva el nombre para mostrar y se rellena desde la cuenta al asignarla. Si la cuenta se elimina, la tarea queda sin asignar (`SET NULL`) pero conserva el texto. `completado_en` se llena automáticamente cuando la tarea pasa a la columna `completado` y se limpia si se reabre; con esa fecha se calcula el ritmo semanal y el avance por persona. Las columnas se añadieron sobre el volumen existente con:
+Reglas del flujo condicional:
+
+- `proyecto_id` es obligatorio al crear una tarea y la tarea siempre nace en `por-hacer`.
+- `creado_por` guarda quién la creó; junto con el líder del proyecto, el líder del tablero y los administradores forma el conjunto de **gestores** que pueden asignar, aprobar o devolver.
+- `responsable_id` permite asignar la tarea a una cuenta real; `responsable` conserva el nombre para mostrar. Si la cuenta se elimina, la tarea queda sin asignar (`SET NULL`) pero conserva el texto.
+- `completado_en` se llena al aprobar y se limpia si la tarea vuelve a abrirse; con esa fecha se calcula el ritmo semanal y el avance por persona.
+- `ultima_devolucion_en` se actualiza cada vez que un gestor devuelve la tarea. El envío a revisión solo cuenta comentarios y adjuntos de la persona asignada creados **después** de esa marca, de modo que una devolución obliga a subir evidencia nueva.
+
+Las columnas se añadieron sobre el volumen existente con:
 
 ```sql
 ALTER TABLE app.tareas_tablero
   ADD COLUMN IF NOT EXISTS responsable_id UUID REFERENCES app.usuarios(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS completado_en TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS completado_en TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS proyecto_id UUID REFERENCES app.proyectos(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS creado_por UUID REFERENCES app.usuarios(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS ultima_devolucion_en TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_responsable ON tareas_tablero (responsable_id);
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_proyecto ON tareas_tablero (proyecto_id);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_creado_por ON tareas_tablero (creado_por);
 UPDATE app.tareas_tablero
    SET completado_en = actualizado_en
  WHERE columna = 'completado' AND completado_en IS NULL;
 ```
+
+Las tareas anteriores a esta migración pueden quedar con `proyecto_id` y `creado_por` en `NULL`; la API y la interfaz las muestran como **Sin proyecto** y solo los administradores pueden gestionarlas.
 
 #### `app.comentarios_tarea`
 
@@ -194,13 +221,61 @@ Los archivos físicos viven en `backend/uploads/tareas/` (ignorado por Git); la 
 
 #### Administración de usuarios
 
-No requiere tablas nuevas: el módulo **Usuarios** opera sobre `app.usuarios` (`nombre`, `rol`, `activo`, `password_hash`). La API impide que un administrador se quite a sí mismo el rol o se desactive y que desaparezca el último administrador activo; cada alta o cambio queda registrado en `app.auditoria` con entidad `Usuario`. Los usuarios activos alimentan el selector de responsables de los tableros.
+No requiere tablas nuevas: el módulo **Usuarios** opera sobre `app.usuarios` (`nombre`, `rol`, `activo`, `pendiente_aprobacion`, `password_hash`). Las solicitudes pendientes se listan y se resuelven con `POST /api/usuarios/:id/aprobar` (activa y asigna rol) o `DELETE /api/usuarios/:id/solicitud` (rechaza y elimina). La API impide que un administrador se quite a sí mismo el rol o se desactive y que desaparezca el último administrador activo; cada alta, aprobación, rechazo o cambio queda registrado en `app.auditoria` con entidad `Usuario`. Solo los usuarios activos alimentan el selector de responsables de los tableros.
+
+### Mi tablero personal
+
+El tablero personal no duplica las tareas de proyecto: las consulta desde `app.tareas_tablero` filtrando por `responsable_id = usuario de la sesión`. Las tareas propias y privadas viven en una tabla aparte.
+
+#### `app.tareas_personales`
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | `UUID` | PK, `gen_random_uuid()` |
+| `usuario_id` | `UUID` | FK a `usuarios`, `ON DELETE CASCADE`; solo el dueño ve y edita la tarea |
+| `titulo` | `TEXT` | Obligatorio |
+| `descripcion` | `TEXT` | Texto libre, por defecto vacío |
+| `columna` | `TEXT` | `por-hacer`, `en-curso` o `completado` |
+| `prioridad` | `TEXT` | `Alta`, `Media` o `Baja` |
+| `fecha_limite` | `DATE` | Opcional; si existe, la tarea aparece en el calendario personal |
+| `etiqueta` | `TEXT` | Por defecto `Personal` |
+| `orden` | `INTEGER` | Orden dentro de la columna del usuario |
+| `completado_en` | `TIMESTAMPTZ` | Se llena al pasar a `completado` y se limpia al reabrir |
+| `creado_en` / `actualizado_en` | `TIMESTAMPTZ` | `actualizado_en` se mantiene con trigger |
+
+Índice `ix_tareas_personales_usuario` sobre `(usuario_id, columna, fecha_limite)`. La API de `/api/mi-tablero` exige sesión activa y limita cada operación al usuario dueño (`WHERE usuario_id = $1`): modificar o eliminar una tarea ajena responde `404`. Cada alta, cambio de columna, edición o eliminación se registra en `app.auditoria` con entidad `Tarea personal`.
+
+DDL para aplicar sobre un volumen existente:
+
+```sql
+CREATE TABLE IF NOT EXISTS app.tareas_personales (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id     UUID NOT NULL REFERENCES app.usuarios(id) ON DELETE CASCADE,
+  titulo         TEXT NOT NULL,
+  descripcion    TEXT NOT NULL DEFAULT '',
+  columna        TEXT NOT NULL DEFAULT 'por-hacer'
+                 CHECK (columna IN ('por-hacer', 'en-curso', 'completado')),
+  prioridad      TEXT NOT NULL DEFAULT 'Media' CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
+  fecha_limite   DATE,
+  etiqueta       TEXT NOT NULL DEFAULT 'Personal',
+  orden          INTEGER NOT NULL DEFAULT 0,
+  completado_en  TIMESTAMPTZ,
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_tareas_personales_usuario
+  ON app.tareas_personales (usuario_id, columna, fecha_limite);
+DROP TRIGGER IF EXISTS tareas_personales_touch ON app.tareas_personales;
+CREATE TRIGGER tareas_personales_touch
+BEFORE UPDATE ON app.tareas_personales
+FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+```
 
 ### Calendario personal
 
 #### `app.eventos_calendario`
 
-Eventos y reuniones propios de cada usuario. Las tareas no se duplican aquí: el calendario las lee de `tareas_tablero` por `fecha_limite`.
+Eventos y reuniones propios de cada usuario. Las tareas no se duplican aquí: el calendario lee de `tareas_tablero` las tareas asignadas al usuario con `fecha_limite` en el rango y de `tareas_personales` sus tareas propias con fecha. Las primeras se etiquetan con su tablero de origen y las segundas con **Mi tablero personal**.
 
 | Columna | Tipo | Notas |
 |---------|------|-------|

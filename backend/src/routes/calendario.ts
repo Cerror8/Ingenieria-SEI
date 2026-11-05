@@ -40,8 +40,8 @@ calendario.get(
     const { desde, hasta } = z.object({ desde: fechaSchema, hasta: fechaSchema }).parse(req.query);
     if (desde > hasta) throw new HttpError(400, "El rango de fechas es inválido");
 
-    const [tareas, eventos] = await Promise.all([
-      pool.query(
+    const [tareas, personales, eventos] = await Promise.all([
+      pool.query<{ fechaLimite: string; titulo: string }>(
         `SELECT ta.id,
                 ta.titulo,
                 ta.descripcion,
@@ -56,6 +56,21 @@ calendario.get(
           ORDER BY ta.fecha_limite, ta.titulo`,
         [desde, hasta],
       ),
+      pool.query<{ fechaLimite: string; titulo: string }>(
+        `SELECT tp.id,
+                tp.titulo,
+                tp.descripcion,
+                tp.prioridad,
+                tp.columna,
+                tp.fecha_limite AS "fechaLimite",
+                'personal'::text AS "tableroId",
+                'Mi tablero personal'::text AS tablero
+           FROM tareas_personales tp
+          WHERE tp.usuario_id = $1
+            AND tp.fecha_limite BETWEEN $2::date AND $3::date
+          ORDER BY tp.fecha_limite, tp.titulo`,
+        [usuario.id, desde, hasta],
+      ),
       pool.query(
         `SELECT ${CAMPOS_EVENTO}
            FROM eventos_calendario
@@ -67,7 +82,13 @@ calendario.get(
       ),
     ]);
 
-    res.json({ tareas: tareas.rows, eventos: eventos.rows });
+    const tareasCombinadas = [...tareas.rows, ...personales.rows].sort(
+      (a, b) =>
+        String(a.fechaLimite).localeCompare(String(b.fechaLimite)) ||
+        a.titulo.localeCompare(b.titulo),
+    );
+
+    res.json({ tareas: tareasCombinadas, eventos: eventos.rows });
   }),
 );
 

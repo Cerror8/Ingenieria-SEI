@@ -1,4 +1,4 @@
-import { BarChart2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { NAV_ITEMS } from "../constants";
 
@@ -42,9 +42,9 @@ export function Sidebar({
             collapsed ? "justify-between px-4 lg:justify-center lg:px-2" : "justify-between px-4"
           }`}
         >
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#C2410C]">
-              <BarChart2 className="h-4 w-4 text-white" />
+          <div className={`flex items-center gap-3 ${collapsed ? "lg:justify-center" : ""}`}>
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[10px] font-black tracking-tight text-[#FDBA74] shadow-sm">
+              SEI
             </div>
             <div className={collapsed ? "lg:hidden" : ""}>
               <p className="text-xs font-black leading-tight tracking-wide text-white">INGENIERÍA</p>

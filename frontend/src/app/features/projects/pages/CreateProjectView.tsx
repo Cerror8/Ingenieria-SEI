@@ -11,7 +11,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend
 } from "recharts";
-import { ProjectStatus } from "../../../types";
+import { ProjectStatus, type UsuarioAsignable } from "../../../types";
 import { api } from "../../../api/client";
 import { STATUS_CFG, WIZARD_STEPS } from "../../../constants";
 import { fmt } from "../../../lib/format";
@@ -25,14 +25,21 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
   const [creado, setCreado] = useState<{ id: string; nombre: string; estado: string } | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [lideres, setLideres] = useState<UsuarioAsignable[]>([]);
 
   // Step 1
   const [form, setForm] = useState({
-    codigo: "", nombre: "", linea: "", dependencia: "", responsable: "",
+    codigo: "", nombre: "", linea: "", dependencia: "", responsable: "", liderId: "",
     estado: "En formulación", fecha: "", gestionPMO: "", valorTotal: "", valorSupervision: "", objetivo: ""
   });
   const upd = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    api.usuariosAsignables()
+      .then(({ usuarios }) => setLideres(usuarios))
+      .catch(() => setLideres([]));
+  }, []);
 
   // Step 2 FR-019 dynamic data
   const [objetivos, setObjetivos] = useState([{ desc: "", orden: 1 }]);
@@ -96,6 +103,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
         nombre: form.nombre.trim(),
         linea: form.linea,
         responsable: form.responsable.trim() || "Sin asignar",
+        liderId: form.liderId || null,
         estado: form.estado as ProjectStatus,
         dependencia: form.dependencia.trim() || "Sin definir",
         objetivo: form.objetivo.trim(),
@@ -242,6 +250,18 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
               <div>
                 <label className={labelCls}>Responsable</label>
                 <input type="text" placeholder="Nombre del investigador" value={form.responsable} onChange={e => upd("responsable", e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Líder del proyecto</label>
+                <select value={form.liderId} onChange={e => upd("liderId", e.target.value)} className={inputCls}>
+                  <option value="">Sin asignar</option>
+                  {lideres.map((u) => (
+                    <option key={u.id} value={u.id}>{u.nombre}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-gray-400">
+                  Podrá asignar responsables y aprobar tareas de este proyecto.
+                </p>
               </div>
               <div>
                 <label className={labelCls}>Gestor del proyecto</label>

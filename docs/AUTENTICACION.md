@@ -4,10 +4,12 @@
 
 El sistema usa dos vías de acceso sobre una misma tabla de usuarios:
 
-1. **Acceso administrativo local** (`proveedor = 'local'`): correo y contraseña.
+1. **Acceso local** (`proveedor = 'local'`): correo y contraseña, sea la cuenta del administrador o una cuenta aprobada.
 2. **Acceso con Google** (`proveedor = 'google'`): OAuth 2.0 con cualquier cuenta de Google mientras `ALLOWED_DOMAIN` esté vacío.
 
-Ambas terminan en el mismo mecanismo de sesión: un token aleatorio en cookie `httpOnly` y su hash SHA-256 en la base de datos.
+Las cuentas nuevas no entran directamente. Quien usa el formulario público de registro o inicia sesión con un Google desconocido queda en estado **pendiente de aprobación**; un administrador lo revisa en el módulo **Usuarios**, elige el rol y aprueba o rechaza. Una cuenta pendiente no puede iniciar sesión.
+
+Ambas vías terminan en el mismo mecanismo de sesión: un token aleatorio en cookie `httpOnly` y su hash SHA-256 en la base de datos.
 
 ## Variables de entorno
 
@@ -35,9 +37,10 @@ El frontend solo requiere `VITE_API_URL` (ver `frontend/.env.example`), por defe
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/api/auth/login` | Login local. Límite: 10 intentos cada 15 minutos por IP. |
+| `POST` | `/api/auth/login` | Login local. Límite: 10 intentos cada 15 minutos por IP. Responde `403` si la cuenta está pendiente o inactiva. |
+| `POST` | `/api/auth/registro` | Solicitud de acceso `{ email, nombre, password }`. Crea la cuenta inactiva y pendiente; límite de 5 solicitudes por hora e IP. |
 | `GET` | `/api/auth/google` | Inicia el flujo OAuth y redirige a Google. |
-| `GET` | `/api/auth/google/callback` | Valida `state` y el ID token, crea o actualiza el usuario y abre sesión. |
+| `GET` | `/api/auth/google/callback` | Valida `state` y el ID token. Si la cuenta ya fue aprobada abre sesión; si es desconocida la crea pendiente y vuelve al login sin sesión. |
 | `GET` | `/api/auth/me` | Devuelve el usuario de la sesión actual o `401`. |
 | `PATCH` | `/api/auth/me` | Actualiza `nombre` y `fotoUrl` del perfil propio. |
 | `POST` | `/api/auth/logout` | Elimina la sesión y borra la cookie. |
@@ -71,9 +74,11 @@ Endpoints de administración (montados en `/api/usuarios`):
 | Método | Ruta | Acceso | Descripción |
 |--------|------|--------|-------------|
 | `GET` | `/api/usuarios/asignables` | Cualquier sesión | Usuarios activos (`id`, `nombre`, `fotoUrl`, `rol`) para asignar tareas. |
-| `GET` | `/api/usuarios` | **admin** | Listado completo con `proveedor`, `rol`, `activo`, `ultimoAcceso`, `creadoEn`, `tareasAsignadas` y `tareasCompletadas`. |
-| `POST` | `/api/usuarios` | **admin** | Crea una cuenta local: `{ email, nombre, rol, password }`. Contraseña de 8 a 72 caracteres, hash bcrypt (12 rondas). Correo duplicado devuelve `409`. |
-| `PATCH` | `/api/usuarios/:id` | **admin** | Actualiza `nombre`, `rol` y/o `activo`. |
+| `GET` | `/api/usuarios` | **admin** | Listado completo con `proveedor`, `rol`, `activo`, `pendienteAprobacion`, `ultimoAcceso`, `creadoEn`, `tareasAsignadas` y `tareasCompletadas`. |
+| `POST` | `/api/usuarios` | **admin** | Crea una cuenta local activa: `{ email, nombre, rol, password }`. Contraseña de 8 a 72 caracteres, hash bcrypt (12 rondas). Correo duplicado devuelve `409`. |
+| `PATCH` | `/api/usuarios/:id` | **admin** | Actualiza `nombre`, `rol` y/o `activo`. Al activar una cuenta se limpia la marca de pendiente. |
+| `POST` | `/api/usuarios/:id/aprobar` | **admin** | Aprueba una solicitud: `{ rol?: "usuario" }`; activa, limpia la marca y asigna el rol. |
+| `DELETE` | `/api/usuarios/:id/solicitud` | **admin** | Rechaza y elimina una solicitud pendiente. |
 
 Reglas de protección:
 
@@ -83,14 +88,18 @@ Reglas de protección:
 
 Permisos de colaboración en tableros:
 
-- Cualquier sesión activa puede crear tareas, moverlas, comentar y adjuntar archivos.
+- Cualquier sesión activa puede crear tareas, comentar y adjuntar archivos. Toda tarea debe pertenecer a un proyecto y nace en **Por hacer**.
+- La asignación de responsable y la aprobación o devolución están reservadas al **gestor**: el creador de la tarea, el líder del proyecto (`proyectos.lider_id`), el líder del tablero (`tableros.creado_por`) o un `admin`.
+- Solo la persona asignada puede pulsar **Entendido** (Por hacer → En curso) y **Enviar a revisión** (En curso → En revisión).
+- El envío a revisión exige un comentario y al menos un adjunto creados por la persona asignada. Si la tarea fue devuelta, ambos deben ser posteriores a `ultima_devolucion_en`.
+- Solo el gestor puede **Aprobar y completar** o **Devolver con correcciones**; la devolución vuelve la tarea a **En curso**, registra el motivo como comentario y exige evidencia nueva.
 - Solo `admin` y `docente` pueden eliminar tareas.
 - Un comentario o adjunto solo lo puede eliminar quien lo creó o un `admin`.
 - Las notificaciones muestran las tareas asignadas a cada usuario; el `admin` ve las de todo el equipo.
 
-El módulo **Usuarios** del frontend solo aparece en la barra lateral para `admin`; el resto de usuarios no lo ve y la API igualmente responde `403` si intentan llamarla.
+El módulo **Usuarios** del frontend solo aparece en la barra lateral para `admin`; el resto de usuarios no lo ve y la API igualmente responde `403` si intentan llamarla. Dentro del módulo, la bandeja de **Solicitudes pendientes** muestra las cuentas de correo o Google que esperan aprobación, con selector de rol y acciones **Aprobar** y **Rechazar**.
 
-Las cuentas desactivadas (`activo = false`) no pueden iniciar sesión ni aparecen en los filtros de responsables de los tableros; sus tareas asignadas se conservan.
+Las cuentas desactivadas (`activo = false`) y las pendientes (`pendiente_aprobacion = true`) no pueden iniciar sesión ni aparecen en los filtros de responsables de los tableros; sus tareas asignadas se conservan.
 
 ## Configurar Google Cloud Console
 
@@ -122,7 +131,8 @@ Si con `ALLOWED_DOMAIN` vacío una cuenta personal sigue sin poder entrar, revis
 - Expiración de sesión configurable y limpieza al cerrar sesión.
 - Validación del parámetro `state` de OAuth contra una cookie de corta duración.
 - Verificación del ID token de Google con `google-auth-library` y auditoría del `client_id`.
-- Límite de intentos en el login local.
+- Límite de intentos en el login local y de solicitudes en el registro.
+- Las cuentas nuevas quedan inactivas y pendientes hasta la aprobación de un administrador; el login valida ambos estados antes de crear la sesión.
 - Validación de cuerpo con zod y consultas parametrizadas con `pg`.
 
 ## Flujo de Google
@@ -134,10 +144,12 @@ Frontend                 Backend                         Google
    │                         ├─────────────────────────────>│
    │                         │<──── code + state ───────────┤
    │  redirect /login?...    │  verifica state e id_token   │
-   │<────────────────────────┤  crea/actualiza usuario      │
-   │  GET /auth/me           │  cookie rap_sid              │
-   ├────────────────────────>│                              │
+   │<────────────────────────┤  usuario aprobado → sesión   │
+   │  GET /auth/me           │  desconocido → pendiente     │
+   ├────────────────────────>│  cookie rap_sid (si aplica)  │
 ```
+
+Si la cuenta de Google no existe, se crea con `activo = false` y `pendiente_aprobacion = true`, no se emite cookie de sesión y el navegador vuelve a `/login?error=pendiente`. Cuando el administrador la aprueba, el siguiente acceso con Google ya abre sesión normal. Una cuenta existente pero inactiva vuelve con `error=inactivo`.
 
 ## Perfil personalizado
 
@@ -156,8 +168,10 @@ Para cambiar la contraseña de desarrollo, actualiza `ADMIN_PASSWORD` y elimina 
 | `google_no_configurado` | Faltan `GOOGLE_CLIENT_ID` o `GOOGLE_CLIENT_SECRET`. |
 | `oauth_state` | La cookie de estado expiró o no coincide. |
 | `dominio` | La cuenta no pertenece a `ALLOWED_DOMAIN`. |
+| `pendiente` | La cuenta de Google quedó registrada como solicitud y espera aprobación. |
+| `inactivo` | La cuenta existe pero está desactivada por un administrador. |
 | `google` | Error al canjear el código o verificar el token. |
 
 ## Recursos pendientes
 
-- Colocar el escudo oficial en `public/escudo-cesmag.png`. Mientras no exista, el login muestra un ícono de graduación como respaldo.
+- Registro institucional de marca: el login y el registro usan `frontend/public/brand/logo-sebastian-escandon.jpg` (logo completo) y `logo-se-mark.jpg` (marca para la barra lateral y la carga), con la paleta naranja/gris/blanco del sistema.

@@ -9,6 +9,7 @@ import { ProfileMenu } from "./ProfileMenu";
 import { NotificationsMenu } from "./NotificationsMenu";
 import { DashboardView } from "../features/dashboard/DashboardView";
 import { TablerosView } from "../features/tableros/TablerosView";
+import { MiTableroView } from "../features/mi-tablero/MiTableroView";
 import { ProjectsListView } from "../features/projects/pages/ProjectsListView";
 import { CreateProjectView } from "../features/projects/pages/CreateProjectView";
 import { ProjectDetailView } from "../features/projects/pages/ProjectDetailView";
@@ -22,6 +23,7 @@ import { UsuariosView } from "../features/usuarios/UsuariosView";
 
 const ETIQUETAS_VISTA: Record<string, string> = {
   dashboard: "Dashboard",
+  "mi-tablero": "Mi tablero",
   tableros: "Tableros",
   projects: "Proyectos",
   antecedentes: "Antecedentes",
@@ -136,7 +138,8 @@ export function AppShell() {
               onGenerateReport={() => setShowPDF(true)}
             />
           )}
-          {view === "tableros" && <TablerosView />}
+          {view === "mi-tablero" && <MiTableroView onNavigate={navigate} />}
+          {view === "tableros" && <TablerosView onNavigate={navigate} />}
           {view === "projects" && (
             <ProjectsListView
               onSelectProject={selectProject}

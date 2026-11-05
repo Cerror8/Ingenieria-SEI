@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS proyectos (
   nombre          TEXT NOT NULL,
   linea           TEXT NOT NULL,
   responsable     TEXT NOT NULL,
+  lider_id        UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   estado          TEXT NOT NULL CHECK (estado IN ('En formulación', 'En ejecución', 'Suspendido', 'Finalizado', 'Cerrado')),
   avance          INTEGER NOT NULL DEFAULT 0 CHECK (avance BETWEEN 0 AND 100),
   presupuesto     BIGINT NOT NULL DEFAULT 0 CHECK (presupuesto >= 0),
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS proyectos (
 
 CREATE INDEX IF NOT EXISTS ix_proyectos_estado ON proyectos (estado);
 CREATE INDEX IF NOT EXISTS ix_proyectos_linea ON proyectos (linea);
+CREATE INDEX IF NOT EXISTS ix_proyectos_lider ON proyectos (lider_id);
 
 CREATE TRIGGER proyectos_touch
 BEFORE UPDATE ON proyectos
@@ -162,27 +164,58 @@ FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 CREATE TABLE IF NOT EXISTS tareas_tablero (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tablero_id     UUID NOT NULL REFERENCES tableros(id) ON DELETE CASCADE,
+  proyecto_id    TEXT REFERENCES proyectos(id) ON DELETE SET NULL,
   titulo         TEXT NOT NULL,
   descripcion    TEXT NOT NULL DEFAULT '',
   columna        TEXT NOT NULL DEFAULT 'por-hacer'
                  CHECK (columna IN ('por-hacer', 'en-curso', 'en-revision', 'completado')),
   responsable    TEXT NOT NULL DEFAULT 'Sin asignar',
   responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_por     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   prioridad      TEXT NOT NULL DEFAULT 'Media' CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
   fecha_limite   DATE,
   etiqueta       TEXT NOT NULL DEFAULT 'General',
   orden          INTEGER NOT NULL DEFAULT 0,
   completado_en  TIMESTAMPTZ,
+  ultima_devolucion_en TIMESTAMPTZ,
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero ON tareas_tablero (tablero_id, columna, orden);
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_responsable ON tareas_tablero (responsable_id);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_creador ON tareas_tablero (creado_por);
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_proyecto ON tareas_tablero (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
 
 CREATE TRIGGER tareas_tablero_touch
 BEFORE UPDATE ON tareas_tablero
+FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- ---------------------------------------------------------------------
+-- Tablero personal: tareas propias de cada usuario, privadas para su dueño
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tareas_personales (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id     UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  titulo         TEXT NOT NULL,
+  descripcion    TEXT NOT NULL DEFAULT '',
+  columna        TEXT NOT NULL DEFAULT 'por-hacer'
+                 CHECK (columna IN ('por-hacer', 'en-curso', 'completado')),
+  prioridad      TEXT NOT NULL DEFAULT 'Media' CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
+  fecha_limite   DATE,
+  etiqueta       TEXT NOT NULL DEFAULT 'Personal',
+  orden          INTEGER NOT NULL DEFAULT 0,
+  completado_en  TIMESTAMPTZ,
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_tareas_personales_usuario
+  ON tareas_personales (usuario_id, columna, fecha_limite);
+
+CREATE TRIGGER tareas_personales_touch
+BEFORE UPDATE ON tareas_personales
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 
 -- ---------------------------------------------------------------------

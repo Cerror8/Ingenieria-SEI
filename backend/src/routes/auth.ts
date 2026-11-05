@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { dominioPermitido, googleConfigurado, perfilDeGoogle, urlConsentimiento } from "../auth/google.js";
 import { crearSesion, destruirSesion, usuarioDeSesion } from "../auth/session.js";
+import { registrarAuditoria } from "../audit.js";
 import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
 
@@ -24,9 +25,23 @@ const limitadorLogin = rateLimit({
   message: { error: "Demasiados intentos. Espera unos minutos e inténtalo de nuevo." },
 });
 
+const limitadorRegistro = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Demasiadas solicitudes de registro. Inténtalo más tarde." },
+});
+
 const loginSchema = z.object({
   email: z.string().trim().email("Correo inválido"),
   password: z.string().min(1, "La contraseña es obligatoria"),
+});
+
+const registroSchema = z.object({
+  email: z.string().trim().email("Correo inválido").max(160),
+  nombre: z.string().trim().min(2, "El nombre es obligatorio").max(120),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(72),
 });
 
 const perfilSchema = z.object({
@@ -45,11 +60,45 @@ type UsuarioLogin = {
   rol: "admin" | "docente" | "estudiante" | "usuario";
   passwordHash: string;
   activo: boolean;
+  pendienteAprobacion: boolean;
 };
 
 export const auth = Router();
 
-// Acceso local (solo administradores).
+// Solicitud pública de registro con correo y contraseña.
+auth.post(
+  "/registro",
+  limitadorRegistro,
+  ah(async (req, res) => {
+    const datos = registroSchema.parse(req.body);
+    const email = datos.email.toLowerCase();
+    const passwordHash = await bcrypt.hash(datos.password, 12);
+
+    const { rows } = await pool.query(
+      `INSERT INTO usuarios (email, nombre, proveedor, password_hash, rol, activo, pendiente_aprobacion)
+       VALUES ($1, $2, 'local', $3, 'usuario', false, true)
+       RETURNING id, email, nombre, creado_en AS "creadoEn"`,
+      [email, datos.nombre, passwordHash],
+    ).catch((e: { code?: string }) => {
+      if (e.code === "23505") {
+        throw new HttpError(409, "Ya existe una cuenta o solicitud con ese correo.");
+      }
+      throw e;
+    });
+
+    await registrarAuditoria({
+      usuario: "Registro público",
+      accion: "Solicitud",
+      entidad: "Usuario",
+      registro: datos.nombre,
+      nuevo: `Correo: ${email} · Pendiente de aprobación`,
+    });
+
+    res.status(201).json({ solicitud: rows[0] });
+  }),
+);
+
+// Acceso local (administradores y cuentas aprobadas).
 auth.post(
   "/login",
   limitadorLogin,
@@ -57,17 +106,25 @@ auth.post(
     const { email, password } = loginSchema.parse(req.body);
 
     const { rows } = await pool.query<UsuarioLogin>(
-      `SELECT ${CAMPOS_USUARIO}, password_hash AS "passwordHash", activo
+      `SELECT ${CAMPOS_USUARIO}, password_hash AS "passwordHash", activo,
+              pendiente_aprobacion AS "pendienteAprobacion"
          FROM usuarios
         WHERE lower(email) = lower($1) AND proveedor = 'local'`,
       [email],
     );
 
     const usuario = rows[0];
-    if (!usuario || !usuario.activo) throw new HttpError(401, "Correo o contraseña incorrectos");
+    if (!usuario) throw new HttpError(401, "Correo o contraseña incorrectos");
 
     const coincide = await bcrypt.compare(password, usuario.passwordHash);
     if (!coincide) throw new HttpError(401, "Correo o contraseña incorrectos");
+
+    if (usuario.pendienteAprobacion) {
+      throw new HttpError(403, "Tu solicitud está pendiente de aprobación por un administrador.");
+    }
+    if (!usuario.activo) {
+      throw new HttpError(403, "Tu cuenta está inactiva. Contacta a un administrador.");
+    }
 
     await pool.query("UPDATE usuarios SET ultimo_acceso = now() WHERE id = $1", [usuario.id]);
     await crearSesion(res, usuario.id);
@@ -122,9 +179,15 @@ auth.get(
         return res.redirect(`${frontend()}/login?error=dominio`);
       }
 
+      let bloqueo: "pendiente" | "inactivo" | null = null;
+
       const usuario = await withTx(async (db) => {
-        const { rows } = await db.query<{ id: string; activo: boolean }>(
-          `SELECT id, activo
+        const { rows } = await db.query<{
+          id: string;
+          activo: boolean;
+          pendienteAprobacion: boolean;
+        }>(
+          `SELECT id, activo, pendiente_aprobacion AS "pendienteAprobacion"
              FROM usuarios
             WHERE google_id = $1 OR lower(email) = lower($2)
             LIMIT 1`,
@@ -132,7 +195,22 @@ auth.get(
         );
 
         if (rows[0]) {
-          if (!rows[0].activo) throw new HttpError(403, "Usuario inactivo");
+          if (!rows[0].activo) {
+            if (rows[0].pendienteAprobacion) {
+              bloqueo = "pendiente";
+              await db.query(
+                `UPDATE usuarios
+                    SET google_id = COALESCE(google_id, $2),
+                        nombre = CASE WHEN perfil_editado THEN nombre ELSE $3 END,
+                        foto_url = CASE WHEN perfil_editado THEN foto_url ELSE $4 END
+                  WHERE id = $1`,
+                [rows[0].id, perfil.googleId, perfil.nombre, perfil.fotoUrl],
+              );
+            } else {
+              bloqueo = "inactivo";
+            }
+            return null;
+          }
 
           const { rows: actualizados } = await db.query<{ id: string }>(
             `UPDATE usuarios
@@ -147,14 +225,20 @@ auth.get(
           return actualizados[0];
         }
 
-        const { rows: creados } = await db.query<{ id: string }>(
-          `INSERT INTO usuarios (email, nombre, foto_url, proveedor, google_id, rol, ultimo_acceso)
-           VALUES ($1, $2, $3, 'google', $4, 'usuario', now())
-           RETURNING id`,
+        // Una cuenta de Google desconocida se registra como solicitud pendiente.
+        await db.query(
+          `INSERT INTO usuarios
+             (email, nombre, foto_url, proveedor, google_id, rol, activo, pendiente_aprobacion)
+           VALUES ($1, $2, $3, 'google', $4, 'usuario', false, true)`,
           [perfil.email, perfil.nombre, perfil.fotoUrl, perfil.googleId],
         );
-        return creados[0];
+        bloqueo = "pendiente";
+        return null;
       });
+
+      if (!usuario) {
+        return res.redirect(`${frontend()}/login?error=${bloqueo ?? "inactivo"}`);
+      }
 
       await crearSesion(res, usuario.id);
       return res.redirect(frontend());

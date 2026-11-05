@@ -1,11 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
 import { registrarAuditoria } from "../audit.js";
-import { pool } from "../db.js";
+import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import type { UsuarioSesion } from "../auth/session.js";
 
-const COLUMNAS = ["por-hacer", "en-curso", "en-revision", "completado"] as const;
 const PRIORIDADES = ["Alta", "Media", "Baja"] as const;
 
 const fechaSchema = z
@@ -16,49 +15,128 @@ const fechaSchema = z
 const tareaSchema = z.object({
   titulo: z.string().trim().min(1, "El título es obligatorio").max(200),
   descripcion: z.string().trim().max(1000).optional().default(""),
-  columna: z.enum(COLUMNAS).optional().default("por-hacer"),
-  responsable: z.string().trim().max(120).optional().default("Sin asignar"),
+  proyectoId: z.string().trim().min(1, "Selecciona un proyecto").max(40),
   responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
   prioridad: z.enum(PRIORIDADES).optional().default("Media"),
   fechaLimite: fechaSchema,
   etiqueta: z.string().trim().max(60).optional().default("General"),
 });
 
-const actualizacionSchema = tareaSchema.partial();
+const actualizacionSchema = z
+  .object({
+    titulo: z.string().trim().min(1, "El título es obligatorio").max(200).optional(),
+    descripcion: z.string().trim().max(1000).optional(),
+    responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
+    prioridad: z.enum(PRIORIDADES).optional(),
+    fechaLimite: fechaSchema,
+    etiqueta: z.string().trim().max(60).optional(),
+  })
+  .strict();
+
+const devolucionSchema = z.object({
+  motivo: z
+    .string()
+    .trim()
+    .min(5, "Explica qué debe corregirse (mínimo 5 caracteres)")
+    .max(1000),
+});
 
 const tableroSchema = z.object({
   nombre: z.string().trim().min(1, "El nombre es obligatorio").max(120),
   descripcion: z.string().trim().max(500).optional().default(""),
 });
 
-const CAMPOS_TAREA = `
-  t.id, t.tablero_id AS "tableroId", t.titulo, t.descripcion, t.columna,
+export const JOINS_TAREA = `
+  LEFT JOIN usuarios u ON u.id = t.responsable_id
+  LEFT JOIN usuarios c ON c.id = t.creado_por
+  LEFT JOIN proyectos p ON p.id = t.proyecto_id
+  LEFT JOIN usuarios pl ON pl.id = p.lider_id
+  LEFT JOIN tableros b ON b.id = t.tablero_id
+  LEFT JOIN usuarios bc ON bc.id = b.creado_por
+`;
+
+export const CAMPOS_TAREA = `
+  t.id, t.tablero_id AS "tableroId",
+  b.nombre AS "tableroNombre",
+  t.proyecto_id AS "proyectoId", p.nombre AS "proyectoNombre",
+  p.lider_id AS "proyectoLiderId", pl.nombre AS "proyectoLiderNombre",
+  b.creado_por AS "tableroCreadoPor",
+  bc.nombre AS "tableroCreadoPorNombre",
+  t.titulo, t.descripcion, t.columna,
   t.responsable, t.responsable_id AS "responsableId",
   u.foto_url AS "responsableFoto",
+  t.creado_por AS "creadoPor", c.nombre AS "creadoPorNombre",
   t.prioridad, t.fecha_limite AS "fechaLimite", t.etiqueta, t.orden,
   t.completado_en AS "completadoEn",
-  (SELECT COUNT(*)::int FROM comentarios_tarea c WHERE c.tarea_id = t.id) AS "comentarios",
+  t.ultima_devolucion_en AS "ultimaDevolucionEn",
+  (SELECT COUNT(*)::int FROM comentarios_tarea co WHERE co.tarea_id = t.id) AS "comentarios",
   (SELECT COUNT(*)::int FROM adjuntos_tarea a WHERE a.tarea_id = t.id) AS "adjuntos",
   t.creado_en AS "creadoEn", t.actualizado_en AS "actualizadoEn"
 `;
 
-type Tarea = {
+export type Tarea = {
   id: string;
   tableroId: string;
+  tableroNombre: string | null;
+  proyectoId: string | null;
+  proyectoNombre: string | null;
+  proyectoLiderId: string | null;
+  proyectoLiderNombre: string | null;
+  tableroCreadoPor: string | null;
+  tableroCreadoPorNombre: string | null;
   titulo: string;
   descripcion: string;
   columna: string;
   responsable: string;
   responsableId: string | null;
   responsableFoto: string | null;
+  creadoPor: string | null;
+  creadoPorNombre: string | null;
   prioridad: string;
   fechaLimite: string | null;
   etiqueta: string;
   orden: number;
   completadoEn: string | null;
+  ultimaDevolucionEn: string | null;
   comentarios: number;
   adjuntos: number;
 };
+
+async function cargarTarea(tableroId: string, tareaId: string): Promise<Tarea> {
+  const { rows } = await pool.query<Tarea>(
+    `SELECT ${CAMPOS_TAREA}
+       FROM tareas_tablero t
+       ${JOINS_TAREA}
+      WHERE t.id = $1 AND t.tablero_id = $2`,
+    [tareaId, tableroId],
+  );
+  if (!rows[0]) throw new HttpError(404, "Tarea no encontrada");
+  return rows[0];
+}
+
+function esGestor(usuario: UsuarioSesion, tarea: Tarea) {
+  return (
+    usuario.rol === "admin" ||
+    tarea.creadoPor === usuario.id ||
+    tarea.proyectoLiderId === usuario.id ||
+    tarea.tableroCreadoPor === usuario.id
+  );
+}
+
+function exigirAsignado(usuario: UsuarioSesion, tarea: Tarea) {
+  if (!tarea.responsableId) {
+    throw new HttpError(400, "La tarea no tiene una persona asignada.");
+  }
+  if (tarea.responsableId !== usuario.id) {
+    throw new HttpError(403, "Solo la persona asignada puede realizar esta acción.");
+  }
+}
+
+function exigirGestor(usuario: UsuarioSesion, tarea: Tarea) {
+  if (!esGestor(usuario, tarea)) {
+    throw new HttpError(403, "Solo quien creó la tarea o lidera el proyecto puede hacerlo.");
+  }
+}
 
 async function resolverResponsable(
   responsableId: string | null | undefined,
@@ -75,6 +153,10 @@ async function resolverResponsable(
     throw new HttpError(400, "El responsable seleccionado no existe o está inactivo.");
   }
   return { id: responsableId, nombre: rows[0].nombre };
+}
+
+async function responderTarea(tableroId: string, tareaId: string) {
+  return cargarTarea(tableroId, tareaId);
 }
 
 export const tableros = Router();
@@ -124,8 +206,18 @@ tableros.get(
   ah(async (req, res) => {
     const tableroId = z.string().uuid().parse(req.params.id);
 
-    const { rows: tablerosRows } = await pool.query<{ id: string; nombre: string; descripcion: string }>(
-      "SELECT id, nombre, descripcion FROM tableros WHERE id = $1",
+    const { rows: tablerosRows } = await pool.query<{
+      id: string;
+      nombre: string;
+      descripcion: string;
+      creadoPor: string | null;
+      creadoPorNombre: string | null;
+    }>(
+      `SELECT t.id, t.nombre, t.descripcion,
+              t.creado_por AS "creadoPor", u.nombre AS "creadoPorNombre"
+         FROM tableros t
+         LEFT JOIN usuarios u ON u.id = t.creado_por
+        WHERE t.id = $1`,
       [tableroId],
     );
     if (!tablerosRows[0]) throw new HttpError(404, "Tablero no encontrado");
@@ -133,7 +225,7 @@ tableros.get(
     const { rows: tareas } = await pool.query<Tarea>(
       `SELECT ${CAMPOS_TAREA}
          FROM tareas_tablero t
-         LEFT JOIN usuarios u ON u.id = t.responsable_id
+         ${JOINS_TAREA}
         WHERE t.tablero_id = $1
         ORDER BY array_position(ARRAY['por-hacer','en-curso','en-revision','completado']::text[], t.columna),
                  t.orden, t.creado_en`,
@@ -149,51 +241,52 @@ tableros.post(
   ah(async (req, res) => {
     const tableroId = z.string().uuid().parse(req.params.id);
     const datos = tareaSchema.parse(req.body);
+    const usuario = res.locals.usuario as UsuarioSesion;
 
     const { rows: existe } = await pool.query("SELECT 1 FROM tableros WHERE id = $1", [tableroId]);
     if (!existe[0]) throw new HttpError(404, "Tablero no encontrado");
 
+    const { rows: proyecto } = await pool.query<{ id: string; nombre: string }>(
+      "SELECT id, nombre FROM proyectos WHERE id = $1",
+      [datos.proyectoId],
+    );
+    if (!proyecto[0]) throw new HttpError(400, "El proyecto seleccionado no existe.");
+
     const asignado = await resolverResponsable(
       datos.responsableId,
-      datos.responsable?.trim() || "Sin asignar",
+      "Sin asignar",
     );
 
-    const { rows } = await pool.query<Tarea>(
-      `WITH nueva AS (
-         INSERT INTO tareas_tablero
-           (tablero_id, titulo, descripcion, columna, responsable, responsable_id,
-            prioridad, fecha_limite, etiqueta, orden, completado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
-                 COALESCE((SELECT MAX(orden) + 1 FROM tareas_tablero WHERE tablero_id = $1 AND columna = $4), 1),
-                 CASE WHEN $4 = 'completado' THEN now() END)
-         RETURNING *
-       )
-       SELECT ${CAMPOS_TAREA}
-         FROM nueva t
-         LEFT JOIN usuarios u ON u.id = t.responsable_id`,
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO tareas_tablero
+         (tablero_id, proyecto_id, titulo, descripcion, columna, responsable, responsable_id,
+          creado_por, prioridad, fecha_limite, etiqueta, orden)
+       VALUES ($1, $2, $3, $4, 'por-hacer', $5, $6, $7, $8, $9, $10,
+               COALESCE((SELECT MAX(orden) + 1 FROM tareas_tablero WHERE tablero_id = $1 AND columna = 'por-hacer'), 1))
+       RETURNING id`,
       [
         tableroId,
+        proyecto[0].id,
         datos.titulo,
         datos.descripcion,
-        datos.columna,
         asignado.nombre ?? "Sin asignar",
         asignado.id,
+        usuario.id,
         datos.prioridad,
         datos.fechaLimite,
         datos.etiqueta || "General",
       ],
     );
 
-    const usuario = res.locals.usuario as UsuarioSesion;
     await registrarAuditoria({
       usuario: usuario.nombre,
       accion: "Creación",
       entidad: "Tarea de tablero",
       registro: datos.titulo,
-      nuevo: datos.columna,
+      nuevo: `Proyecto: ${proyecto[0].id} · Por hacer`,
     });
 
-    res.status(201).json({ tarea: rows[0] });
+    res.status(201).json({ tarea: await responderTarea(tableroId, rows[0].id) });
   }),
 );
 
@@ -203,83 +296,56 @@ tableros.patch(
     const tableroId = z.string().uuid().parse(req.params.id);
     const tareaId = z.string().uuid().parse(req.params.tareaId);
     const datos = actualizacionSchema.parse(req.body);
+    const usuario = res.locals.usuario as UsuarioSesion;
 
-    const { rows: actuales } = await pool.query<Tarea>(
-      `SELECT ${CAMPOS_TAREA}
-         FROM tareas_tablero t
-         LEFT JOIN usuarios u ON u.id = t.responsable_id
-        WHERE t.id = $1 AND t.tablero_id = $2`,
-      [tareaId, tableroId],
-    );
-    const actual = actuales[0];
-    if (!actual) throw new HttpError(404, "Tarea no encontrada");
+    const actual = await cargarTarea(tableroId, tareaId);
+    const cambiaResponsable =
+      datos.responsableId !== undefined && datos.responsableId !== actual.responsableId;
 
-    const columna = datos.columna ?? actual.columna;
-    const cambiaColumna = columna !== actual.columna;
-    const cambiaResponsable = datos.responsableId !== undefined;
+    if (cambiaResponsable) exigirGestor(usuario, actual);
+
     const asignado = cambiaResponsable
-      ? await resolverResponsable(datos.responsableId, datos.responsable ?? null)
+      ? await resolverResponsable(datos.responsableId, null)
       : { id: actual.responsableId, nombre: null };
 
-    const { rows } = await pool.query<Tarea>(
-      `WITH actualizada AS (
-         UPDATE tareas_tablero
-            SET titulo = COALESCE($3, titulo),
-                descripcion = COALESCE($4, descripcion),
-                columna = $5,
-                responsable = CASE WHEN $12 THEN $13 ELSE COALESCE($6, responsable) END,
-                responsable_id = CASE WHEN $12 THEN $14 ELSE responsable_id END,
-                prioridad = COALESCE($7, prioridad),
-                fecha_limite = CASE WHEN $8 THEN $9 ELSE fecha_limite END,
-                etiqueta = COALESCE($10, etiqueta),
-                completado_en = CASE
-                    WHEN $5 = 'completado' AND columna <> 'completado' THEN now()
-                    WHEN $5 <> 'completado' THEN NULL
-                    ELSE completado_en END,
-                orden = CASE WHEN $11 THEN
-                          COALESCE((SELECT MAX(orden) + 1 FROM tareas_tablero WHERE tablero_id = $2 AND columna = $5), 1)
-                        ELSE orden END
-          WHERE id = $1 AND tablero_id = $2
-          RETURNING *
-       )
-       SELECT ${CAMPOS_TAREA}
-         FROM actualizada t
-         LEFT JOIN usuarios u ON u.id = t.responsable_id`,
+    const vuelveAPorHacer =
+      cambiaResponsable &&
+      !asignado.id &&
+      actual.columna !== "por-hacer" &&
+      actual.columna !== "completado";
+
+    await pool.query(
+      `UPDATE tareas_tablero
+          SET titulo = COALESCE($3, titulo),
+              descripcion = COALESCE($4, descripcion),
+              responsable = CASE WHEN $5 THEN $6 ELSE responsable END,
+              responsable_id = CASE WHEN $5 THEN $7 ELSE responsable_id END,
+              prioridad = COALESCE($8, prioridad),
+              fecha_limite = CASE WHEN $9 THEN $10 ELSE fecha_limite END,
+              etiqueta = COALESCE($11, etiqueta),
+              columna = CASE WHEN $12 THEN 'por-hacer' ELSE columna END,
+              ultima_devolucion_en = CASE WHEN $5 THEN now() ELSE ultima_devolucion_en END
+        WHERE id = $1 AND tablero_id = $2`,
       [
         tareaId,
         tableroId,
         datos.titulo ?? null,
         datos.descripcion ?? null,
-        columna,
-        datos.responsable ?? null,
+        cambiaResponsable,
+        asignado.nombre,
+        asignado.id,
         datos.prioridad ?? null,
         datos.fechaLimite !== undefined,
         datos.fechaLimite ?? null,
         datos.etiqueta ?? null,
-        cambiaColumna,
-        cambiaResponsable,
-        asignado.nombre,
-        asignado.id,
+        vuelveAPorHacer,
       ],
     );
 
-    if (cambiaColumna) {
-      const usuario = res.locals.usuario as UsuarioSesion;
-      await registrarAuditoria({
-        usuario: usuario.nombre,
-        accion: "Actualización",
-        entidad: "Tarea de tablero",
-        registro: actual.titulo,
-        previo: `Columna: ${actual.columna}`,
-        nuevo: `Columna: ${columna}`,
-      });
-    }
-
     if (cambiaResponsable) {
-      const usuario = res.locals.usuario as UsuarioSesion;
       await registrarAuditoria({
         usuario: usuario.nombre,
-        accion: "Actualización",
+        accion: "Asignación",
         entidad: "Tarea de tablero",
         registro: actual.titulo,
         previo: `Responsable: ${actual.responsable}`,
@@ -287,7 +353,169 @@ tableros.patch(
       });
     }
 
-    res.json({ tarea: rows[0] });
+    res.json({ tarea: await responderTarea(tableroId, tareaId) });
+  }),
+);
+
+tableros.post(
+  "/:id/tareas/:tareaId/entendido",
+  ah(async (req, res) => {
+    const tableroId = z.string().uuid().parse(req.params.id);
+    const tareaId = z.string().uuid().parse(req.params.tareaId);
+    const usuario = res.locals.usuario as UsuarioSesion;
+    const actual = await cargarTarea(tableroId, tareaId);
+
+    if (actual.columna !== "por-hacer") {
+      throw new HttpError(400, "La tarea ya fue iniciada.");
+    }
+    exigirAsignado(usuario, actual);
+
+    await pool.query(
+      "UPDATE tareas_tablero SET columna = 'en-curso' WHERE id = $1 AND tablero_id = $2",
+      [tareaId, tableroId],
+    );
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Inicio de tarea",
+      entidad: "Tarea de tablero",
+      registro: actual.titulo,
+      previo: "Por hacer",
+      nuevo: "En curso",
+    });
+
+    res.json({ tarea: await responderTarea(tableroId, tareaId) });
+  }),
+);
+
+tableros.post(
+  "/:id/tareas/:tareaId/enviar-revision",
+  ah(async (req, res) => {
+    const tableroId = z.string().uuid().parse(req.params.id);
+    const tareaId = z.string().uuid().parse(req.params.tareaId);
+    const usuario = res.locals.usuario as UsuarioSesion;
+    const actual = await cargarTarea(tableroId, tareaId);
+
+    if (actual.columna !== "en-curso") {
+      throw new HttpError(400, "Solo una tarea en curso puede enviarse a revisión.");
+    }
+    exigirAsignado(usuario, actual);
+
+    const { rows } = await pool.query<{ comentario: boolean; adjunto: boolean }>(
+      `SELECT
+         EXISTS(
+           SELECT 1 FROM comentarios_tarea co
+            WHERE co.tarea_id = $1 AND co.usuario_id = $2
+              AND ($3::timestamptz IS NULL OR co.creado_en > $3)
+         ) AS comentario,
+         EXISTS(
+           SELECT 1 FROM adjuntos_tarea a
+            WHERE a.tarea_id = $1 AND a.usuario_id = $2
+              AND ($3::timestamptz IS NULL OR a.creado_en > $3)
+         ) AS adjunto`,
+      [tareaId, usuario.id, actual.ultimaDevolucionEn],
+    );
+
+    if (!rows[0]?.comentario) {
+      throw new HttpError(
+        400,
+        "Agrega un comentario con lo realizado antes de enviar la tarea a revisión.",
+      );
+    }
+    if (!rows[0]?.adjunto) {
+      throw new HttpError(
+        400,
+        "Adjunta al menos una evidencia o documento de lo realizado antes de enviar a revisión.",
+      );
+    }
+
+    await pool.query(
+      "UPDATE tareas_tablero SET columna = 'en-revision' WHERE id = $1 AND tablero_id = $2",
+      [tareaId, tableroId],
+    );
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Envío a revisión",
+      entidad: "Tarea de tablero",
+      registro: actual.titulo,
+      previo: "En curso",
+      nuevo: "En revisión",
+    });
+
+    res.json({ tarea: await responderTarea(tableroId, tareaId) });
+  }),
+);
+
+tableros.post(
+  "/:id/tareas/:tareaId/aprobar",
+  ah(async (req, res) => {
+    const tableroId = z.string().uuid().parse(req.params.id);
+    const tareaId = z.string().uuid().parse(req.params.tareaId);
+    const usuario = res.locals.usuario as UsuarioSesion;
+    const actual = await cargarTarea(tableroId, tareaId);
+
+    if (actual.columna !== "en-revision") {
+      throw new HttpError(400, "Solo una tarea en revisión puede aprobarse.");
+    }
+    exigirGestor(usuario, actual);
+
+    await pool.query(
+      `UPDATE tareas_tablero
+          SET columna = 'completado', completado_en = now()
+        WHERE id = $1 AND tablero_id = $2`,
+      [tareaId, tableroId],
+    );
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Aprobación",
+      entidad: "Tarea de tablero",
+      registro: actual.titulo,
+      previo: "En revisión",
+      nuevo: "Completado",
+    });
+
+    res.json({ tarea: await responderTarea(tableroId, tareaId) });
+  }),
+);
+
+tableros.post(
+  "/:id/tareas/:tareaId/devolver",
+  ah(async (req, res) => {
+    const tableroId = z.string().uuid().parse(req.params.id);
+    const tareaId = z.string().uuid().parse(req.params.tareaId);
+    const datos = devolucionSchema.parse(req.body);
+    const usuario = res.locals.usuario as UsuarioSesion;
+    const actual = await cargarTarea(tableroId, tareaId);
+
+    if (actual.columna !== "en-revision") {
+      throw new HttpError(400, "Solo una tarea en revisión puede devolverse.");
+    }
+    exigirGestor(usuario, actual);
+
+    await withTx(async (db) => {
+      await db.query(
+        "UPDATE tareas_tablero SET columna = 'en-curso', ultima_devolucion_en = now() WHERE id = $1 AND tablero_id = $2",
+        [tareaId, tableroId],
+      );
+      await db.query(
+        `INSERT INTO comentarios_tarea (tarea_id, usuario_id, autor, contenido)
+         VALUES ($1, $2, $3, $4)`,
+        [tareaId, usuario.id, usuario.nombre, `Corrección solicitada: ${datos.motivo}`],
+      );
+    });
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Devolución",
+      entidad: "Tarea de tablero",
+      registro: actual.titulo,
+      previo: "En revisión",
+      nuevo: `En curso · ${datos.motivo}`,
+    });
+
+    res.json({ tarea: await responderTarea(tableroId, tareaId) });
   }),
 );
 

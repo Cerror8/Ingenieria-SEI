@@ -16,6 +16,7 @@ export type UsuarioAsignable = Pick<Usuario, "id" | "nombre" | "fotoUrl" | "rol"
 
 export type UsuarioAdmin = Usuario & {
   activo: boolean;
+  pendienteAprobacion: boolean;
   creadoEn: string;
   tareasAsignadas: number;
   tareasCompletadas: number;
@@ -34,6 +35,7 @@ export type ViewType =
   | "documentos"
   | "seguimiento"
   | "tableros"
+  | "mi-tablero"
   | "calendario"
   | "usuarios"
   | "perfil";
@@ -116,18 +118,45 @@ export type ColumnaTablero = "por-hacer" | "en-curso" | "en-revision" | "complet
 
 export interface TareaTablero {
   id: string;
+  tableroId: string;
+  tableroNombre: string | null;
+  proyectoId: string | null;
+  proyectoNombre: string | null;
+  proyectoLiderId: string | null;
+  proyectoLiderNombre: string | null;
+  tableroCreadoPor: string | null;
+  tableroCreadoPorNombre: string | null;
   titulo: string;
   descripcion: string;
   columna: ColumnaTablero;
   responsable: string;
   responsableId: string | null;
   responsableFoto: string | null;
+  creadoPor: string | null;
+  creadoPorNombre: string | null;
   prioridad: PrioridadTablero;
   fechaLimite: string;
   etiqueta: string;
   completadoEn: string | null;
+  ultimaDevolucionEn: string | null;
   comentarios: number;
   adjuntos: number;
+}
+
+export type ColumnaPersonal = "por-hacer" | "en-curso" | "completado";
+
+export interface TareaPersonal {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  columna: ColumnaPersonal;
+  prioridad: PrioridadTablero;
+  fechaLimite: string | null;
+  etiqueta: string;
+  orden: number;
+  completadoEn: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
 }
 
 export type ComentarioTarea = {

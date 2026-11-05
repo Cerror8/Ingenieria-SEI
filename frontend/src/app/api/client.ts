@@ -15,6 +15,7 @@ import type {
   ProjectStatus,
   Report,
   Rol,
+  TareaPersonal,
   TareaTablero,
   Usuario,
   UsuarioAdmin,
@@ -98,6 +99,7 @@ export type ProyectoApi = {
   nombre: string;
   linea: string;
   responsable: string;
+  liderId: string | null;
   estado: ProjectStatus;
   avance: number;
   presupuesto: number;
@@ -193,16 +195,31 @@ export type DetalleProyectoApi = {
   actividades: ActividadApi[];
 };
 
-export type TableroApi = { id: string; nombre: string; descripcion: string };
+export type TableroApi = {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  creadoPor?: string | null;
+  creadoPorNombre?: string | null;
+};
 
 export type NuevaTarea = {
   titulo: string;
   descripcion: string;
-  columna: TareaTablero["columna"];
+  proyectoId: string;
   responsableId: string | null;
   prioridad: TareaTablero["prioridad"];
   fechaLimite: string | null;
   etiqueta: string;
+};
+
+export type NuevaTareaPersonal = {
+  titulo: string;
+  descripcion: string;
+  prioridad: TareaPersonal["prioridad"];
+  fechaLimite: string | null;
+  etiqueta: string;
+  columna?: TareaPersonal["columna"];
 };
 
 export type NuevoProyecto = {
@@ -210,6 +227,7 @@ export type NuevoProyecto = {
   nombre: string;
   linea: string;
   responsable: string;
+  liderId?: string | null;
   estado: ProjectStatus;
   dependencia: string;
   objetivo: string;
@@ -294,6 +312,11 @@ export const api = {
   iniciarSesion: (email: string, password: string) =>
     request<{ usuario: Usuario }>("/auth/login", { method: "POST", body: { email, password } }),
   cerrarSesion: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+  registrar: (datos: { nombre: string; email: string; password: string }) =>
+    request<{ solicitud: { id: string; email: string; nombre: string } }>("/auth/registro", {
+      method: "POST",
+      body: datos,
+    }),
   usuarioActual: () => request<{ usuario: Usuario }>("/auth/me"),
   actualizarPerfil: (datos: { nombre: string; fotoUrl: string | null }) =>
     request<{ usuario: Usuario }>("/auth/me", { method: "PATCH", body: datos }),
@@ -340,6 +363,19 @@ export const api = {
       body: datos,
     }),
   tablero: (id: string) => request<{ tablero: TableroApi; tareas: TareaTablero[] }>(`/tableros/${id}`),
+  miTablero: () =>
+    request<{ tareasProyecto: TareaTablero[]; tareasPersonales: TareaPersonal[] }>("/mi-tablero"),
+  crearTareaPersonal: (datos: NuevaTareaPersonal) =>
+    request<{ tarea: TareaPersonal }>("/mi-tablero/personales", { method: "POST", body: datos }),
+  actualizarTareaPersonal: (id: string, datos: Partial<NuevaTareaPersonal>) =>
+    request<{ tarea: TareaPersonal }>(`/mi-tablero/personales/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
+  eliminarTareaPersonal: (id: string) =>
+    request<{ ok: boolean }>(`/mi-tablero/personales/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
   crearTarea: (tableroId: string, datos: NuevaTarea) =>
     request<{ tarea: TareaTablero }>(`/tableros/${tableroId}/tareas`, { method: "POST", body: datos }),
   actualizarTarea: (tableroId: string, tareaId: string, datos: Partial<NuevaTarea>) =>
@@ -349,6 +385,23 @@ export const api = {
     }),
   eliminarTarea: (tableroId: string, tareaId: string) =>
     request<{ ok: boolean }>(tareaPath(tableroId, tareaId), { method: "DELETE" }),
+  marcarEntendido: (tableroId: string, tareaId: string) =>
+    request<{ tarea: TareaTablero }>(`${tareaPath(tableroId, tareaId)}/entendido`, {
+      method: "POST",
+    }),
+  enviarRevision: (tableroId: string, tareaId: string) =>
+    request<{ tarea: TareaTablero }>(`${tareaPath(tableroId, tareaId)}/enviar-revision`, {
+      method: "POST",
+    }),
+  aprobarTarea: (tableroId: string, tareaId: string) =>
+    request<{ tarea: TareaTablero }>(`${tareaPath(tableroId, tareaId)}/aprobar`, {
+      method: "POST",
+    }),
+  devolverTarea: (tableroId: string, tareaId: string, motivo: string) =>
+    request<{ tarea: TareaTablero }>(`${tareaPath(tableroId, tareaId)}/devolver`, {
+      method: "POST",
+      body: { motivo },
+    }),
 
   comentariosTarea: (tableroId: string, tareaId: string) =>
     request<{ comentarios: ComentarioTarea[] }>(`${tareaPath(tableroId, tareaId)}/comentarios`),
@@ -388,6 +441,15 @@ export const api = {
     request<{ usuario: UsuarioAdmin }>(`/usuarios/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: datos,
+    }),
+  aprobarUsuario: (id: string, rol: Rol) =>
+    request<{ usuario: UsuarioAdmin }>(`/usuarios/${encodeURIComponent(id)}/aprobar`, {
+      method: "POST",
+      body: { rol },
+    }),
+  rechazarSolicitud: (id: string) =>
+    request<{ ok: boolean }>(`/usuarios/${encodeURIComponent(id)}/solicitud`, {
+      method: "DELETE",
     }),
 
   notificaciones: () =>

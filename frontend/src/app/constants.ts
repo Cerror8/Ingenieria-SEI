@@ -6,7 +6,7 @@ import {
   AlertTriangle, CheckCircle, DollarSign, ArrowLeft, X, Upload,
   Link2, MoreHorizontal, ChevronLeft, Filter, Tag, Paperclip,
   Clock, BarChart2, Percent, Check, Trash2, Save, FileDown, Sliders, SquareKanban,
-  CalendarDays, Users
+  CalendarDays, Users, ClipboardList
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -50,6 +50,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { id: "dashboard",    label: "Dashboard",     icon: LayoutDashboard },
+  { id: "mi-tablero",   label: "Mi tablero",    icon: ClipboardList   },
   { id: "tableros",     label: "Tableros",      icon: SquareKanban    },
   { id: "calendario",   label: "Calendario",    icon: CalendarDays    },
   { id: "usuarios",     label: "Usuarios",      icon: Users, adminOnly: true },

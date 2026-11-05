@@ -8,7 +8,7 @@ import type { UsuarioSesion } from "../auth/session.js";
 const ESTADOS = ["En formulación", "En ejecución", "Suspendido", "Finalizado", "Cerrado"] as const;
 
 export const CAMPOS_PROYECTO = `
-  id, nombre, linea, responsable, estado, avance, presupuesto,
+  id, nombre, linea, responsable, lider_id AS "liderId", estado, avance, presupuesto,
   ejecucion_pct AS "ejecucionPct", fecha_inicio AS "fechaInicio", fecha_fin AS "fechaFin",
   dias_restantes AS "diasRestantes", dependencia, objetivo
 `;
@@ -39,6 +39,7 @@ const proyectoSchema = z.object({
   nombre: z.string().trim().min(3, "El nombre es obligatorio").max(200),
   linea: z.string().trim().min(1, "La línea es obligatoria").max(120),
   responsable: z.string().trim().max(120).optional().default("Sin asignar"),
+  liderId: z.string().uuid("Líder inválido").nullable().optional(),
   estado: z.enum(ESTADOS).optional().default("En formulación"),
   dependencia: z.string().trim().max(160).optional().default("Sin definir"),
   objetivo: z.string().trim().max(2000).optional().default(""),
@@ -86,16 +87,25 @@ proyectos.post(
   ah(async (req, res) => {
     const datos = proyectoSchema.parse(req.body);
     const id = datos.id.toUpperCase();
+    const liderId = datos.liderId ?? null;
+
+    if (liderId) {
+      const { rows: lider } = await pool.query(
+        "SELECT 1 FROM usuarios WHERE id = $1 AND activo = true",
+        [liderId],
+      );
+      if (!lider[0]) throw new HttpError(400, "El líder seleccionado no existe o está inactivo.");
+    }
 
     const { rows } = await pool.query(
       `INSERT INTO proyectos
          (id, nombre, linea, responsable, estado, avance, presupuesto, ejecucion_pct,
-          fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo)
+          fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, lider_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
          COALESCE($9::date, CURRENT_DATE),
          COALESCE($10::date, COALESCE($9::date, CURRENT_DATE) + 364),
          GREATEST(0, COALESCE($10::date, COALESCE($9::date, CURRENT_DATE) + 364) - CURRENT_DATE),
-         $11, $12)
+         $11, $12, $13)
        RETURNING ${CAMPOS_PROYECTO}`,
       [
         id,
@@ -110,6 +120,7 @@ proyectos.post(
         datos.fechaFin ?? null,
         datos.dependencia || "Sin definir",
         datos.objetivo,
+        liderId,
       ],
     );
 
