@@ -19,7 +19,9 @@ export const CAMPOS_INDICADOR = `
 `;
 
 export const CAMPOS_DOCUMENTO = `
-  id, nombre, tipo, version, fecha, usuario, estado, proyecto_id AS "proyectoId"
+  id, nombre, tipo, version, fecha, usuario, estado, proyecto_id AS "proyectoId",
+  archivo_nombre AS "archivoNombre", archivo_mime AS "archivoMime",
+  archivo_tamano AS "archivoTamano"
 `;
 
 export const CAMPOS_ACTIVIDAD = `

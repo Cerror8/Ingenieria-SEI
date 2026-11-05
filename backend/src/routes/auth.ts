@@ -29,6 +29,13 @@ const loginSchema = z.object({
   password: z.string().min(1, "La contraseña es obligatoria"),
 });
 
+const perfilSchema = z.object({
+  nombre: z.string().trim().min(2, "El nombre es obligatorio").max(120),
+  fotoUrl: z
+    .union([z.string().trim().url("La URL de la foto no es válida"), z.literal(""), z.null()])
+    .optional(),
+});
+
 type UsuarioLogin = {
   id: string;
   email: string;
@@ -130,8 +137,8 @@ auth.get(
           const { rows: actualizados } = await db.query<{ id: string }>(
             `UPDATE usuarios
                 SET google_id = COALESCE(google_id, $2),
-                    nombre = $3,
-                    foto_url = $4,
+                    nombre = CASE WHEN perfil_editado THEN nombre ELSE $3 END,
+                    foto_url = CASE WHEN perfil_editado THEN foto_url ELSE $4 END,
                     ultimo_acceso = now()
               WHERE id = $1
               RETURNING id`,
@@ -164,6 +171,27 @@ auth.get(
     const usuario = await usuarioDeSesion(req);
     if (!usuario) throw new HttpError(401, "No autenticado");
     res.json({ usuario });
+  }),
+);
+
+auth.patch(
+  "/me",
+  ah(async (req, res) => {
+    const actual = await usuarioDeSesion(req);
+    if (!actual) throw new HttpError(401, "No autenticado");
+
+    const datos = perfilSchema.parse(req.body);
+    const fotoUrl = datos.fotoUrl ? datos.fotoUrl : null;
+
+    const { rows } = await pool.query(
+      `UPDATE usuarios
+          SET nombre = $2, foto_url = $3, perfil_editado = true
+        WHERE id = $1
+        RETURNING ${CAMPOS_USUARIO}`,
+      [actual.id, datos.nombre, fotoUrl],
+    );
+
+    res.json({ usuario: rows[0] });
   }),
 );
 

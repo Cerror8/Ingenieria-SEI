@@ -3,12 +3,14 @@ import { Clock, Download, Eye, Paperclip, Upload } from "lucide-react";
 import { api, mapDocumento } from "../../api/client";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
 import type { Document } from "../../types";
+import { SubirDocumentoModal } from "./SubirDocumentoModal";
 
 export function DocumentosView() {
   const [cat, setCat] = useState("Todos");
   const [documentos, setDocumentos] = useState<Document[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarSubida, setMostrarSubida] = useState(false);
 
   const categorias = ["Todos", "Ficha técnica", "Actas", "Informes", "Antecedentes", "Evidencias", "Otros"];
 
@@ -41,7 +43,10 @@ export function DocumentosView() {
           <h1 className="text-xl font-bold text-gray-900">Documentos</h1>
           <p className="mt-0.5 text-sm text-gray-500">Repositorio documental de Ingeniería SEI</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412]">
+        <button
+          onClick={() => setMostrarSubida(true)}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412]"
+        >
           <Upload className="h-4 w-4" />Cargar documento
         </button>
       </div>
@@ -69,7 +74,10 @@ export function DocumentosView() {
                   <td className="min-w-[220px] px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <Paperclip className="h-3.5 w-3.5 flex-shrink-0 text-gray-300" />
-                      <span className="text-sm font-semibold text-gray-800">{doc.name}</span>
+                      <div>
+                        <span className="text-sm font-semibold text-gray-800">{doc.name}</span>
+                        {doc.fileName && <p className="text-[10px] text-gray-400">{doc.fileName}</p>}
+                      </div>
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5"><span className="font-mono text-xs font-bold text-orange-700">{doc.projectId}</span></td>
@@ -84,9 +92,25 @@ export function DocumentosView() {
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-0.5">
-                      <button className="rounded p-1 text-gray-300 transition-colors hover:text-orange-600"><Eye className="h-3.5 w-3.5" /></button>
-                      <button className="rounded p-1 text-gray-300 transition-colors hover:text-orange-600"><Download className="h-3.5 w-3.5" /></button>
-                      <button className="rounded p-1 text-gray-300 transition-colors hover:text-amber-600" title="Nueva versión"><Clock className="h-3.5 w-3.5" /></button>
+                      <button
+                        type="button"
+                        disabled={!doc.fileName}
+                        onClick={() => window.open(api.documentoArchivoUrl(doc.id), "_blank", "noopener,noreferrer")}
+                        title="Ver"
+                        className="rounded p-1 text-gray-300 transition-colors hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!doc.fileName}
+                        onClick={() => { window.location.href = api.documentoArchivoUrl(doc.id, true); }}
+                        title="Descargar"
+                        className="rounded p-1 text-gray-300 transition-colors hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" className="rounded p-1 text-gray-300 transition-colors hover:text-amber-600" title="Nueva versión"><Clock className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -98,6 +122,12 @@ export function DocumentosView() {
           <p className="px-4 py-10 text-center text-sm text-gray-400">No hay documentos en esta categoría.</p>
         )}
       </div>
+
+      <SubirDocumentoModal
+        abierto={mostrarSubida}
+        onCerrar={() => setMostrarSubida(false)}
+        onSubido={() => void cargar()}
+      />
     </div>
   );
 }

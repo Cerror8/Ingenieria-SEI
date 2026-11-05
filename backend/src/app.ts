@@ -6,10 +6,12 @@ import { pool } from "./db.js";
 import { ah, errorHandler } from "./http.js";
 import { auditoria } from "./routes/auditoria.js";
 import { auth } from "./routes/auth.js";
+import { calendario } from "./routes/calendario.js";
 import { dashboard } from "./routes/dashboard.js";
 import { documentos } from "./routes/documentos.js";
 import { indicadores } from "./routes/indicadores.js";
 import { informes } from "./routes/informes.js";
+import { notificaciones } from "./routes/notificaciones.js";
 import { proyectos } from "./routes/proyectos.js";
 import { tableros } from "./routes/tableros.js";
 
@@ -41,5 +43,7 @@ app.use("/api/documentos", requireAuth, documentos);
 app.use("/api/informes", requireAuth, informes);
 app.use("/api/auditoria", requireAuth, auditoria);
 app.use("/api/tableros", requireAuth, tableros);
+app.use("/api/notificaciones", requireAuth, notificaciones);
+app.use("/api/calendario", requireAuth, calendario);
 
 app.use(errorHandler);

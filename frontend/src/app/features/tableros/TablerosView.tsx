@@ -26,10 +26,22 @@ const COLUMNAS: {
   { id: "completado", titulo: "Completado", dot: "bg-green-500", barra: "bg-green-500" },
 ];
 
-const PRIORIDAD_CFG: Record<PrioridadTablero, string> = {
-  Alta: "bg-red-50 text-red-700 border-red-200",
-  Media: "bg-amber-50 text-amber-700 border-amber-200",
-  Baja: "bg-slate-100 text-slate-600 border-slate-200",
+const PRIORIDAD_CFG: Record<PrioridadTablero, { badge: string; borde: string; punto: string }> = {
+  Alta: {
+    badge: "bg-red-100 text-red-700 border-red-300",
+    borde: "border-l-red-500",
+    punto: "bg-red-500",
+  },
+  Media: {
+    badge: "bg-amber-100 text-amber-800 border-amber-300",
+    borde: "border-l-amber-500",
+    punto: "bg-amber-500",
+  },
+  Baja: {
+    badge: "bg-sky-100 text-sky-700 border-sky-300",
+    borde: "border-l-sky-500",
+    punto: "bg-sky-500",
+  },
 };
 
 function iniciales(nombre: string) {
@@ -319,7 +331,15 @@ export function TablerosView() {
           <option value="Media">Prioridad media</option>
           <option value="Baja">Prioridad baja</option>
         </select>
-        <span className="text-xs font-medium text-gray-400 sm:ml-auto">
+        <div className="flex items-center gap-3 text-[11px] font-medium text-gray-500 sm:ml-auto">
+          {(["Baja", "Media", "Alta"] as PrioridadTablero[]).map((p) => (
+            <span key={p} className="inline-flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${PRIORIDAD_CFG[p].punto}`} />
+              {p}
+            </span>
+          ))}
+        </div>
+        <span className="text-xs font-medium text-gray-400">
           {filtradas.length} de {tareas.length} tareas
         </span>
       </div>
@@ -372,7 +392,7 @@ export function TablerosView() {
                       setArrastrando(null);
                       setColumnaActiva(null);
                     }}
-                    className={`group cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md active:cursor-grabbing ${
+                    className={`group cursor-grab rounded-lg border border-l-4 border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md active:cursor-grabbing ${PRIORIDAD_CFG[tarea.prioridad].borde} ${
                       arrastrando === tarea.id ? "opacity-50" : ""
                     }`}
                   >
@@ -404,7 +424,7 @@ export function TablerosView() {
 
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${PRIORIDAD_CFG[tarea.prioridad]}`}
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${PRIORIDAD_CFG[tarea.prioridad].badge}`}
                       >
                         {tarea.prioridad}
                       </span>

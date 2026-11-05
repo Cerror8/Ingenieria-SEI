@@ -17,6 +17,7 @@ CREATE TABLE usuarios (
   rol           TEXT NOT NULL DEFAULT 'usuario'
                 CHECK (rol IN ('admin', 'docente', 'estudiante', 'usuario')),
   activo        BOOLEAN NOT NULL DEFAULT true,
+  perfil_editado BOOLEAN NOT NULL DEFAULT false,
   ultimo_acceso TIMESTAMPTZ,
   creado_en     TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -16,6 +16,7 @@ import {
   api, mapActividad, mapAuditoria, mapDocumento, mapIndicador, mapInforme, mapProyecto,
 } from "../../../api/client";
 import { CargandoModule, ErrorModule } from "../../../components/DataState";
+import { SubirDocumentoModal } from "../../documentos/SubirDocumentoModal";
 import { IND_CFG, ACT_STATUS_CFG, GANTT_MONTHS, PROJ_TABS } from "../../../constants";
 import { fmt } from "../../../lib/format";
 import { StatusBadge, IndBadge, Bar2, Crumb } from "../../../components/shared";
@@ -30,6 +31,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
   const [seguimientoAvance, setSeguimientoAvance] = useState(0);
   const [seguimientoDesc, setSeguimientoDesc] = useState("");
   const [showActModal, setShowActModal] = useState(false);
+  const [mostrarSubida, setMostrarSubida] = useState(false);
 
   const [project, setProject] = useState<Project | null>(null);
   const [projIndicators, setProjIndicators] = useState<Indicator[]>([]);
@@ -67,6 +69,11 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  const recargarDocs = useCallback(async () => {
+    const detalle = await api.proyecto(projectId);
+    setProjDocs(detalle.documentos.map(mapDocumento));
+  }, [projectId]);
 
   const toggle = (s: string) => setExpanded(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
 
@@ -738,7 +745,10 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-800">Repositorio documental</h2>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
+                <button
+                  onClick={() => setMostrarSubida(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors"
+                >
                   <Upload className="w-3.5 h-3.5" /> Cargar documento
                 </button>
               </div>
@@ -780,8 +790,24 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-0.5">
-                            <button className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Ver"><Eye className="w-3.5 h-3.5" /></button>
-                            <button className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Descargar"><Download className="w-3.5 h-3.5" /></button>
+                            <button
+                              type="button"
+                              disabled={!doc.fileName}
+                              onClick={() => window.open(api.documentoArchivoUrl(doc.id), "_blank", "noopener,noreferrer")}
+                              title="Ver"
+                              className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!doc.fileName}
+                              onClick={() => { window.location.href = api.documentoArchivoUrl(doc.id, true); }}
+                              title="Descargar"
+                              className="p-1 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
                             <button className="p-1 text-gray-300 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Nueva versión"><Clock className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
@@ -951,6 +977,13 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
 
         </div>
       </div>
+
+      <SubirDocumentoModal
+        abierto={mostrarSubida}
+        proyectoId={projectId}
+        onCerrar={() => setMostrarSubida(false)}
+        onSubido={() => void recargarDocs()}
+      />
     </div>
   );
 }

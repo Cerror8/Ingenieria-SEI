@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Bell, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { ViewType } from "../types";
 import { Crumb } from "../components/shared";
 import { PDFModal } from "../components/PDFModal";
 import { Toast } from "../components/Toast";
 import { Sidebar } from "./Sidebar";
-import { useAuth } from "../auth/AuthProvider";
+import { ProfileMenu } from "./ProfileMenu";
+import { NotificationsMenu } from "./NotificationsMenu";
 import { DashboardView } from "../features/dashboard/DashboardView";
 import { TablerosView } from "../features/tableros/TablerosView";
 import { ProjectsListView } from "../features/projects/pages/ProjectsListView";
@@ -15,6 +16,8 @@ import { AntecedentesView } from "../features/antecedentes/AntecedentesView";
 import { InformesView } from "../features/informes/InformesView";
 import { SeguimientoView } from "../features/seguimiento/SeguimientoView";
 import { DocumentosView } from "../features/documentos/DocumentosView";
+import { CalendarView } from "../features/calendario/CalendarView";
+import { ProfileView } from "../features/perfil/ProfileView";
 
 const ETIQUETAS_VISTA: Record<string, string> = {
   dashboard: "Dashboard",
@@ -24,20 +27,17 @@ const ETIQUETAS_VISTA: Record<string, string> = {
   informes: "Informes",
   documentos: "Documentos",
   seguimiento: "Seguimiento",
+  calendario: "Calendario",
+  perfil: "Mi perfil",
 };
 
-function iniciales(nombre: string) {
-  return nombre
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0]?.toUpperCase() ?? "")
-    .join("");
-}
+const CLAVE_SIDEBAR = "sei-sidebar-colapsado";
 
 export function AppShell() {
-  const { usuario } = useAuth();
   const [view, setView] = useState<ViewType>("dashboard");
+  const [sidebarColapsado, setSidebarColapsado] = useState(
+    () => window.localStorage.getItem(CLAVE_SIDEBAR) === "1",
+  );
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showPDF, setShowPDF] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -56,6 +56,10 @@ export function AppShell() {
   };
 
   const showToast = (msg: string) => setToast(msg);
+
+  useEffect(() => {
+    window.localStorage.setItem(CLAVE_SIDEBAR, sidebarColapsado ? "1" : "0");
+  }, [sidebarColapsado]);
 
   const getBreadcrumb = () => {
     const base = [{ label: "Ingeniería SEI" }];
@@ -76,6 +80,7 @@ export function AppShell() {
         onNavigate={navigate}
         open={menuAbierto}
         onClose={() => setMenuAbierto(false)}
+        collapsed={sidebarColapsado}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -90,6 +95,20 @@ export function AppShell() {
             >
               <Menu className="h-5 w-5" />
             </button>
+            <button
+              type="button"
+              onClick={() => setSidebarColapsado((valor) => !valor)}
+              aria-label={sidebarColapsado ? "Expandir barra lateral" : "Retraer barra lateral"}
+              aria-pressed={sidebarColapsado}
+              title={sidebarColapsado ? "Expandir barra lateral" : "Retraer barra lateral"}
+              className="hidden rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 lg:inline-flex"
+            >
+              {sidebarColapsado ? (
+                <PanelLeftOpen className="h-5 w-5" />
+              ) : (
+                <PanelLeftClose className="h-5 w-5" />
+              )}
+            </button>
             <div className="hidden min-w-0 overflow-hidden sm:block">
               <Crumb items={getBreadcrumb()} />
             </div>
@@ -103,34 +122,8 @@ export function AppShell() {
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
               Sesión activa
             </div>
-            <button className="relative rounded-lg p-2 transition-colors hover:bg-gray-100" aria-label="Notificaciones">
-              <Bell className="h-4 w-4 text-gray-400" />
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
-            </button>
-            <div className="flex items-center gap-2">
-              {usuario?.fotoUrl ? (
-                <img
-                  src={usuario.fotoUrl}
-                  alt={usuario.nombre}
-                  referrerPolicy="no-referrer"
-                  className="h-8 w-8 rounded-full border border-gray-200 object-cover"
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C2410C]/10">
-                  <span className="text-xs font-black text-[#C2410C]">
-                    {usuario ? iniciales(usuario.nombre) : "SE"}
-                  </span>
-                </div>
-              )}
-              <div className="hidden min-w-0 md:block">
-                <p className="max-w-[160px] truncate text-xs font-bold leading-tight text-gray-700">
-                  {usuario?.nombre}
-                </p>
-                <p className="max-w-[160px] truncate text-[10px] text-gray-400">
-                  {usuario?.email}
-                </p>
-              </div>
-            </div>
+            <NotificationsMenu onNavigate={navigate} />
+            <ProfileMenu onNavigate={navigate} />
           </div>
         </header>
 
@@ -170,6 +163,8 @@ export function AppShell() {
           {view === "informes" && <InformesView onGenerate={() => setShowPDF(true)} />}
           {view === "documentos" && <DocumentosView />}
           {view === "seguimiento" && <SeguimientoView onSelectProject={selectProject} />}
+          {view === "calendario" && <CalendarView />}
+          {view === "perfil" && <ProfileView onShowToast={showToast} />}
         </main>
       </div>
 

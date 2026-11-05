@@ -8,7 +8,7 @@ const MENSAJES_ERROR: Record<string, string> = {
   google_no_configurado:
     "El acceso con Google aún no está configurado. Usa el acceso administrativo.",
   oauth_state: "La sesión de Google expiró. Inténtalo de nuevo.",
-  dominio: "Debes ingresar con tu correo institucional de la universidad.",
+  dominio: "Esta cuenta de Google no está autorizada para ingresar.",
   google: "No se pudo completar el inicio de sesión con Google.",
 };
 
@@ -90,12 +90,7 @@ export function LoginView() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] px-4 py-4 sm:px-6 sm:py-6">
-      <p className="mx-auto mb-3 max-w-6xl text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-        Ingeniería SEI · Acceso RAP
-      </p>
-
-      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl lg:grid-cols-[42%_58%]">
+    <div className="grid min-h-screen bg-white lg:grid-cols-[42%_58%]">
         {/* Panel institucional */}
         <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#1F2937] px-10 py-12 text-white lg:flex">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#EA580C]/10" />
@@ -109,21 +104,22 @@ export function LoginView() {
               <span className="text-[#EA580C]">SEI</span>
             </h1>
             <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/60">
-              Gestión de Resultados de Aprendizaje · Acceso RAP
+               Acceso a Ingeniería SEI
             </p>
           </div>
 
           <div className="relative space-y-4">
             <div className="h-px w-14 bg-[#EA580C]" />
-            <p className="text-sm font-semibold text-white/90">Programa de Ingeniería Civil</p>
-            <p className="text-xs text-white/45">Seguimiento y evaluación académica</p>
+            <p className="text-sm font-semibold text-white/90">Ingeniería Civil</p>
+            <p className="text-xs text-white/45">Planificación, contratación, supervisión y control</p>
           </div>
 
-          <p className="relative text-[11px] text-white/35">Universidad CESMAG · Pasto, Nariño</p>
+          <p className="relative text-[11px] text-white/35">Sebastian Escandon Ingeniero Civil 
+          · Pasto, Nariño</p>
         </aside>
 
         {/* Formulario */}
-        <main className="px-6 py-10 sm:px-12 sm:py-14">
+        <main className="flex items-center justify-center px-6 py-10 sm:px-12 sm:py-14">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 flex items-center gap-3 lg:hidden">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1F2937]">
@@ -131,19 +127,19 @@ export function LoginView() {
               </div>
               <div>
                 <p className="text-sm font-black leading-tight text-slate-800">Ingeniería SEI</p>
-                <p className="text-[11px] text-slate-500">Acceso RAP · Universidad CESMAG</p>
+                <p className="text-[11px] text-slate-500">Acceso al sistema</p>
               </div>
             </div>
 
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">Iniciar sesión</h2>
             <p className="mt-1.5 text-sm text-slate-500">
-              Ingresa con tus credenciales institucionales para continuar.
+              Ingresa con tus credenciales para continuar.
             </p>
 
             <form className="mt-8 space-y-4" onSubmit={onSubmit}>
               <div className="space-y-1.5">
                 <label htmlFor="email" className="text-xs font-semibold text-slate-700">
-                  Correo administrativo
+                  Correo 
                 </label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -154,7 +150,7 @@ export function LoginView() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="usuario@cesmag.edu.co"
+                    placeholder="usuario@gmail.com"
                     className="w-full rounded-lg border border-slate-200 bg-slate-50/60 py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
                   />
                 </div>
@@ -196,7 +192,7 @@ export function LoginView() {
                 </a>
                 <span className="inline-flex items-center gap-1 font-semibold text-slate-500">
                   <ShieldCheck className="h-3.5 w-3.5 text-[#EA580C]" />
-                  Acceso administrativo
+                  
                 </span>
               </div>
 
@@ -236,11 +232,10 @@ export function LoginView() {
             </button>
 
             <p className="mt-8 text-center text-[11px] leading-relaxed text-slate-400">
-              ¿Necesitas ayuda? Contacta a la oficina de TIC de la universidad.
+              ¿Necesitas ayuda? Contacta a la oficina de software.
             </p>
           </div>
         </main>
-      </div>
     </div>
   );
 }

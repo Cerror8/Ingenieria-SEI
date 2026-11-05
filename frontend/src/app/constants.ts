@@ -5,7 +5,8 @@ import {
   Plus, Search, Download, Eye, Edit2, Bell, TrendingUp, TrendingDown,
   AlertTriangle, CheckCircle, DollarSign, ArrowLeft, X, Upload,
   Link2, MoreHorizontal, ChevronLeft, Filter, Tag, Paperclip,
-  Clock, BarChart2, Percent, Check, Trash2, Save, FileDown, Sliders, SquareKanban
+  Clock, BarChart2, Percent, Check, Trash2, Save, FileDown, Sliders, SquareKanban,
+  CalendarDays
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -42,6 +43,7 @@ export const WIZARD_STEPS = ["Información general", "Ficha técnica FR-019", "A
 export const NAV_ITEMS = [
   { id: "dashboard",    label: "Dashboard",     icon: LayoutDashboard },
   { id: "tableros",     label: "Tableros",      icon: SquareKanban    },
+  { id: "calendario",   label: "Calendario",    icon: CalendarDays    },
   { id: "projects",     label: "Proyectos",     icon: Briefcase       },
   { id: "seguimiento",  label: "Seguimiento",   icon: Activity        },
   { id: "antecedentes", label: "Antecedentes",  icon: BookOpen        },

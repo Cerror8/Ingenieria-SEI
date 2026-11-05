@@ -24,7 +24,9 @@ export type ViewType =
   | "informes"
   | "documentos"
   | "seguimiento"
-  | "tableros";
+  | "tableros"
+  | "calendario"
+  | "perfil";
 
 export interface Project {
   id: string;
@@ -63,6 +65,8 @@ export interface Document {
   user: string;
   status: DocStatus;
   projectId: string;
+  fileName: string | null;
+  fileSize: number | null;
 }
 
 export interface AuditEntry {
@@ -110,3 +114,49 @@ export interface TareaTablero {
   fechaLimite: string;
   etiqueta: string;
 }
+
+export type NotificacionTarea = {
+  id: string;
+  titulo: string;
+  prioridad: PrioridadTablero;
+  columna: ColumnaTablero;
+  fechaLimite: string;
+  tableroId: string;
+  tablero: string;
+  diasRestantes: number;
+};
+
+export type EventoCalendario = {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  fechaInicio: string;
+  fechaFin: string;
+  todoElDia: boolean;
+  usuarioId: string;
+  creadoEn: string;
+};
+
+export type TareaCalendario = {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  prioridad: PrioridadTablero;
+  columna: ColumnaTablero;
+  fechaLimite: string;
+  tableroId: string;
+  tablero: string;
+};
+
+export type CalendarioDatos = {
+  tareas: TareaCalendario[];
+  eventos: EventoCalendario[];
+};
+
+export type NuevoEvento = {
+  titulo: string;
+  descripcion: string;
+  fechaInicio: string;
+  fechaFin: string;
+  todoElDia: boolean;
+};

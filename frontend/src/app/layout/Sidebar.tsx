@@ -1,36 +1,19 @@
-import { BarChart2, LogOut, X } from "lucide-react";
-import { useAuth } from "../auth/AuthProvider";
+import { BarChart2, X } from "lucide-react";
 import { NAV_ITEMS } from "../constants";
-import type { Rol } from "../types";
-
-const ROL_ETIQUETA: Record<Rol, string> = {
-  admin: "Administrador",
-  docente: "Docente",
-  estudiante: "Estudiante",
-  usuario: "Usuario",
-};
-
-function iniciales(nombre: string) {
-  return nombre
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export function Sidebar({
   currentView,
   onNavigate,
   open,
   onClose,
+  collapsed,
 }: {
   currentView: string;
   onNavigate: (v: string) => void;
   open: boolean;
   onClose: () => void;
+  collapsed: boolean;
 }) {
-  const { usuario, cerrarSesion } = useAuth();
   const isActive = (id: string) =>
     currentView === id ||
     (id === "projects" && (currentView === "project-detail" || currentView === "create-project"));
@@ -46,21 +29,23 @@ export function Sidebar({
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-shrink-0 select-none flex-col bg-[#1F2937] transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-56 lg:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-shrink-0 select-none flex-col bg-[#1F2937] transition-[transform,width] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
+          collapsed ? "lg:w-20" : "lg:w-56"
+        } ${open ? "translate-x-0" : "-translate-x-full"}`}
         aria-label="Menú principal"
       >
-        <div className="flex items-start justify-between border-b border-white/10 px-4 py-5">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#C2410C]">
-                <BarChart2 className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <p className="text-xs font-black leading-tight tracking-wide text-white">INGENIERÍA</p>
-                <p className="text-xs font-black leading-tight tracking-wide text-[#FDBA74]">SEI</p>
-              </div>
+        <div
+          className={`flex items-center border-b border-white/10 py-5 ${
+            collapsed ? "justify-between px-4 lg:justify-center lg:px-2" : "justify-between px-4"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#C2410C]">
+              <BarChart2 className="h-4 w-4 text-white" />
+            </div>
+            <div className={collapsed ? "lg:hidden" : ""}>
+              <p className="text-xs font-black leading-tight tracking-wide text-white">INGENIERÍA</p>
+              <p className="text-xs font-black leading-tight tracking-wide text-[#FDBA74]">SEI</p>
             </div>
           </div>
 
@@ -74,7 +59,11 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+        <nav
+          className={`flex-1 space-y-0.5 overflow-y-auto py-4 ${
+            collapsed ? "px-3 lg:px-2" : "px-3"
+          }`}
+        >
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
@@ -82,51 +71,20 @@ export function Sidebar({
                 onNavigate(item.id);
                 onClose();
               }}
+              title={collapsed ? item.label : undefined}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                collapsed ? "lg:justify-center lg:px-2" : ""
+              } ${
                 isActive(item.id)
                   ? "bg-[#C2410C] text-white shadow-sm"
                   : "text-white/55 hover:bg-white/10 hover:text-white/85"
               }`}
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
-              {item.label}
+              <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
             </button>
           ))}
         </nav>
-
-        <div className="border-t border-white/10 px-4 py-4">
-          <div className="flex items-center gap-2.5">
-            {usuario?.fotoUrl ? (
-              <img
-                src={usuario.fotoUrl}
-                alt={usuario.nombre}
-                referrerPolicy="no-referrer"
-                className="h-8 w-8 flex-shrink-0 rounded-full border border-white/20 object-cover"
-              />
-            ) : (
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
-                <span className="text-xs font-black text-white">
-                  {usuario ? iniciales(usuario.nombre) : "SE"}
-                </span>
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-bold text-white">{usuario?.nombre ?? "Invitado"}</p>
-              <p className="truncate text-[10px] text-white/45">
-                {usuario ? ROL_ETIQUETA[usuario.rol] : "Sin sesión"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void cerrarSesion()}
-              title="Cerrar sesión"
-              aria-label="Cerrar sesión"
-              className="rounded-md p-1.5 text-white/45 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
       </aside>
     </>
   );

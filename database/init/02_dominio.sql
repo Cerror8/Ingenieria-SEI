@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS documentos (
   usuario        TEXT NOT NULL,
   estado         TEXT NOT NULL CHECK (estado IN ('Aprobado', 'En revisión', 'Borrador', 'Rechazado')),
   proyecto_id    TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  archivo_nombre TEXT,
+  archivo_ruta   TEXT,
+  archivo_mime   TEXT,
+  archivo_tamano BIGINT,
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -175,6 +179,29 @@ CREATE INDEX IF NOT EXISTS ix_tareas_tablero ON tareas_tablero (tablero_id, colu
 
 CREATE TRIGGER tareas_tablero_touch
 BEFORE UPDATE ON tareas_tablero
+FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- ---------------------------------------------------------------------
+-- Calendario personal: reuniones y horario propio de cada usuario
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS eventos_calendario (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  titulo         TEXT NOT NULL,
+  descripcion    TEXT NOT NULL DEFAULT '',
+  fecha_inicio   TIMESTAMPTZ NOT NULL,
+  fecha_fin      TIMESTAMPTZ NOT NULL,
+  todo_el_dia    BOOLEAN NOT NULL DEFAULT false,
+  usuario_id     UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (fecha_fin >= fecha_inicio)
+);
+
+CREATE INDEX IF NOT EXISTS ix_eventos_calendario_usuario
+  ON eventos_calendario (usuario_id, fecha_inicio);
+
+CREATE TRIGGER eventos_calendario_touch
+BEFORE UPDATE ON eventos_calendario
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 
 -- ---------------------------------------------------------------------

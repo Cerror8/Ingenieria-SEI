@@ -5,7 +5,7 @@
 El sistema usa dos vías de acceso sobre una misma tabla de usuarios:
 
 1. **Acceso administrativo local** (`proveedor = 'local'`): correo y contraseña.
-2. **Acceso con Google** (`proveedor = 'google'`): OAuth 2.0 con cuentas institucionales.
+2. **Acceso con Google** (`proveedor = 'google'`): OAuth 2.0 con cualquier cuenta de Google mientras `ALLOWED_DOMAIN` esté vacío.
 
 Ambas terminan en el mismo mecanismo de sesión: un token aleatorio en cookie `httpOnly` y su hash SHA-256 en la base de datos.
 
@@ -22,7 +22,8 @@ Archivo `backend/.env` (parte de `backend/.env.example`):
 | `SESSION_TTL_DIAS` | Duración de la sesión en días | `7` |
 | `ADMIN_EMAIL` | Correo del administrador local | `admin@unicesmag.edu.co` |
 | `ADMIN_PASSWORD` | Contraseña inicial del administrador | `Admin12345!` |
-| `ALLOWED_DOMAIN` | Dominio permitido en Google (vacío = cualquiera) | `unicesmag.edu.co` |
+| `UPLOAD_DIR` | Carpeta local de archivos subidos, relativa a `backend/` | `uploads` |
+| `ALLOWED_DOMAIN` | Dominio permitido en Google (vacío = cualquiera) | *(vacío)* |
 | `GOOGLE_CLIENT_ID` | Client ID de OAuth 2.0 | — |
 | `GOOGLE_CLIENT_SECRET` | Client Secret de OAuth 2.0 | — |
 | `GOOGLE_REDIRECT_URI` | URI de retorno registrada en Google | `http://localhost:4000/api/auth/google/callback` |
@@ -38,6 +39,7 @@ El frontend solo requiere `VITE_API_URL` (ver `frontend/.env.example`), por defe
 | `GET` | `/api/auth/google` | Inicia el flujo OAuth y redirige a Google. |
 | `GET` | `/api/auth/google/callback` | Valida `state` y el ID token, crea o actualiza el usuario y abre sesión. |
 | `GET` | `/api/auth/me` | Devuelve el usuario de la sesión actual o `401`. |
+| `PATCH` | `/api/auth/me` | Actualiza `nombre` y `fotoUrl` del perfil propio. |
 | `POST` | `/api/auth/logout` | Elimina la sesión y borra la cookie. |
 | `GET` | `/api/salud` | Estado del servicio. |
 
@@ -75,7 +77,9 @@ En producción reemplaza las URLs por el dominio real y registra exactamente las
 
 ### Restricción de dominio
 
-`ALLOWED_DOMAIN=unicesmag.edu.co` rechaza cualquier cuenta que no termine en `@unicesmag.edu.co`. Si se deja vacío, se acepta cualquier cuenta de Google; no se recomienda en producción.
+`ALLOWED_DOMAIN=unicesmag.edu.co` rechaza cualquier cuenta que no termine en `@unicesmag.edu.co`. Si se deja vacío (configuración actual), se acepta cualquier cuenta de Google; se recomienda asignar un dominio antes de publicar en producción.
+
+Si con `ALLOWED_DOMAIN` vacío una cuenta personal sigue sin poder entrar, revisa en Google Cloud el **tipo de usuario** de la pantalla de consentimiento: en **Interno** solo se admiten cuentas de la organización; debe ser **Externo**, y mientras la app esté en modo **Testing** hay que agregar el correo en **Test users**.
 
 ## Seguridad implementada
 
@@ -101,6 +105,10 @@ Frontend                 Backend                         Google
    │  GET /auth/me           │  cookie rap_sid              │
    ├────────────────────────>│                              │
 ```
+
+## Perfil personalizado
+
+Cada usuario puede cambiar su nombre y foto desde **Mi perfil**. Al guardar se marca `perfil_editado = true`; en los siguientes accesos con Google, el callback conserva esos valores en lugar de sobrescribirlos con los de la cuenta de Google. El correo y el rol se administran fuera del formulario y no son editables por el usuario.
 
 ## Administrador local
 

@@ -1,9 +1,13 @@
 import type {
   AuditEntry,
+  CalendarioDatos,
   Document,
+  EventoCalendario,
   GanttActivity,
   Indicator,
   IndicatorStatus,
+  NotificacionTarea,
+  NuevoEvento,
   Project,
   ProjectStatus,
   Report,
@@ -100,6 +104,9 @@ export type DocumentoApi = {
   usuario: string;
   estado: Document["status"];
   proyectoId: string;
+  archivoNombre: string | null;
+  archivoMime: string | null;
+  archivoTamano: number | null;
 };
 
 export type InformeApi = {
@@ -222,6 +229,8 @@ export const mapDocumento = (d: DocumentoApi): Document => ({
   user: d.usuario,
   status: d.estado,
   projectId: d.proyectoId,
+  fileName: d.archivoNombre,
+  fileSize: d.archivoTamano,
 });
 
 export const mapInforme = (r: InformeApi): Report => ({
@@ -260,6 +269,8 @@ export const api = {
     request<{ usuario: Usuario }>("/auth/login", { method: "POST", body: { email, password } }),
   cerrarSesion: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
   usuarioActual: () => request<{ usuario: Usuario }>("/auth/me"),
+  actualizarPerfil: (datos: { nombre: string; fotoUrl: string | null }) =>
+    request<{ usuario: Usuario }>("/auth/me", { method: "PATCH", body: datos }),
   urlGoogle: `${API_URL}/auth/google`,
 
   dashboard: () => request<DashboardApi>("/dashboard"),
@@ -273,6 +284,23 @@ export const api = {
     request<{ indicadores: IndicadorApi[] }>(`/indicadores${query({ proyectoId })}`),
   documentos: (proyectoId?: string, tipo?: string) =>
     request<{ documentos: DocumentoApi[] }>(`/documentos${query({ proyectoId, tipo })}`),
+  subirDocumento: async (datos: FormData) => {
+    let respuesta: Response;
+    try {
+      respuesta = await fetch(`${API_URL}/documentos`, {
+        method: "POST",
+        credentials: "include",
+        body: datos,
+      });
+    } catch {
+      throw new ApiError(0, "No se pudo conectar con el servidor. Verifica que el backend esté activo.");
+    }
+    const json = (await respuesta.json().catch(() => ({}))) as { error?: string; documento?: DocumentoApi };
+    if (!respuesta.ok) throw new ApiError(respuesta.status, json.error ?? "No se pudo subir el documento");
+    return json as { documento: DocumentoApi };
+  },
+  documentoArchivoUrl: (id: string, descargar = false) =>
+    `${API_URL}/documentos/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,
   informes: () => request<{ informes: InformeApi[] }>("/informes"),
   crearInforme: (datos: { tipo: string; periodo: string; proyecto?: string; formato?: "PDF" | "Word" }) =>
     request<{ informe: InformeApi }>("/informes", { method: "POST", body: datos }),
@@ -295,4 +323,19 @@ export const api = {
     }),
   eliminarTarea: (tableroId: string, tareaId: string) =>
     request<{ ok: boolean }>(`/tableros/${tableroId}/tareas/${tareaId}`, { method: "DELETE" }),
+
+  notificaciones: () =>
+    request<{ notificaciones: NotificacionTarea[]; total: number }>("/notificaciones"),
+
+  calendario: (desde: string, hasta: string) =>
+    request<CalendarioDatos>(`/calendario${query({ desde, hasta })}`),
+  crearEvento: (datos: NuevoEvento) =>
+    request<{ evento: EventoCalendario }>("/calendario/eventos", { method: "POST", body: datos }),
+  actualizarEvento: (id: string, datos: Partial<NuevoEvento>) =>
+    request<{ evento: EventoCalendario }>(`/calendario/eventos/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
+  eliminarEvento: (id: string) =>
+    request<{ ok: boolean }>(`/calendario/eventos/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

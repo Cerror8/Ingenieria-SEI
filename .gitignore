@@ -19,6 +19,12 @@ dist-ssr
 backend/.env
 database/.env
 
+# Respaldos locales de la base
+backups/
+
+# Archivos subidos por los usuarios
+backend/uploads/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
