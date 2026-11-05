@@ -3,10 +3,12 @@ import pg from "pg";
 
 // BIGINT/COUNT llegan como texto por defecto; los pasamos a número.
 pg.types.setTypeParser(20, (v) => parseInt(v, 10));
+// DATE se devuelve como 'YYYY-MM-DD' en lugar de Date para no alterar la zona horaria.
+pg.types.setTypeParser(1082, (v) => v);
 
 export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 pool.on("connect", (c) => {
-  void c.query("SET search_path = app, public");
+  void c.query("SET search_path = app, public; SET TIME ZONE 'America/Bogota'");
 });
 
 export type Db = pg.PoolClient;

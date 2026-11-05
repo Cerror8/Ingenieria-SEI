@@ -28,7 +28,7 @@ Archivo `backend/.env` (parte de `backend/.env.example`):
 | `GOOGLE_REDIRECT_URI` | URI de retorno registrada en Google | `http://localhost:4000/api/auth/google/callback` |
 | `NODE_ENV` | Entorno (`production` activa cookies `secure`) | `development` |
 
-El frontend solo requiere `VITE_API_URL` (ver `.env.example` en la raíz), por defecto `http://localhost:4000/api`.
+El frontend solo requiere `VITE_API_URL` (ver `frontend/.env.example`), por defecto `http://localhost:4000/api`.
 
 ## Endpoints
 
