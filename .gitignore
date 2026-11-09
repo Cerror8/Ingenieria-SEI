@@ -35,3 +35,6 @@ backend/uploads/
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel
+.vercel

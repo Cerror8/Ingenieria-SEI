@@ -5,6 +5,7 @@ import { requireAdmin, type UsuarioSesion } from "../auth/session.js";
 import { registrarAuditoria } from "../audit.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { avisarCuentaAprobada } from "../lib/correo.js";
 
 const ROLES = ["admin", "usuario"] as const;
 
@@ -207,6 +208,12 @@ usuarios.post(
       registro: solicitud.nombre,
       previo: "Solicitud pendiente",
       nuevo: `Acceso activo · Rol: ${datos.rol}`,
+    });
+
+    avisarCuentaAprobada({
+      nombre: solicitud.nombre,
+      email: solicitud.email,
+      rol: datos.rol,
     });
 
     res.json({ usuario: { ...rows[0], tareasAsignadas: 0, tareasCompletadas: 0 } });

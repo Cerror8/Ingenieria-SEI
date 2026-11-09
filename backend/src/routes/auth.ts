@@ -8,6 +8,7 @@ import { crearSesion, destruirSesion, usuarioDeSesion } from "../auth/session.js
 import { registrarAuditoria } from "../audit.js";
 import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { avisarSolicitudAcceso } from "../lib/correo.js";
 
 const frontend = () => (process.env.FRONTEND_URL ?? "http://localhost:5174").replace(/\/$/, "");
 const esProduccion = process.env.NODE_ENV === "production";
@@ -93,6 +94,8 @@ auth.post(
       registro: datos.nombre,
       nuevo: `Correo: ${email} · Pendiente de aprobación`,
     });
+
+    avisarSolicitudAcceso({ nombre: datos.nombre, email, proveedor: "local" });
 
     res.status(201).json({ solicitud: rows[0] });
   }),
@@ -180,6 +183,7 @@ auth.get(
       }
 
       let bloqueo: "pendiente" | "inactivo" | null = null;
+      let solicitudCreada: { nombre: string; email: string; proveedor: string } | null = null;
 
       const usuario = await withTx(async (db) => {
         const { rows } = await db.query<{
@@ -233,8 +237,16 @@ auth.get(
           [perfil.email, perfil.nombre, perfil.fotoUrl, perfil.googleId],
         );
         bloqueo = "pendiente";
+        solicitudCreada = {
+          nombre: perfil.nombre,
+          email: perfil.email,
+          proveedor: "google",
+        };
         return null;
       });
+
+      const nuevaSolicitud = solicitudCreada as { nombre: string; email: string; proveedor: string } | null;
+      if (nuevaSolicitud) avisarSolicitudAcceso(nuevaSolicitud);
 
       if (!usuario) {
         return res.redirect(`${frontend()}/login?error=${bloqueo ?? "inactivo"}`);

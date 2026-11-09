@@ -3,6 +3,7 @@ import { z } from "zod";
 import { registrarAuditoria } from "../audit.js";
 import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { avisarAsignacion, avisarFlujo } from "../lib/correo.js";
 import type { UsuarioSesion } from "../auth/session.js";
 
 const PRIORIDADES = ["Alta", "Media", "Baja"] as const;
@@ -286,7 +287,21 @@ tableros.post(
       nuevo: `Proyecto: ${proyecto[0].id} · Por hacer`,
     });
 
-    res.status(201).json({ tarea: await responderTarea(tableroId, rows[0].id) });
+    const tarea = await responderTarea(tableroId, rows[0].id);
+
+    if (asignado.id && asignado.id !== usuario.id) {
+      avisarAsignacion({
+        usuarioId: asignado.id,
+        actor: usuario.nombre,
+        titulo: tarea.titulo,
+        tablero: tarea.tableroNombre ?? "Tablero",
+        proyecto: tarea.proyectoNombre,
+        prioridad: tarea.prioridad,
+        fechaLimite: tarea.fechaLimite,
+      });
+    }
+
+    res.status(201).json({ tarea });
   }),
 );
 
@@ -353,7 +368,21 @@ tableros.patch(
       });
     }
 
-    res.json({ tarea: await responderTarea(tableroId, tareaId) });
+    const tarea = await responderTarea(tableroId, tareaId);
+
+    if (cambiaResponsable && asignado.id && asignado.id !== usuario.id) {
+      avisarAsignacion({
+        usuarioId: asignado.id,
+        actor: usuario.nombre,
+        titulo: tarea.titulo,
+        tablero: tarea.tableroNombre ?? "Tablero",
+        proyecto: tarea.proyectoNombre,
+        prioridad: tarea.prioridad,
+        fechaLimite: tarea.fechaLimite,
+      });
+    }
+
+    res.json({ tarea });
   }),
 );
 
@@ -383,6 +412,8 @@ tableros.post(
       previo: "Por hacer",
       nuevo: "En curso",
     });
+
+    avisarFlujo({ tipo: "inicio", tarea: actual, actor: usuario });
 
     res.json({ tarea: await responderTarea(tableroId, tareaId) });
   }),
@@ -443,6 +474,8 @@ tableros.post(
       nuevo: "En revisión",
     });
 
+    avisarFlujo({ tipo: "revision", tarea: actual, actor: usuario });
+
     res.json({ tarea: await responderTarea(tableroId, tareaId) });
   }),
 );
@@ -475,6 +508,8 @@ tableros.post(
       previo: "En revisión",
       nuevo: "Completado",
     });
+
+    avisarFlujo({ tipo: "aprobada", tarea: actual, actor: usuario });
 
     res.json({ tarea: await responderTarea(tableroId, tareaId) });
   }),
@@ -514,6 +549,8 @@ tableros.post(
       previo: "En revisión",
       nuevo: `En curso · ${datos.motivo}`,
     });
+
+    avisarFlujo({ tipo: "devuelta", tarea: actual, actor: usuario, motivo: datos.motivo });
 
     res.json({ tarea: await responderTarea(tableroId, tareaId) });
   }),

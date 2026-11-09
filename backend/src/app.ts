@@ -10,6 +10,7 @@ import { archivos } from "./routes/archivos.js";
 import { auditoria } from "./routes/auditoria.js";
 import { auth } from "./routes/auth.js";
 import { calendario } from "./routes/calendario.js";
+import { cron } from "./routes/cron.js";
 import { dashboard } from "./routes/dashboard.js";
 import { documentos } from "./routes/documentos.js";
 import { formatos } from "./routes/formatos.js";
@@ -65,6 +66,7 @@ app.get(
 );
 
 app.use("/api/auth", auth);
+app.use("/api/cron", cron);
 
 app.use("/api/dashboard", requireAuth, dashboard);
 app.use("/api/proyectos", requireAuth, proyectos);

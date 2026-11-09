@@ -187,6 +187,11 @@ Pasos para publicarlo:
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciales OAuth de Google |
    | `GOOGLE_REDIRECT_URI` | `https://tu-dominio.vercel.app/api/auth/google/callback` |
    | `ALLOWED_DOMAIN` | Opcional; vacío acepta cualquier cuenta de Google |
+   | `SMTP_USER` / `SMTP_PASS` | Cuenta de Gmail y **contraseña de aplicación** (requiere 2FA) para los avisos por correo |
+   | `SMTP_FROM` | Opcional; remitente visible (por defecto `SMTP_USER`) |
+   | `CRON_SECRET` | Cadena aleatoria; Vercel la envía como `Bearer` al cron diario de recordatorios |
+
+   Los avisos por correo (solicitudes, aprobaciones, asignaciones y cambios de estado) se omiten sin fallar si `SMTP_USER` o `SMTP_PASS` no están definidos. El cron de `vercel.json` corre a las 12:00 UTC (07:00 en Bogotá) y envía un recordatorio por persona con las tareas que vencen en los próximos 7 días o ya vencidas.
 
    No definas `UPLOAD_DIR` en Vercel: la aplicación usa `/tmp/uploads` automáticamente. `PGSSL` solo es necesario si tu cadena de conexión no incluye `sslmode`. Tampoco hace falta `VITE_API_URL`: el build de producción usa `/api` en el mismo dominio.
 4. **Almacenamiento de archivos (recomendado).** Crea un **Blob store** en Vercel (Storage → Create → Blob) y conéctalo al proyecto. Vercel inyecta `BLOB_READ_WRITE_TOKEN` y a partir de ahí los documentos, evidencias y valores de referencia se guardan en Blob con acceso privado; en PostgreSQL solo queda la clave `blob:<ruta>`. Además, el navegador sube **directo al store** (`POST /api/archivos` firma la subida), por lo que dejan de aplicar el límite de ~4.5 MB del cuerpo de las funciones y la restricción de `/tmp`. Sin Blob, los archivos se guardan en `/tmp` y se pierden al reiniciar la función.
