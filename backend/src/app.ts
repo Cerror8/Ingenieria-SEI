@@ -9,6 +9,7 @@ import { auth } from "./routes/auth.js";
 import { calendario } from "./routes/calendario.js";
 import { dashboard } from "./routes/dashboard.js";
 import { documentos } from "./routes/documentos.js";
+import { formatos } from "./routes/formatos.js";
 import { indicadores } from "./routes/indicadores.js";
 import { informes } from "./routes/informes.js";
 import { miTablero } from "./routes/mi-tablero.js";
@@ -17,10 +18,14 @@ import { proyectos } from "./routes/proyectos.js";
 import { tableros } from "./routes/tableros.js";
 import { tareas } from "./routes/tareas.js";
 import { usuarios } from "./routes/usuarios.js";
+import { valores } from "./routes/valores.js";
 
 export const app = express();
 
-const origenes = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
+// Vercel y otros proxies: usa la IP real del cliente para el rate limit y las cookies seguras.
+app.set("trust proxy", 1);
+
+const origenes = (process.env.CORS_ORIGIN ?? "http://localhost:5174")
   .split(",")
   .map((origen) => origen.trim())
   .filter(Boolean);
@@ -51,5 +56,7 @@ app.use("/api/mi-tablero", requireAuth, miTablero);
 app.use("/api/notificaciones", requireAuth, notificaciones);
 app.use("/api/calendario", requireAuth, calendario);
 app.use("/api/usuarios", requireAuth, usuarios);
+app.use("/api/valores", requireAuth, valores);
+app.use("/api/formatos", requireAuth, formatos);
 
 app.use(errorHandler);

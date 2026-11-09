@@ -8,9 +8,9 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { carpetaSubidas } from "../lib/carpetas.js";
 
-const CARPETA = path.resolve(process.env.UPLOAD_DIR ?? "uploads", "tareas");
-fs.mkdirSync(CARPETA, { recursive: true });
+const CARPETA = carpetaSubidas("tareas");
 
 const EXTENSIONES = new Set([
   ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",

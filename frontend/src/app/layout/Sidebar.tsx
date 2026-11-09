@@ -1,6 +1,7 @@
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { NAV_ITEMS } from "../constants";
+import { NAV_ENTRIES } from "../constants";
 
 export function Sidebar({
   currentView,
@@ -16,10 +17,38 @@ export function Sidebar({
   collapsed: boolean;
 }) {
   const { usuario } = useAuth();
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || usuario?.rol === "admin");
-  const isActive = (id: string) =>
-    currentView === id ||
-    (id === "projects" && (currentView === "project-detail" || currentView === "create-project"));
+  const [grupoAbierto, setGrupoAbierto] = useState<string | null>(
+    () => window.localStorage.getItem("sei-sidebar-grupo"),
+  );
+
+  const grupoDeVista = NAV_ENTRIES.find(
+    (entrada) =>
+      entrada.type === "group" &&
+      (entrada.children.some((hijo) => hijo.id === currentView) ||
+        (entrada.id === "projects" &&
+          (currentView === "project-detail" || currentView === "create-project"))),
+  );
+
+  useEffect(() => {
+    if (grupoDeVista?.type === "group") {
+      setGrupoAbierto((actual) => {
+        if (actual === grupoDeVista.id) return actual;
+        window.localStorage.setItem("sei-sidebar-grupo", grupoDeVista.id);
+        return grupoDeVista.id;
+      });
+    }
+  }, [grupoDeVista]);
+
+  const alternarGrupo = (id: string) => {
+    const siguiente = grupoAbierto === id ? null : id;
+    setGrupoAbierto(siguiente);
+    window.localStorage.setItem("sei-sidebar-grupo", siguiente ?? "");
+  };
+
+  const ir = (vista: string) => {
+    onNavigate(vista);
+    onClose();
+  };
 
   return (
     <>
@@ -67,26 +96,86 @@ export function Sidebar({
             collapsed ? "px-3 lg:px-2" : "px-3"
           }`}
         >
-          {items.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                onNavigate(item.id);
-                onClose();
-              }}
-              title={collapsed ? item.label : undefined}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                collapsed ? "lg:justify-center lg:px-2" : ""
-              } ${
-                isActive(item.id)
-                  ? "bg-[#C2410C] text-white shadow-sm"
-                  : "text-white/55 hover:bg-white/10 hover:text-white/85"
-              }`}
-            >
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
-            </button>
-          ))}
+          {NAV_ENTRIES.filter(
+            (entrada) => entrada.type !== "item" || !entrada.adminOnly || usuario?.rol === "admin",
+          ).map((entrada) => {
+            if (entrada.type === "item") {
+              const activo = currentView === entrada.id;
+              return (
+                <button
+                  key={entrada.id}
+                  onClick={() => ir(entrada.id)}
+                  title={collapsed ? entrada.label : undefined}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    collapsed ? "lg:justify-center lg:px-2" : ""
+                  } ${
+                    activo
+                      ? "bg-[#C2410C] text-white shadow-sm"
+                      : "text-white/55 hover:bg-white/10 hover:text-white/85"
+                  }`}
+                >
+                  <entrada.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className={collapsed ? "lg:hidden" : ""}>{entrada.label}</span>
+                </button>
+              );
+            }
+
+            const abierto = grupoAbierto === entrada.id;
+            const hijoActivo = entrada.children.some((hijo) => currentView === hijo.id);
+            const activo =
+              hijoActivo ||
+              (entrada.id === "projects" &&
+                (currentView === "project-detail" || currentView === "create-project"));
+
+            return (
+              <div key={entrada.id}>
+                <button
+                  type="button"
+                  onClick={() => (collapsed ? ir(entrada.children[0].id) : alternarGrupo(entrada.id))}
+                  title={collapsed ? entrada.label : undefined}
+                  aria-expanded={abierto}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    collapsed ? "lg:justify-center lg:px-2" : ""
+                  } ${
+                    activo
+                      ? "bg-[#C2410C] text-white shadow-sm"
+                      : "text-white/55 hover:bg-white/10 hover:text-white/85"
+                  }`}
+                >
+                  <entrada.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className={`flex-1 text-left ${collapsed ? "lg:hidden" : ""}`}>
+                    {entrada.label}
+                  </span>
+                  {!collapsed && (
+                    abierto ? (
+                      <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-white/60" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-white/60" />
+                    )
+                  )}
+                </button>
+
+                {abierto && !collapsed && (
+                  <div className="mt-0.5 space-y-0.5 border-l border-white/10 pb-1 pl-4 ml-5">
+                    {entrada.children.map((hijo) => (
+                      <button
+                        key={hijo.id}
+                        onClick={() => ir(hijo.id)}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${
+                          currentView === hijo.id
+                            ? "bg-[#C2410C] text-white shadow-sm"
+                            : "text-white/55 hover:bg-white/10 hover:text-white/85"
+                        }`}
+                      >
+                        <hijo.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                        {hijo.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
       </aside>
     </>

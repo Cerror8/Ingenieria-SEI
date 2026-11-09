@@ -19,8 +19,8 @@ Archivo `backend/.env` (parte de `backend/.env.example`):
 |----------|-----|---------------------|
 | `PORT` | Puerto del backend | `4000` |
 | `DATABASE_URL` | Cadena de conexión PostgreSQL | `postgres://sei:sei_dev_password@localhost:5433/sei_rap` |
-| `CORS_ORIGIN` | Origen permitido con credenciales | `http://localhost:5173` |
-| `FRONTEND_URL` | Destino tras el callback de Google | `http://localhost:5173` |
+| `CORS_ORIGIN` | Origen permitido con credenciales | `http://localhost:5174` |
+| `FRONTEND_URL` | Destino tras el callback de Google | `http://localhost:5174` |
 | `SESSION_TTL_DIAS` | Duración de la sesión en días | `7` |
 | `ADMIN_EMAIL` | Correo del administrador local | `admin@unicesmag.edu.co` |
 | `ADMIN_PASSWORD` | Contraseña inicial del administrador | `Admin12345!` |
@@ -110,7 +110,7 @@ Las cuentas desactivadas (`activo = false`) y las pendientes (`pendiente_aprobac
    - Agrega el alcance `openid`, `email` y `profile`.
 3. Ve a **APIs y servicios → Credenciales → Crear credenciales → ID de cliente OAuth**:
    - Tipo: **Aplicación web**.
-   - Orígenes autorizados de JavaScript: `http://localhost:5173`
+   - Orígenes autorizados de JavaScript: `http://localhost:5174`
    - URI de redireccionamiento autorizado: `http://localhost:4000/api/auth/google/callback`
 4. Copia el **Client ID** y **Client Secret** en `backend/.env`.
 5. Reinicia el backend.

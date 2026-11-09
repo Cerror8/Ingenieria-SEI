@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Menu } from "lucide-react";
 import type { ViewType } from "../types";
 import { Crumb } from "../components/shared";
 import { PDFModal } from "../components/PDFModal";
@@ -18,6 +18,7 @@ import { InformesView } from "../features/informes/InformesView";
 import { SeguimientoView } from "../features/seguimiento/SeguimientoView";
 import { DocumentosView } from "../features/documentos/DocumentosView";
 import { CalendarView } from "../features/calendario/CalendarView";
+import { FormatosView } from "../features/formatos/FormatosView";
 import { ProfileView } from "../features/perfil/ProfileView";
 import { UsuariosView } from "../features/usuarios/UsuariosView";
 
@@ -31,6 +32,7 @@ const ETIQUETAS_VISTA: Record<string, string> = {
   documentos: "Documentos",
   seguimiento: "Seguimiento",
   calendario: "Calendario",
+  formatos: "Formatos",
   usuarios: "Usuarios",
   perfil: "Mi perfil",
 };
@@ -66,15 +68,14 @@ export function AppShell() {
   }, [sidebarColapsado]);
 
   const getBreadcrumb = () => {
-    const base = [{ label: "Ingeniería SEI" }];
     if (view === "create-project") {
-      return [...base, { label: "Proyectos" }, { label: "Nuevo proyecto" }];
+      return [{ label: "Proyectos" }, { label: "Nuevo proyecto" }];
     }
     if (view === "project-detail" && selectedProjectId) {
-      return [...base, { label: "Proyectos" }, { label: selectedProjectId }];
+      return [{ label: "Proyectos" }, { label: selectedProjectId }];
     }
     const etiqueta = ETIQUETAS_VISTA[view];
-    return etiqueta ? [...base, { label: etiqueta }] : base;
+    return etiqueta ? [{ label: etiqueta }] : [];
   };
 
   return (
@@ -107,17 +108,13 @@ export function AppShell() {
               title={sidebarColapsado ? "Expandir barra lateral" : "Retraer barra lateral"}
               className="hidden rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 lg:inline-flex"
             >
-              {sidebarColapsado ? (
-                <PanelLeftOpen className="h-5 w-5" />
-              ) : (
-                <PanelLeftClose className="h-5 w-5" />
-              )}
+              <Menu className="h-5 w-5" />
             </button>
             <div className="hidden min-w-0 overflow-hidden sm:block">
               <Crumb items={getBreadcrumb()} />
             </div>
             <div className="min-w-0 overflow-hidden sm:hidden">
-              <Crumb items={[{ label: getBreadcrumb().slice(-1)[0].label }]} />
+              <Crumb items={[{ label: getBreadcrumb().slice(-1)[0]?.label ?? "Panel" }]} />
             </div>
           </div>
 
@@ -169,6 +166,7 @@ export function AppShell() {
           {view === "documentos" && <DocumentosView />}
           {view === "seguimiento" && <SeguimientoView onSelectProject={selectProject} />}
           {view === "calendario" && <CalendarView />}
+          {view === "formatos" && <FormatosView />}
           {view === "usuarios" && <UsuariosView onShowToast={showToast} />}
           {view === "perfil" && <ProfileView onShowToast={showToast} />}
         </main>

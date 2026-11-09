@@ -6,7 +6,7 @@ import {
   AlertTriangle, CheckCircle, DollarSign, ArrowLeft, X, Upload,
   Link2, MoreHorizontal, ChevronLeft, Filter, Tag, Paperclip,
   Clock, BarChart2, Percent, Check, Trash2, Save, FileDown, Sliders, SquareKanban,
-  CalendarDays, Users, ClipboardList
+  Users, ClipboardList
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -48,17 +48,33 @@ export type NavItem = {
   adminOnly?: boolean;
 };
 
-export const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard",    label: "Dashboard",     icon: LayoutDashboard },
-  { id: "mi-tablero",   label: "Mi tablero",    icon: ClipboardList   },
-  { id: "tableros",     label: "Tableros",      icon: SquareKanban    },
-  { id: "calendario",   label: "Calendario",    icon: CalendarDays    },
-  { id: "usuarios",     label: "Usuarios",      icon: Users, adminOnly: true },
-  { id: "projects",     label: "Proyectos",     icon: Briefcase       },
-  { id: "seguimiento",  label: "Seguimiento",   icon: Activity        },
-  { id: "antecedentes", label: "Antecedentes",  icon: BookOpen        },
-  { id: "informes",     label: "Informes",      icon: FileText        },
-  { id: "documentos",   label: "Documentos",    icon: FolderOpen      },
+export type NavGroup = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  children: NavItem[];
+};
+
+export type NavEntry = ({ type: "item" } & NavItem) | ({ type: "group" } & NavGroup);
+
+export const NAV_ENTRIES: NavEntry[] = [
+  { type: "item", id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { type: "item", id: "tableros",  label: "Tableros",  icon: SquareKanban  },
+  {
+    type: "group",
+    id: "projects",
+    label: "Proyectos",
+    icon: Briefcase,
+    children: [
+      { id: "projects",     label: "Ver proyectos", icon: Briefcase  },
+      { id: "seguimiento",  label: "Seguimiento",   icon: Activity   },
+      { id: "antecedentes", label: "Antecedentes",  icon: BookOpen   },
+      { id: "informes",     label: "Informes",      icon: FileText   },
+      { id: "documentos",   label: "Documentos",    icon: FolderOpen },
+    ],
+  },
+  { type: "item", id: "formatos", label: "Formatos", icon: ClipboardList },
+  { type: "item", id: "usuarios", label: "Usuarios", icon: Users, adminOnly: true },
 ];
 
 export const PROJ_TABS = [

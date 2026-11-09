@@ -33,6 +33,7 @@ CREATE INDEX IF NOT EXISTS ix_proyectos_estado ON proyectos (estado);
 CREATE INDEX IF NOT EXISTS ix_proyectos_linea ON proyectos (linea);
 CREATE INDEX IF NOT EXISTS ix_proyectos_lider ON proyectos (lider_id);
 
+DROP TRIGGER IF EXISTS proyectos_touch ON proyectos;
 CREATE TRIGGER proyectos_touch
 BEFORE UPDATE ON proyectos
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS indicadores (
 CREATE INDEX IF NOT EXISTS ix_indicadores_proyecto ON indicadores (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_indicadores_estado ON indicadores (estado);
 
+DROP TRIGGER IF EXISTS indicadores_touch ON indicadores;
 CREATE TRIGGER indicadores_touch
 BEFORE UPDATE ON indicadores
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -84,6 +86,7 @@ CREATE TABLE IF NOT EXISTS documentos (
 CREATE INDEX IF NOT EXISTS ix_documentos_proyecto ON documentos (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_documentos_tipo ON documentos (tipo);
 
+DROP TRIGGER IF EXISTS documentos_touch ON documentos;
 CREATE TRIGGER documentos_touch
 BEFORE UPDATE ON documentos
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -124,6 +127,7 @@ CREATE TABLE IF NOT EXISTS actividades (
 
 CREATE INDEX IF NOT EXISTS ix_actividades_proyecto ON actividades (proyecto_id);
 
+DROP TRIGGER IF EXISTS actividades_touch ON actividades;
 CREATE TRIGGER actividades_touch
 BEFORE UPDATE ON actividades
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -157,6 +161,7 @@ CREATE TABLE IF NOT EXISTS tableros (
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS tableros_touch ON tableros;
 CREATE TRIGGER tableros_touch
 BEFORE UPDATE ON tableros
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -188,6 +193,7 @@ CREATE INDEX IF NOT EXISTS ix_tareas_tablero_creador ON tareas_tablero (creado_p
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_proyecto ON tareas_tablero (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
 
+DROP TRIGGER IF EXISTS tareas_tablero_touch ON tareas_tablero;
 CREATE TRIGGER tareas_tablero_touch
 BEFORE UPDATE ON tareas_tablero
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -214,6 +220,7 @@ CREATE TABLE IF NOT EXISTS tareas_personales (
 CREATE INDEX IF NOT EXISTS ix_tareas_personales_usuario
   ON tareas_personales (usuario_id, columna, fecha_limite);
 
+DROP TRIGGER IF EXISTS tareas_personales_touch ON tareas_personales;
 CREATE TRIGGER tareas_personales_touch
 BEFORE UPDATE ON tareas_personales
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -264,6 +271,7 @@ CREATE TABLE IF NOT EXISTS eventos_calendario (
 CREATE INDEX IF NOT EXISTS ix_eventos_calendario_usuario
   ON eventos_calendario (usuario_id, fecha_inicio);
 
+DROP TRIGGER IF EXISTS eventos_calendario_touch ON eventos_calendario;
 CREATE TRIGGER eventos_calendario_touch
 BEFORE UPDATE ON eventos_calendario
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
@@ -330,3 +338,52 @@ CREATE TABLE IF NOT EXISTS evidencias (
 );
 
 CREATE INDEX IF NOT EXISTS ix_evidencias_evaluacion ON evidencias (evaluacion_id);
+
+-- ---------------------------------------------------------------------
+-- Valores de referencia (carpeta de valores preestablecidos)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS valores_referencia (
+  id             TEXT PRIMARY KEY,
+  nombre         TEXT NOT NULL,
+  tipo           TEXT NOT NULL,
+  descripcion    TEXT,
+  archivo_nombre TEXT NOT NULL,
+  archivo_ruta   TEXT NOT NULL,
+  archivo_mime   TEXT,
+  archivo_tamano BIGINT,
+  subido_por     TEXT NOT NULL,
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_valores_referencia_tipo ON valores_referencia (tipo);
+
+-- ---------------------------------------------------------------------
+-- Formatos (plantillas que se diligencian desde la plataforma)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS formatos (
+  id             TEXT PRIMARY KEY,
+  nombre         TEXT NOT NULL,
+  descripcion    TEXT,
+  campos         JSONB NOT NULL DEFAULT '[]',
+  valor_id       TEXT REFERENCES valores_referencia(id) ON DELETE SET NULL,
+  creado_por     TEXT NOT NULL,
+  activo         BOOLEAN NOT NULL DEFAULT true,
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS formatos_touch ON formatos;
+CREATE TRIGGER formatos_touch
+BEFORE UPDATE ON formatos
+FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- Registros diligenciados de cada formato
+CREATE TABLE IF NOT EXISTS formatos_registros (
+  id               TEXT PRIMARY KEY,
+  formato_id       TEXT NOT NULL REFERENCES formatos(id) ON DELETE CASCADE,
+  valores          JSONB NOT NULL DEFAULT '{}',
+  diligenciado_por TEXT NOT NULL,
+  creado_en        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_formatos_registros_formato ON formatos_registros (formato_id);

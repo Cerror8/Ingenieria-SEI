@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronDown, LogOut, UserRound } from "lucide-react";
+import { CalendarDays, ChevronDown, ClipboardList, LogOut, UserRound } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import type { Rol } from "../types";
 
@@ -112,6 +112,15 @@ export function ProfileMenu({ onNavigate }: { onNavigate: (v: string) => void })
             >
               <CalendarDays className="h-4 w-4 text-gray-400" />
               Mi calendario
+            </button>
+            <button
+              type="button"
+              onClick={() => ir("mi-tablero")}
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+            >
+              <ClipboardList className="h-4 w-4 text-gray-400" />
+              Mi tablero
             </button>
             <div className="my-1 h-px bg-gray-100" />
             <button

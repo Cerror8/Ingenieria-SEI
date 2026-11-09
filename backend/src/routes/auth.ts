@@ -9,7 +9,7 @@ import { registrarAuditoria } from "../audit.js";
 import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
 
-const frontend = () => (process.env.FRONTEND_URL ?? "http://localhost:5173").replace(/\/$/, "");
+const frontend = () => (process.env.FRONTEND_URL ?? "http://localhost:5174").replace(/\/$/, "");
 const esProduccion = process.env.NODE_ENV === "production";
 
 const CAMPOS_USUARIO = `

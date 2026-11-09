@@ -6,7 +6,16 @@ pg.types.setTypeParser(20, (v) => parseInt(v, 10));
 // DATE se devuelve como 'YYYY-MM-DD' en lugar de Date para no alterar la zona horaria.
 pg.types.setTypeParser(1082, (v) => v);
 
-export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const url = process.env.DATABASE_URL ?? "";
+// Postgres gestionado (Neon, Supabase, Railway) exige TLS y suele usar certificados propios.
+const usaSsl =
+  process.env.PGSSL === "true" || /[?&]sslmode=(require|verify-ca|verify-full)/.test(url);
+
+export const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ...(usaSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+  max: Number(process.env.PG_POOL_MAX ?? (process.env.VERCEL ? 3 : 10)),
+});
 pool.on("connect", (c) => {
   void c.query("SET search_path = app, public; SET TIME ZONE 'America/Bogota'");
 });

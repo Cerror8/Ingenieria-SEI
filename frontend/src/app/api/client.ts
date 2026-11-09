@@ -23,7 +23,8 @@ import type {
 } from "../types";
 
 const API_URL = (
-  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:4000/api"
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (import.meta.env.PROD ? "/api" : "http://localhost:4000/api")
 ).replace(/\/$/, "");
 
 export class ApiError extends Error {
@@ -195,6 +196,52 @@ export type DetalleProyectoApi = {
   actividades: ActividadApi[];
 };
 
+export type ValorReferenciaApi = {
+  id: string;
+  nombre: string;
+  tipo: string;
+  descripcion: string | null;
+  subidoPor: string;
+  archivoNombre: string;
+  archivoMime: string | null;
+  archivoTamano: number;
+  creadoEn: string;
+};
+
+export type EstiloCeldaApi = {
+  bold?: boolean;
+  italic?: boolean;
+  sz?: number;
+  color?: string;
+  fondo?: string;
+  alinear?: string;
+  valign?: string;
+  envolver?: boolean;
+  bordes?: { top?: string; right?: string; bottom?: string; left?: string };
+};
+
+export type EstilosLibroApi = Record<string, EstiloCeldaApi>;
+
+export type FormatoApi = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  campos: string[];
+  activo: boolean;
+  valorId: string | null;
+  valorNombre: string | null;
+  creadoPor: string;
+  creadoEn: string;
+  totalRegistros: number;
+};
+
+export type RegistroFormatoApi = {
+  id: string;
+  valores: Record<string, string>;
+  diligenciadoPor: string;
+  creadoEn: string;
+};
+
 export type TableroApi = {
   id: string;
   nombre: string;
@@ -355,6 +402,29 @@ export const api = {
     request<{ informe: InformeApi }>("/informes", { method: "POST", body: datos }),
   auditoria: (registro?: string) =>
     request<{ auditoria: AuditoriaApi[] }>(`/auditoria${query({ registro })}`),
+
+  valores: () => request<{ valores: ValorReferenciaApi[] }>("/valores"),
+  subirValor: (datos: FormData) => subirArchivo<{ valor: ValorReferenciaApi }>("/valores", datos),
+  valorArchivoUrl: (id: string, descargar = false) =>
+    `${API_URL}/valores/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,
+  valorEstilos: (id: string, hoja: string) =>
+    request<{ estilos: EstilosLibroApi }>(
+      `/valores/${encodeURIComponent(id)}/estilos${query({ hoja })}`,
+    ),
+  eliminarValor: (id: string) =>
+    request<{ ok: boolean }>(`/valores/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  formatos: () => request<{ formatos: FormatoApi[] }>("/formatos"),
+  crearFormato: (datos: { nombre: string; descripcion?: string; campos: string[]; valorId?: string | null }) =>
+    request<{ formato: FormatoApi }>("/formatos", { method: "POST", body: datos }),
+  eliminarFormato: (id: string) =>
+    request<{ ok: boolean }>(`/formatos/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  registrosFormato: (formatoId: string) =>
+    request<{ registros: RegistroFormatoApi[] }>(`/formatos/${encodeURIComponent(formatoId)}/registros`),
+  crearRegistroFormato: (formatoId: string, valores: Record<string, string>) =>
+    request<{ registro: RegistroFormatoApi }>(`/formatos/${encodeURIComponent(formatoId)}/registros`, {
+      method: "POST",
+      body: { valores },
+    }),
 
   tableros: () => request<{ tableros: (TableroApi & { totalTareas: number })[] }>("/tableros"),
   crearTablero: (datos: { nombre: string; descripcion: string }) =>

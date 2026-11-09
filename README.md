@@ -8,7 +8,7 @@ Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (ad
 |------|------------|
 | Frontend | React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · Lucide · Recharts |
 | Backend | Node + Express 4 · TypeScript · pg · zod · bcryptjs · multer · google-auth-library |
-| Base de datos | PostgreSQL 16 en Docker (puerto host **5433**) |
+| Base de datos | PostgreSQL 16 en Docker local (puerto host **5433**); Neon/Supabase en Vercel |
 | Autenticación | Sesión opaca en cookie `httpOnly` + OAuth 2.0 con Google |
 
 ## Estructura
@@ -47,7 +47,9 @@ Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (ad
 │   │   ├── db.ts           Pool de PostgreSQL
 │   │   └── app.ts          Composición de la API
 │   ├── uploads/            Archivos cargados (ignorado por Git)
+│   ├── scripts/            Inicialización de la base (`init-db.mjs`)
 │   └── .env.example
+├── api/                    Función serverless de Vercel (envuelve backend/dist)
 ├── database/               Docker Compose y scripts SQL de inicialización
 │   ├── docker-compose.yml  PostgreSQL 16 y Adminer
 │   └── init/
@@ -55,6 +57,7 @@ Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (ad
 │       ├── 02_dominio.sql  Proyectos, tableros, calendario, RAP y auditoría
 │       └── 03_seed.sql     Sin datos de ejemplo (base vacía)
 ├── scripts/                Respaldo de la base de datos
+├── vercel.json             Instalación, build y ruteo del despliegue
 ├── docs/                   Documentación técnica
 └── README.md
 ```
@@ -98,7 +101,7 @@ npm run dev               # http://localhost:4000/api
 cd frontend
 cp .env.example .env
 npm install
-npm run dev               # http://localhost:5173
+npm run dev               # http://localhost:5174
 ```
 
 Después de la primera instalación, los arranques siguientes son:
@@ -118,7 +121,7 @@ Comprobaciones rápidas:
 
 - Base viva: `docker ps` debe mostrar `sei_rap_db`.
 - Backend vivo: abre <http://localhost:4000/api/salud>.
-- Frontend vivo: abre <http://localhost:5173>.
+- Frontend vivo: abre <http://localhost:5174>.
 
 Para detener todo: `Ctrl+C` en las terminales 2 y 3, y `npm run db:down` para apagar los contenedores (los datos se conservan en el volumen `pgdata`).
 
@@ -146,7 +149,45 @@ Las cuentas nuevas no se crean activas: quien se registra con correo y contrase�
 | `npm run backend` | Backend en modo watch |
 | `npm run backend:install` | Instala dependencias del backend |
 | `npm run db:up` / `npm run db:down` | Levanta / detiene PostgreSQL y Adminer |
+| `npm run db:init` | Aplica `database/init/*.sql` a la base indicada en `DATABASE_URL` (por ejemplo, la nube) |
 | `npm run db:backup` | Genera un respaldo en `backups/` |
+
+## Despliegue en Vercel
+
+El repositorio ya está preparado para Vercel: el frontend se sirve como estático desde `frontend/dist` y la API (Express) se ejecuta como **una sola función serverless** en `api/index.mjs`, que envuelve `backend/dist/app.js`. `vercel.json` se encarga de instalar y compilar ambos paquetes y de enrutar `/api/*` a la función y el resto a `index.html`.
+
+Pasos para publicarlo:
+
+1. **Base de datos en la nube.** Crea una base PostgreSQL en [Neon](https://neon.tech) o [Supabase](https://supabase.com) y copia su cadena de conexión (incluye `?sslmode=require`). Vercel no puede alcanzar el PostgreSQL de tu Docker local (`localhost:5433`).
+2. **Preparar el esquema.** En tu equipo, apunta `DATABASE_URL` a esa base (en `backend/.env` o como variable de entorno) y ejecuta una sola vez:
+
+   ```bash
+   npm run db:init
+   ```
+
+   El script aplica `database/init/01_schema.sql`, `02_dominio.sql` y `03_seed.sql` en orden y puede ejecutarse de nuevo sin romper nada.
+3. **Variables de entorno en Vercel** (Project Settings → Environment Variables):
+
+   | Variable | Valor |
+   |----------|-------|
+   | `DATABASE_URL` | Cadena de conexión de Neon/Supabase |
+   | `CORS_ORIGIN` | `https://tu-dominio.vercel.app` (o tu dominio propio) |
+   | `FRONTEND_URL` | Igual que `CORS_ORIGIN` |
+   | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Credenciales reales del administrador (cámbialas antes de publicar) |
+   | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciales OAuth de Google |
+   | `GOOGLE_REDIRECT_URI` | `https://tu-dominio.vercel.app/api/auth/google/callback` |
+   | `ALLOWED_DOMAIN` | Opcional; vacío acepta cualquier cuenta de Google |
+
+   No definas `UPLOAD_DIR` en Vercel: la aplicación usa `/tmp/uploads` automáticamente. `PGSSL` solo es necesario si tu cadena de conexión no incluye `sslmode`. Tampoco hace falta `VITE_API_URL`: el build de producción usa `/api` en el mismo dominio.
+4. **Google Cloud Console.** Agrega como URI de redirección autorizada la misma URL de `GOOGLE_REDIRECT_URI`.
+5. **Desplegar.** Vercel tomará los cambios de la rama conectada a GitHub en cada push. El administrador se crea solo en la primera petición que llega a la función.
+
+Limitaciones de Vercel que conviene tener presentes:
+
+- El disco es de solo lectura salvo `/tmp`, y `/tmp` es efímero: los archivos subidos (documentos, evidencias, valores de referencia) se pierden entre instancias. Para conservarlos de verdad hace falta almacenamiento de objetos (Vercel Blob, S3 o Supabase Storage), que aún no está implementado.
+- Las funciones rechazan cuerpos mayores a ~4.5 MB, así que las subidas grandes que en local funcionan (hasta 20–30 MB) fallarán en producción.
+- El límite de duración de la función está en 60 s (`maxDuration`); la primera consulta de estilos de un Excel grande puede tardar unos segundos.
+
 
 ## Módulos
 
@@ -267,4 +308,5 @@ Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_
 - Notificaciones de tareas próximas a vencer y calendario personal probados de extremo a extremo (alta, edición y eliminación de eventos).
 - Interfaz responsiva con barra lateral desplegable en móvil y retráctil en escritorio.
 - Carga y descarga de archivos documentales probada de extremo a extremo (límite 20 MB, formatos permitidos, control de sesión y limpieza de archivos ante errores).
+- Despliegue en Vercel preparado: función serverless que envuelve Express, build conjunto de frontend y backend, SSL para PostgreSQL gestionado y `npm run db:init` verificado contra una base desechable. Pendiente de probar en producción y de resolver el almacenamiento persistente de archivos.
 - Pendiente: cargar los documentos definitivos, edición de la ficha FR-019 y manual de usuario en Word.

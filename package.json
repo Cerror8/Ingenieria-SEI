@@ -11,6 +11,10 @@
     "backend:install": "npm --prefix backend install",
     "db:up": "docker compose -f database/docker-compose.yml up -d",
     "db:down": "docker compose -f database/docker-compose.yml down",
+    "db:init": "node backend/scripts/init-db.mjs",
     "db:backup": "node scripts/backup-db.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

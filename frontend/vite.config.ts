@@ -14,4 +14,8 @@ export default defineConfig({
     },
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  server: {
+    port: 5174,
+    strictPort: true,
+  },
 })

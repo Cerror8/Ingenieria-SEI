@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS app;
 SET search_path = app, public;
 
 -- Usuarios institucionales (Google) y administradores locales.
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email         TEXT NOT NULL,
   nombre        TEXT NOT NULL,
@@ -25,11 +25,11 @@ CREATE TABLE usuarios (
   CHECK (proveedor <> 'local' OR password_hash IS NOT NULL)
 );
 
-CREATE UNIQUE INDEX ux_usuarios_email ON usuarios (lower(email));
-CREATE INDEX ix_usuarios_rol ON usuarios (rol);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_email ON usuarios (lower(email));
+CREATE INDEX IF NOT EXISTS ix_usuarios_rol ON usuarios (rol);
 
 -- Sesiones opacas: la cookie guarda el token y aquí solo su hash.
-CREATE TABLE sesiones (
+CREATE TABLE IF NOT EXISTS sesiones (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
@@ -37,8 +37,8 @@ CREATE TABLE sesiones (
   creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX ix_sesiones_usuario ON sesiones (usuario_id);
-CREATE INDEX ix_sesiones_expira ON sesiones (expira_en);
+CREATE INDEX IF NOT EXISTS ix_sesiones_usuario ON sesiones (usuario_id);
+CREATE INDEX IF NOT EXISTS ix_sesiones_expira ON sesiones (expira_en);
 
 CREATE OR REPLACE FUNCTION app.touch_actualizado_en() RETURNS trigger AS $$
 BEGIN
@@ -47,6 +47,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS usuarios_touch ON usuarios;
 CREATE TRIGGER usuarios_touch
 BEFORE UPDATE ON usuarios
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();

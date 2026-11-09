@@ -37,6 +37,7 @@ export type ViewType =
   | "tableros"
   | "mi-tablero"
   | "calendario"
+  | "formatos"
   | "usuarios"
   | "perfil";
 
