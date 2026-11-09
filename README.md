@@ -1,4 +1,4 @@
-# Ingeniería SEI · Universidad CESMAG
+# Ingeniería SEI · 
 
 Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (administrador local o cuenta de Google) y, una vez dentro, se trabaja sobre los módulos de dashboard, mi tablero, tableros, calendario, proyectos, seguimiento, antecedentes, informes, documentos y usuarios.
 
