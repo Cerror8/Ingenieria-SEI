@@ -179,14 +179,21 @@ Pasos para publicarlo:
    | `ALLOWED_DOMAIN` | Opcional; vacío acepta cualquier cuenta de Google |
 
    No definas `UPLOAD_DIR` en Vercel: la aplicación usa `/tmp/uploads` automáticamente. `PGSSL` solo es necesario si tu cadena de conexión no incluye `sslmode`. Tampoco hace falta `VITE_API_URL`: el build de producción usa `/api` en el mismo dominio.
-4. **Google Cloud Console.** Agrega como URI de redirección autorizada la misma URL de `GOOGLE_REDIRECT_URI`.
-5. **Desplegar.** Vercel tomará los cambios de la rama conectada a GitHub en cada push. El administrador se crea solo en la primera petición que llega a la función.
+4. **Almacenamiento de archivos (recomendado).** Crea un **Blob store** en Vercel (Storage → Create → Blob) y conéctalo al proyecto. Vercel inyecta `BLOB_READ_WRITE_TOKEN` y a partir de ahí los documentos, evidencias y valores de referencia se guardan en Blob con acceso privado; en PostgreSQL solo queda la clave `blob:<ruta>`. Sin Blob, los archivos se guardan en `/tmp` y se pierden al reiniciar la función.
+
+   | Variable | Valor |
+   |----------|-------|
+   | `BLOB_READ_WRITE_TOKEN` | Se añade solo al conectar el Blob store |
+
+   En local no hace falta: si la variable no existe, se sigue usando `backend/uploads/`.
+5. **Google Cloud Console.** Agrega como URI de redirección autorizada la misma URL de `GOOGLE_REDIRECT_URI`.
+6. **Desplegar.** Vercel tomará los cambios de la rama conectada a GitHub en cada push. El administrador se crea solo en la primera petición que llega a la función.
 
 Limitaciones de Vercel que conviene tener presentes:
 
-- El disco es de solo lectura salvo `/tmp`, y `/tmp` es efímero: los archivos subidos (documentos, evidencias, valores de referencia) se pierden entre instancias. Para conservarlos de verdad hace falta almacenamiento de objetos (Vercel Blob, S3 o Supabase Storage), que aún no está implementado.
-- Las funciones rechazan cuerpos mayores a ~4.5 MB, así que las subidas grandes que en local funcionan (hasta 20–30 MB) fallarán en producción.
-- El límite de duración de la función está en 60 s (`maxDuration`); la primera consulta de estilos de un Excel grande puede tardar unos segundos.
+- Los archivos solo persisten si hay un Blob store conectado (`BLOB_READ_WRITE_TOKEN`). Sin él, `/tmp` es efímero y se pierden entre instancias.
+- Las funciones rechazan cuerpos mayores a ~4.5 MB, así que las subidas grandes que en local funcionan (hasta 20–30 MB) fallarán en producción. La solución es subir directo al storage desde el navegador (pendiente).
+- El límite de duración de la función está en 60 s (`maxDuration`); la primera consulta de estilos de un Excel grande puede tardar unos segundos. El archivo se descarga una vez a `/tmp` y se reutiliza mientras viva la instancia.
 
 
 ## Módulos
@@ -196,13 +203,13 @@ Limitaciones de Vercel que conviene tener presentes:
 - **Tableros:** tablero estilo Monday con columnas y tareas persistidas en PostgreSQL. El botón **Nueva tarea** existe solo en la cabecera del tablero; cada tarea debe pertenecer a un **proyecto** y se crea siempre en **Por hacer**. La persona que crea la tarea o lidera el proyecto es quien asigna o reasigna al responsable; el resto de usuarios no puede hacerlo. Cada tarea se asigna a una **persona real** registrada (avatar y nombre) o queda sin asignar, y el tablero se filtra por **Todas las personas / Mis tareas / Sin asignar / por persona**. La prioridad define el tono (alta = rojo, media = ámbar, baja = azul claro) y la intensidad aumenta al acercarse la fecha límite: vencida, crítica (≤2 días), próxima (≤7 días), lejana y sin fecha. Las tarjetas vencidas o por vencer muestran además el aviso de días restantes. Si la base está vacía, permite crear el primer tablero.
 - **Flujo condicional de tareas:** el avance no es libre. La persona asignada pulsa **Entendido, iniciar tarea** (solo visible para ella) para pasar de **Por hacer** a **En curso**. Para pasar de **En curso** a **En revisión** debe publicar un comentario de lo realizado y subir al menos una evidencia o documento, ambos de su autoría. Quien creó la tarea, lidera el proyecto o administra el sistema puede **Aprobar y completar** (pasa a **Completado** y registra la fecha) o **Devolver con correcciones** (vuelve a **En curso** con el motivo como comentario y exige nueva evidencia). Las tarjetas muestran solo las acciones que corresponden a cada rol.
 - **Seguimiento del tablero:** arriba de las columnas se muestra el avance general (porcentaje y conteo por columna), el avance por persona (tareas asignadas y completadas) y el ritmo semanal (tareas completadas en los últimos 7 días, usando la fecha real de finalización). Al aprobar una tarea se registra su fecha de finalización.
-- **Detalle de tarea:** al abrir una tarjeta se muestra su ficha con proyecto, creador, líder del proyecto, líder del tablero, prioridad, fecha límite, responsable, descripción, **comentarios** y **archivos adjuntos** (PDF, Word, Excel, PowerPoint, imágenes o texto hasta 20 MB). Incluye el panel de flujo con las acciones disponibles y el estado de los requisitos de entrega. Los comentarios y adjuntos se guardan en PostgreSQL y los archivos en `backend/uploads/tareas/`; abrir o descargar exige sesión activa.
-- **Usuarios:** módulo exclusivo del rol `admin`. Incluye una bandeja de **solicitudes pendientes** para cuentas creadas con el formulario de registro o con Google que aún no fueron aprobadas: el administrador elige el rol y aprueba o rechaza cada solicitud. La tabla principal lista las cuentas con proveedor (local o Google), rol, estado activo/inactivo, último acceso y avance de tareas. Permite crear cuentas locales con contraseña, cambiar el rol (`admin`, `docente`, `estudiante`, `usuario`) y activar o desactivar cuentas. El sistema impide que un administrador se quite a sí mismo el rol o se desactive, y que se elimine el último administrador activo.
+- **Detalle de tarea:** al abrir una tarjeta se muestra su ficha con proyecto, creador, líder del proyecto, líder del tablero, prioridad, fecha límite, responsable, descripción, **comentarios** y **archivos adjuntos** (PDF, Word, Excel, PowerPoint, imágenes o texto hasta 20 MB). Incluye el panel de flujo con las acciones disponibles y el estado de los requisitos de entrega. Los comentarios y adjuntos se guardan en PostgreSQL y los archivos en `backend/uploads/tareas/` (o Vercel Blob si está conectado); abrir o descargar exige sesión activa.
+- **Usuarios:** módulo exclusivo del rol `admin`. Incluye una bandeja de **solicitudes pendientes** para cuentas creadas con el formulario de registro o con Google que aún no fueron aprobadas: el administrador elige el rol y aprueba o rechaza cada solicitud. La tabla principal lista las cuentas con proveedor (local o Google), rol, estado activo/inactivo, último acceso y avance de tareas. Permite crear cuentas locales con contraseña, cambiar el rol (`admin` o `usuario`) y activar o desactivar cuentas. El sistema impide que un administrador se quite a sí mismo el rol o se desactive, y que se elimine el último administrador activo.
 - **Proyectos:** listado y detalle alimentados por la API; creación guiada de cinco pasos que registra el proyecto, permite elegir un **líder del proyecto** y vuelve a abrir su detalle. El líder puede asignar tareas del proyecto y aprobar o devolver sus entregas.
 - **Seguimiento:** tarjetas de avance técnico y presupuestal por proyecto activo.
 - **Antecedentes:** proyectos finalizados agrupados por línea y documentos del repositorio con búsqueda y filtros.
 - **Informes:** generación mediante el modal de informe (queda registrada en la base) e historial de informes desde la API.
-- **Documentos:** repositorio documental con filtros por categoría y carga real de archivos (PDF, Word, Excel, PowerPoint, imágenes y texto hasta 20 MB). Los archivos se guardan en `backend/uploads/` y los metadatos en PostgreSQL; ver y descargar exige sesión activa.
+- **Documentos:** repositorio documental con filtros por categoría y carga real de archivos (PDF, Word, Excel, PowerPoint, imágenes y texto hasta 20 MB). Los archivos se guardan en `backend/uploads/` (o Vercel Blob si está conectado) y los metadatos en PostgreSQL; ver y descargar exige sesión activa.
 - **Calendario:** mes navegable que muestra las fechas límite de las tareas de proyecto asignadas, las **tareas personales** con fecha y la agenda personal de cada usuario (reuniones y eventos propios, de día completo o con horario). Permite crear, editar y eliminar eventos (doble clic en un día abre el formulario); las tareas se consultan pero no se modifican desde aquí.
 - **Perfil y notificaciones:** menú de usuario con acceso al perfil (nombre y foto personalizables, conservados aunque se vuelva a entrar con Google) y cierre de sesión. La campana lista las tareas vencidas o que vencen en los próximos 7 días, ordenadas por fecha y prioridad: cada persona ve **sus tareas asignadas** y el administrador ve las de **todo el equipo**.
 
@@ -243,7 +250,7 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `POST` | `/api/tableros/:id/tareas/:tareaId/enviar-revision` | El asignado envía a revisión con comentario y evidencia |
 | `POST` | `/api/tableros/:id/tareas/:tareaId/aprobar` | El gestor aprueba y completa la tarea |
 | `POST` | `/api/tableros/:id/tareas/:tareaId/devolver` | El gestor devuelve con correcciones a **En curso** |
-| `DELETE` | `/api/tableros/:id/tareas/:tareaId` | Elimina una tarea (**admin** o **docente**) |
+| `DELETE` | `/api/tableros/:id/tareas/:tareaId` | Elimina una tarea (**solo admin**) |
 | `GET` · `POST` | `/api/tableros/:id/tareas/:tareaId/comentarios` | Lista y publica comentarios |
 | `DELETE` | `/api/tableros/:id/tareas/:tareaId/comentarios/:comentarioId` | Elimina un comentario (autor o **admin**) |
 | `GET` · `POST` | `/api/tableros/:id/tareas/:tareaId/adjuntos` | Lista y sube adjuntos (`multipart/form-data`) |
@@ -285,8 +292,8 @@ Los errores se devuelven como `{ "error": "mensaje" }`; los fallos de validació
 - **Administrador local:** correo y contraseña con hash bcrypt (12 rondas), definidos por variables de entorno.
 - **Registro con correo:** formulario público en `/registro`. La cuenta se crea inactiva y marcada como pendiente; no puede iniciar sesión hasta que un administrador la apruebe y le asigne un rol.
 - **Cuentas de Google:** inicio de sesión con Google. Si el correo ya fue aprobado, entra con su rol; si es desconocido, se crea como solicitud pendiente y Google lo devuelve al login con el aviso correspondiente. Por ahora se acepta cualquier cuenta; para restringir, asigna un dominio en `ALLOWED_DOMAIN`.
-- **Roles:** `admin`, `docente`, `estudiante` y `usuario`. Solo `admin` ve y usa el módulo **Usuarios** y las rutas de administración; el resto recibe `403`.
-- **Colaboración:** cualquier sesión puede crear tareas y comentar o adjuntar en las tareas que tenga permitidas. Solo el creador de la tarea, el líder del proyecto, el líder del tablero o un `admin` pueden asignar responsable y aprobar o devolver; solo el asignado puede pulsar **Entendido** y enviar a revisión. Solo `admin` y `docente` pueden eliminar tareas; cada comentario o adjunto solo lo puede borrar quien lo subió o un `admin`.
+- **Roles:** `admin` y `usuario`. Solo `admin` ve y usa el módulo **Usuarios** y las rutas de administración; el resto recibe `403`.
+- **Colaboración:** cualquier sesión puede crear tareas y comentar o adjuntar en las tareas que tenga permitidas. Solo el creador de la tarea, el líder del proyecto, el líder del tablero o un `admin` pueden asignar responsable y aprobar o devolver; solo el asignado puede pulsar **Entendido** y enviar a revisión. Solo `admin` puede eliminar tareas; cada comentario o adjunto solo lo puede borrar quien lo subió o un `admin`.
 - Las cuentas desactivadas o pendientes no pueden iniciar sesión.
 - La pantalla de login y registro usa un monograma **SEI** provisional sobre la paleta naranja/gris/blanco del sistema, a la espera de la imagen institucional definitiva.
 - La sesión viaja en una cookie `httpOnly` `rap_sid`; solo se guarda el hash SHA-256 del token en la tabla `sesiones`.
@@ -308,5 +315,5 @@ Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_
 - Notificaciones de tareas próximas a vencer y calendario personal probados de extremo a extremo (alta, edición y eliminación de eventos).
 - Interfaz responsiva con barra lateral desplegable en móvil y retráctil en escritorio.
 - Carga y descarga de archivos documentales probada de extremo a extremo (límite 20 MB, formatos permitidos, control de sesión y limpieza de archivos ante errores).
-- Despliegue en Vercel preparado: función serverless que envuelve Express, build conjunto de frontend y backend, SSL para PostgreSQL gestionado y `npm run db:init` verificado contra una base desechable. Pendiente de probar en producción y de resolver el almacenamiento persistente de archivos.
+- Despliegue en Vercel preparado: función serverless que envuelve Express, build conjunto de frontend y backend, SSL para PostgreSQL gestionado y `npm run db:init` verificado contra una base desechable. Los archivos admiten almacenamiento persistente en Vercel Blob (privado) con respaldo en disco local; probado en local y pendiente de probar contra un Blob store real. Las subidas directas al storage para superar el límite de ~4.5 MB siguen pendientes.
 - Pendiente: cargar los documentos definitivos, edición de la ficha FR-019 y manual de usuario en Word.

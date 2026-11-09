@@ -354,7 +354,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   const tareaDetalle = detalleAbierto
     ? (tareas.find((tarea) => tarea.id === detalleAbierto) ?? null)
     : null;
-  const puedeEliminar = usuario?.rol === "admin" || usuario?.rol === "docente";
+  const puedeEliminar = usuario?.rol === "admin";
 
   async function crearTablero(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

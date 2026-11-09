@@ -526,8 +526,8 @@ tableros.delete(
     const tareaId = z.string().uuid().parse(req.params.tareaId);
     const usuario = res.locals.usuario as UsuarioSesion;
 
-    if (usuario.rol !== "admin" && usuario.rol !== "docente") {
-      throw new HttpError(403, "Solo administradores y docentes pueden eliminar tareas.");
+    if (usuario.rol !== "admin") {
+      throw new HttpError(403, "Solo un administrador puede eliminar tareas.");
     }
 
     const { rows } = await pool.query<{ titulo: string }>(

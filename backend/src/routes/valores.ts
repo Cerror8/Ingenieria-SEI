@@ -8,6 +8,12 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import {
+  eliminarArchivo,
+  guardarArchivo,
+  rutaLocalParaLeer,
+  servirArchivo,
+} from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 
 const CARPETA = carpetaSubidas();
@@ -85,11 +91,13 @@ valores.post(
   ah(async (req, res) => {
     const archivo = req.file;
     if (!archivo) throw new HttpError(400, "Adjunta un archivo");
+    let clave: string | null = null;
 
     try {
       const datos = valorSchema.parse(req.body);
       const usuario = res.locals.usuario as UsuarioSesion;
       const nombre = datos.nombre?.trim() || path.parse(archivo.originalname).name;
+      clave = await guardarArchivo(archivo, "valores");
 
       const { rows } = await pool.query(
         `INSERT INTO valores_referencia
@@ -102,7 +110,7 @@ valores.post(
           datos.tipo,
           datos.descripcion ?? null,
           archivo.originalname.slice(0, 255),
-          archivo.filename,
+          clave,
           archivo.mimetype,
           archivo.size,
           usuario.nombre,
@@ -119,6 +127,7 @@ valores.post(
 
       res.status(201).json({ valor: rows[0] });
     } catch (e) {
+      if (clave) await eliminarArchivo(clave, CARPETA);
       await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
@@ -137,7 +146,7 @@ valores.delete(
     const valor = rows[0];
     if (!valor) throw new HttpError(404, "Valor no encontrado");
 
-    await fs.promises.unlink(path.resolve(CARPETA, valor.ruta)).catch(() => undefined);
+    await eliminarArchivo(valor.ruta, CARPETA);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -163,14 +172,12 @@ valores.get(
     const valor = rows[0];
     if (!valor) throw new HttpError(404, "Valor no encontrado");
 
-    if (!valor.nombre.toLowerCase().endsWith(".xlsx")) {
+    if (!/\.xlsx$/i.test(valor.nombre) && !/\.xlsx$/i.test(valor.ruta)) {
       res.json({ estilos: {} });
       return;
     }
 
-    const ruta = path.resolve(CARPETA, valor.ruta);
-    if (!ruta.startsWith(`${CARPETA}${path.sep}`)) throw new HttpError(400, "Ruta inválida");
-    if (!fs.existsSync(ruta)) throw new HttpError(404, "Archivo no encontrado");
+    const ruta = await rutaLocalParaLeer(valor.ruta, CARPETA);
 
     try {
       const { estilosDeHoja } = await import("../lib/estilosExcel.js");
@@ -192,20 +199,12 @@ valores.get(
     const valor = rows[0];
     if (!valor) throw new HttpError(404, "Valor no encontrado");
 
-    const ruta = path.resolve(CARPETA, valor.ruta);
-    if (!ruta.startsWith(`${CARPETA}${path.sep}`)) throw new HttpError(400, "Ruta inválida");
-    if (!fs.existsSync(ruta)) throw new HttpError(404, "Archivo no encontrado");
-
-    if (req.query.descargar === "1") {
-      return res.download(ruta, valor.nombre);
-    }
-
-    const nombreSeguro = valor.nombre.replace(/["\r\n]/g, "_");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${nombreSeguro}"; filename*=UTF-8''${encodeURIComponent(valor.nombre)}`,
-    );
-    res.type(valor.mime ?? "application/octet-stream");
-    res.sendFile(ruta);
+    await servirArchivo(res, {
+      clave: valor.ruta,
+      carpeta: CARPETA,
+      nombre: valor.nombre,
+      mime: valor.mime,
+      descargar: req.query.descargar === "1",
+    });
   }),
 );

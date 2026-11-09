@@ -16,8 +16,6 @@ import type { Rol, UsuarioAdmin } from "../../types";
 
 const ROLES: { id: Rol; label: string; badge: string }[] = [
   { id: "admin", label: "Administrador", badge: "bg-orange-100 text-[#9A3412] border-orange-200" },
-  { id: "docente", label: "Docente", badge: "bg-blue-50 text-blue-700 border-blue-200" },
-  { id: "estudiante", label: "Estudiante", badge: "bg-sky-50 text-sky-700 border-sky-200" },
   { id: "usuario", label: "Usuario", badge: "bg-slate-100 text-slate-600 border-slate-200" },
 ];
 

@@ -57,7 +57,7 @@ type UsuarioLogin = {
   nombre: string;
   fotoUrl: string | null;
   proveedor: "local";
-  rol: "admin" | "docente" | "estudiante" | "usuario";
+  rol: "admin" | "usuario";
   passwordHash: string;
   activo: boolean;
   pendienteAprobacion: boolean;

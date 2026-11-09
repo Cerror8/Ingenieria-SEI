@@ -85,7 +85,7 @@ En `02_dominio.sql` las tablas e índices usan `IF NOT EXISTS`, pero los trigger
 | `proveedor` | `TEXT` | `google` o `local` |
 | `google_id` | `TEXT` | Identificador `sub` de Google, único |
 | `password_hash` | `TEXT` | Obligatorio si `proveedor = 'local'` |
-| `rol` | `TEXT` | `admin`, `docente`, `estudiante` o `usuario` |
+| `rol` | `TEXT` | `admin` o `usuario` |
 | `activo` | `BOOLEAN` | Desactiva el acceso sin borrar el registro |
 | `pendiente_aprobacion` | `BOOLEAN` | `true` mientras la cuenta espera aprobación de un administrador |
 | `ultimo_acceso` | `TIMESTAMPTZ` | Se actualiza en cada login |

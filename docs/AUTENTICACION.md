@@ -64,7 +64,7 @@ Respuesta de usuario:
 
 ## Roles y administración de usuarios
 
-Roles disponibles: `admin`, `docente`, `estudiante` y `usuario`. El rol viaja en la sesión y en `GET /api/auth/me`. El backend aplica dos guardas:
+Roles disponibles: `admin` y `usuario`. El rol viaja en la sesión y en `GET /api/auth/me`. El backend aplica dos guardas:
 
 - `requireAuth`: exige sesión activa y usuario activo.
 - `requireAdmin`: exige además `rol = 'admin'`; responde `403` con `{ "error": "Esta acción requiere rol de administrador" }`.
@@ -93,7 +93,7 @@ Permisos de colaboración en tableros:
 - Solo la persona asignada puede pulsar **Entendido** (Por hacer → En curso) y **Enviar a revisión** (En curso → En revisión).
 - El envío a revisión exige un comentario y al menos un adjunto creados por la persona asignada. Si la tarea fue devuelta, ambos deben ser posteriores a `ultima_devolucion_en`.
 - Solo el gestor puede **Aprobar y completar** o **Devolver con correcciones**; la devolución vuelve la tarea a **En curso**, registra el motivo como comentario y exige evidencia nueva.
-- Solo `admin` y `docente` pueden eliminar tareas.
+- Solo `admin` puede eliminar tareas.
 - Un comentario o adjunto solo lo puede eliminar quien lo creó o un `admin`.
 - Las notificaciones muestran las tareas asignadas a cada usuario; el `admin` ve las de todo el equipo.
 

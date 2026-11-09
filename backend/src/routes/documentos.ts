@@ -8,6 +8,7 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { eliminarArchivo, guardarArchivo, servirArchivo } from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 import { CAMPOS_DOCUMENTO } from "./proyectos.js";
 
@@ -92,6 +93,7 @@ documentos.post(
   ah(async (req, res) => {
     const archivo = req.file;
     if (!archivo) throw new HttpError(400, "Adjunta un archivo");
+    let clave: string | null = null;
 
     try {
       const datos = documentoSchema.parse(req.body);
@@ -100,6 +102,7 @@ documentos.post(
 
       const usuario = res.locals.usuario as UsuarioSesion;
       const nombre = datos.nombre?.trim() || path.parse(archivo.originalname).name;
+      clave = await guardarArchivo(archivo, "documentos");
       const { rows } = await pool.query(
         `INSERT INTO documentos
            (id, nombre, tipo, version, fecha, usuario, estado, proyecto_id,
@@ -115,7 +118,7 @@ documentos.post(
           datos.estado,
           datos.proyectoId,
           archivo.originalname.slice(0, 255),
-          archivo.filename,
+          clave,
           archivo.mimetype,
           archivo.size,
         ],
@@ -131,6 +134,7 @@ documentos.post(
 
       res.status(201).json({ documento: rows[0] });
     } catch (e) {
+      if (clave) await eliminarArchivo(clave, CARPETA);
       await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
@@ -148,20 +152,12 @@ documentos.get(
     const documento = rows[0];
     if (!documento?.ruta) throw new HttpError(404, "El documento no tiene archivo adjunto");
 
-    const ruta = path.resolve(CARPETA, documento.ruta);
-    if (!ruta.startsWith(`${CARPETA}${path.sep}`)) throw new HttpError(400, "Ruta inválida");
-    if (!fs.existsSync(ruta)) throw new HttpError(404, "Archivo no encontrado");
-
-    if (req.query.descargar === "1") {
-      return res.download(ruta, documento.nombre);
-    }
-
-    const nombreSeguro = documento.nombre.replace(/["\r\n]/g, "_");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${nombreSeguro}"; filename*=UTF-8''${encodeURIComponent(documento.nombre)}`,
-    );
-    res.type(documento.mime ?? "application/octet-stream");
-    res.sendFile(ruta);
+    await servirArchivo(res, {
+      clave: documento.ruta,
+      carpeta: CARPETA,
+      nombre: documento.nombre,
+      mime: documento.mime,
+      descargar: req.query.descargar === "1",
+    });
   }),
 );

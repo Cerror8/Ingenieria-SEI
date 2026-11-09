@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   google_id     TEXT UNIQUE,
   password_hash TEXT,
   rol           TEXT NOT NULL DEFAULT 'usuario'
-                CHECK (rol IN ('admin', 'docente', 'estudiante', 'usuario')),
+                CHECK (rol IN ('admin', 'usuario')),
   activo        BOOLEAN NOT NULL DEFAULT true,
   pendiente_aprobacion BOOLEAN NOT NULL DEFAULT false,
   perfil_editado BOOLEAN NOT NULL DEFAULT false,
@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_email ON usuarios (lower(email));
 CREATE INDEX IF NOT EXISTS ix_usuarios_rol ON usuarios (rol);
+
+-- Los roles docente y estudiante se retiraron (2026-11-09): solo admin y usuario.
+UPDATE usuarios SET rol = 'usuario' WHERE rol IN ('docente', 'estudiante');
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'usuario'));
 
 -- Sesiones opacas: la cookie guarda el token y aquí solo su hash.
 CREATE TABLE IF NOT EXISTS sesiones (

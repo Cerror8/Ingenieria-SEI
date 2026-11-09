@@ -12,7 +12,7 @@ export type UsuarioSesion = {
   nombre: string;
   fotoUrl: string | null;
   proveedor: "google" | "local";
-  rol: "admin" | "docente" | "estudiante" | "usuario";
+  rol: "admin" | "usuario";
   ultimoAcceso: string | null;
 };
 

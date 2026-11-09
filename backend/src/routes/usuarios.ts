@@ -6,7 +6,7 @@ import { registrarAuditoria } from "../audit.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
 
-const ROLES = ["admin", "docente", "estudiante", "usuario"] as const;
+const ROLES = ["admin", "usuario"] as const;
 
 const crearSchema = z.object({
   email: z.string().trim().email("Correo inválido").max(160),

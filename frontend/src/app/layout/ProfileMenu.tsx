@@ -5,8 +5,6 @@ import type { Rol } from "../types";
 
 const ROL_ETIQUETA: Record<Rol, string> = {
   admin: "Administrador",
-  docente: "Docente",
-  estudiante: "Estudiante",
   usuario: "Usuario",
 };
 

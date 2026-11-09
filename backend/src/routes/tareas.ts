@@ -8,6 +8,7 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { eliminarArchivo, guardarArchivo, servirArchivo } from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 
 const CARPETA = carpetaSubidas("tareas");
@@ -165,11 +166,13 @@ tareas.post(
   ah(async (req, res) => {
     const archivo = req.file;
     if (!archivo) throw new HttpError(400, "Adjunta un archivo");
+    let clave: string | null = null;
 
     try {
       const { tableroId, tareaId } = idsDeRuta(req.params);
       const tarea = await tareaDeRuta(tableroId, tareaId);
       const usuario = res.locals.usuario as UsuarioSesion;
+      clave = await guardarArchivo(archivo, "tareas");
 
       const { rows } = await pool.query(
         `INSERT INTO adjuntos_tarea (tarea_id, usuario_id, nombre, ruta, mime, tamano)
@@ -179,7 +182,7 @@ tareas.post(
           tareaId,
           usuario.id,
           archivo.originalname.slice(0, 255),
-          archivo.filename,
+          clave,
           archivo.mimetype,
           archivo.size,
         ],
@@ -202,6 +205,7 @@ tareas.post(
         },
       });
     } catch (e) {
+      if (clave) await eliminarArchivo(clave, CARPETA);
       await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
@@ -222,21 +226,13 @@ tareas.get(
     const adjunto = rows[0];
     if (!adjunto) throw new HttpError(404, "Adjunto no encontrado");
 
-    const ruta = path.resolve(CARPETA, adjunto.ruta);
-    if (!ruta.startsWith(`${CARPETA}${path.sep}`)) throw new HttpError(400, "Ruta inválida");
-    if (!fs.existsSync(ruta)) throw new HttpError(404, "Archivo no encontrado");
-
-    if (req.query.descargar === "1") {
-      return res.download(ruta, adjunto.nombre);
-    }
-
-    const nombreSeguro = adjunto.nombre.replace(/["\r\n]/g, "_");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${nombreSeguro}"; filename*=UTF-8''${encodeURIComponent(adjunto.nombre)}`,
-    );
-    res.type(adjunto.mime ?? "application/octet-stream");
-    res.sendFile(ruta);
+    await servirArchivo(res, {
+      clave: adjunto.ruta,
+      carpeta: CARPETA,
+      nombre: adjunto.nombre,
+      mime: adjunto.mime,
+      descargar: req.query.descargar === "1",
+    });
   }),
 );
 
@@ -260,10 +256,7 @@ tareas.delete(
     }
 
     await pool.query("DELETE FROM adjuntos_tarea WHERE id = $1", [adjuntoId]);
-    const ruta = path.resolve(CARPETA, adjunto.ruta);
-    if (ruta.startsWith(`${CARPETA}${path.sep}`)) {
-      await fs.promises.unlink(ruta).catch(() => undefined);
-    }
+    await eliminarArchivo(adjunto.ruta, CARPETA);
 
     await registrarAuditoria({
       usuario: usuario.nombre,

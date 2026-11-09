@@ -1,4 +1,4 @@
-export type Rol = "admin" | "docente" | "estudiante" | "usuario";
+export type Rol = "admin" | "usuario";
 
 export type Proveedor = "google" | "local";
 
