@@ -150,7 +150,17 @@ Las cuentas nuevas no se crean activas: quien se registra con correo y contrase�
 | `npm run backend:install` | Instala dependencias del backend |
 | `npm run db:up` / `npm run db:down` | Levanta / detiene PostgreSQL y Adminer |
 | `npm run db:init` | Aplica `database/init/*.sql` a la base indicada en `DATABASE_URL` (por ejemplo, la nube) |
-| `npm run db:backup` | Genera un respaldo en `backups/` |
+| `npm run db:backup` | Respaldo de la base y de los archivos (ver **Respaldos**) |
+
+## Respaldos
+
+`npm run db:backup` guarda todo en `backups/` (ignorada por Git):
+
+- **Base local:** si el contenedor `sei_rap_db` está corriendo, usa `pg_dump` y genera un `.sql` con esquema y datos.
+- **Base remota:** con `SEI_BACKUP_MODO=logico` (o `SEI_BACKUP_REMOTO=1`) toma `DATABASE_URL` y genera un `.sql` solo con los datos del esquema `app`, en orden de dependencias, con `TRUNCATE … RESTART IDENTITY` y `setval` de las secuencias. Para restaurarlo, aplica primero `npm run db:init` sobre una base vacía y luego ejecuta el archivo. No requiere `pg_dump`: funciona con Node y `pg`.
+- **Archivos:** copia `backend/uploads/` en `backups/archivos_<fecha>/uploads/` y, si `BLOB_READ_WRITE_TOKEN` está definido, descarga el Blob store en `backups/archivos_<fecha>/blob/`.
+
+Conviene ejecutarlo antes de cada despliegue o migración.
 
 ## Despliegue en Vercel
 
@@ -179,7 +189,7 @@ Pasos para publicarlo:
    | `ALLOWED_DOMAIN` | Opcional; vacío acepta cualquier cuenta de Google |
 
    No definas `UPLOAD_DIR` en Vercel: la aplicación usa `/tmp/uploads` automáticamente. `PGSSL` solo es necesario si tu cadena de conexión no incluye `sslmode`. Tampoco hace falta `VITE_API_URL`: el build de producción usa `/api` en el mismo dominio.
-4. **Almacenamiento de archivos (recomendado).** Crea un **Blob store** en Vercel (Storage → Create → Blob) y conéctalo al proyecto. Vercel inyecta `BLOB_READ_WRITE_TOKEN` y a partir de ahí los documentos, evidencias y valores de referencia se guardan en Blob con acceso privado; en PostgreSQL solo queda la clave `blob:<ruta>`. Sin Blob, los archivos se guardan en `/tmp` y se pierden al reiniciar la función.
+4. **Almacenamiento de archivos (recomendado).** Crea un **Blob store** en Vercel (Storage → Create → Blob) y conéctalo al proyecto. Vercel inyecta `BLOB_READ_WRITE_TOKEN` y a partir de ahí los documentos, evidencias y valores de referencia se guardan en Blob con acceso privado; en PostgreSQL solo queda la clave `blob:<ruta>`. Además, el navegador sube **directo al store** (`POST /api/archivos` firma la subida), por lo que dejan de aplicar el límite de ~4.5 MB del cuerpo de las funciones y la restricción de `/tmp`. Sin Blob, los archivos se guardan en `/tmp` y se pierden al reiniciar la función.
 
    | Variable | Valor |
    |----------|-------|
@@ -192,8 +202,16 @@ Pasos para publicarlo:
 Limitaciones de Vercel que conviene tener presentes:
 
 - Los archivos solo persisten si hay un Blob store conectado (`BLOB_READ_WRITE_TOKEN`). Sin él, `/tmp` es efímero y se pierden entre instancias.
-- Las funciones rechazan cuerpos mayores a ~4.5 MB, así que las subidas grandes que en local funcionan (hasta 20–30 MB) fallarán en producción. La solución es subir directo al storage desde el navegador (pendiente).
+- Con Blob conectado las subidas van directas del navegador al store (hasta 20–30 MB según el módulo). Sin Blob, las funciones rechazan cuerpos mayores a ~4.5 MB y las subidas grandes fallan en producción.
 - El límite de duración de la función está en 60 s (`maxDuration`); la primera consulta de estilos de un Excel grande puede tardar unos segundos. El archivo se descarga una vez a `/tmp` y se reutiliza mientras viva la instancia.
+- El límite de peticiones es por instancia de la función (se guarda en memoria): en producción cada instancia cuenta por separado. Para un límite global haría falta un almacén compartido (por ejemplo Redis).
+
+## Seguridad
+
+- La API usa **helmet**: `X-Content-Type-Options`, `Referrer-Policy`, HSTS, `Cross-Origin-*` y `X-Powered-By` desactivado.
+- El frontend servido por Vercel aplica **CSP** y cabeceras adicionales desde `vercel.json`: scripts propios, estilos inline, imágenes `https:`/`blob:`, `connect-src` para Vercel Blob y `frame-src blob:` para la vista previa de PDF, más `frame-ancestors 'none'`.
+- Límites por IP con `express-rate-limit`: **1000 peticiones / 15 min** para `/api`, **10 intentos de login / 15 min** y **5 registros / hora**.
+- Los archivos exigen sesión, se validan tipo y tamaño en el servidor y los secretos viven solo en variables de entorno.
 
 
 ## Módulos
@@ -210,6 +228,7 @@ Limitaciones de Vercel que conviene tener presentes:
 - **Antecedentes:** proyectos finalizados agrupados por línea y documentos del repositorio con búsqueda y filtros.
 - **Informes:** generación mediante el modal de informe (queda registrada en la base) e historial de informes desde la API.
 - **Documentos:** repositorio documental con filtros por categoría y carga real de archivos (PDF, Word, Excel, PowerPoint, imágenes y texto hasta 20 MB). Los archivos se guardan en `backend/uploads/` (o Vercel Blob si está conectado) y los metadatos en PostgreSQL; ver y descargar exige sesión activa.
+- **Formatos:** valores de referencia que se cargan como archivo (Excel, CSV, PDF o imagen) con vista previa en el navegador. El administrador puede **analizar** una hoja de un Excel/CSV para extraer su tabla: detecta la fila de cabecera (o se elige a mano), propaga celdas combinadas, deduplica etiquetas y guarda columnas y filas en la base. Con esas columnas se **crean formatos** (o con campos propios) y, al diligenciar, cualquier usuario puede **prellenar** los campos desde una fila de la tabla analizada, completar lo que falte y guardar el registro; el historial queda asociado al formato.
 - **Calendario:** mes navegable que muestra las fechas límite de las tareas de proyecto asignadas, las **tareas personales** con fecha y la agenda personal de cada usuario (reuniones y eventos propios, de día completo o con horario). Permite crear, editar y eliminar eventos (doble clic en un día abre el formulario); las tareas se consultan pero no se modifican desde aquí.
 - **Perfil y notificaciones:** menú de usuario con acceso al perfil (nombre y foto personalizables, conservados aunque se vuelva a entrar con Google) y cierre de sesión. La campana lista las tareas vencidas o que vencen en los próximos 7 días, ordenadas por fecha y prioridad: cada persona ve **sus tareas asignadas** y el administrador ve las de **todo el equipo**.
 
@@ -234,10 +253,23 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `POST` | `/api/proyectos` | Crea un proyecto |
 | `GET` | `/api/indicadores` | Indicadores (filtro `?proyectoId=`) |
 | `GET` | `/api/documentos` | Documentos (filtros `?proyectoId=` y `?tipo=`) |
-| `POST` | `/api/documentos` | Carga un documento (`multipart/form-data`) |
+| `POST` | `/api/documentos` | Carga un documento (`multipart/form-data` o JSON con `archivo` ya subido a Blob) |
 | `GET` | `/api/documentos/:id/archivo` | Abre el archivo; `?descargar=1` fuerza la descarga |
+| `GET` | `/api/archivos/config` | Indica si el almacenamiento en Blob y la subida directa están activos |
+| `POST` | `/api/archivos` | Firma la subida directa navegador→Blob (`@vercel/blob/client`) |
 | `GET` | `/api/informes` · `POST /api/informes` | Historial y generación |
 | `GET` | `/api/auditoria` | Bitácora (filtro `?registro=`) |
+| `GET` · `POST` | `/api/valores` | Valores de referencia y su carga (`multipart/form-data` o JSON con `archivo` ya subido a Blob) |
+| `DELETE` | `/api/valores/:id` | **admin** · Elimina un valor de referencia |
+| `GET` | `/api/valores/:id/archivo` | Abre el archivo; `?descargar=1` fuerza la descarga |
+| `GET` | `/api/valores/:id/estilos?hoja=` | Estilos de una hoja de Excel para la vista previa |
+| `GET` | `/api/valores/:id/tablas` | Tablas analizadas de un valor |
+| `GET` | `/api/valores/:id/tablas/:tablaId/filas` | Filas completas de una tabla analizada |
+| `POST` | `/api/valores/:id/tablas` | **admin** · Guarda o reemplaza la tabla de una hoja |
+| `DELETE` | `/api/valores/:id/tablas/:tablaId` | **admin** · Elimina una tabla analizada |
+| `GET` · `POST` | `/api/formatos` | Formatos y su creación (**POST admin**) |
+| `DELETE` | `/api/formatos/:id` | **admin** · Elimina un formato y sus registros |
+| `GET` · `POST` | `/api/formatos/:id/registros` | Historial y diligenciamiento de un formato |
 | `GET` | `/api/tableros` · `GET /api/tableros/:id` | Tableros y tareas |
 | `POST` | `/api/tableros` | Crea un tablero |
 | `GET` | `/api/mi-tablero` | Tareas de proyecto asignadas al usuario y sus tareas personales |
@@ -253,7 +285,7 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `DELETE` | `/api/tableros/:id/tareas/:tareaId` | Elimina una tarea (**solo admin**) |
 | `GET` · `POST` | `/api/tableros/:id/tareas/:tareaId/comentarios` | Lista y publica comentarios |
 | `DELETE` | `/api/tableros/:id/tareas/:tareaId/comentarios/:comentarioId` | Elimina un comentario (autor o **admin**) |
-| `GET` · `POST` | `/api/tableros/:id/tareas/:tareaId/adjuntos` | Lista y sube adjuntos (`multipart/form-data`) |
+| `GET` · `POST` | `/api/tableros/:id/tareas/:tareaId/adjuntos` | Lista y sube adjuntos (`multipart/form-data` o JSON con `archivo` ya subido a Blob) |
 | `GET` | `/api/tableros/:id/tareas/:tareaId/adjuntos/:adjuntoId/archivo` | Abre el adjunto; `?descargar=1` fuerza la descarga |
 | `DELETE` | `/api/tableros/:id/tareas/:tareaId/adjuntos/:adjuntoId` | Elimina un adjunto (autor o **admin**) |
 | `GET` | `/api/notificaciones` | Tareas vencidas o que vencen en los próximos 7 días |
@@ -286,6 +318,12 @@ Los errores se devuelven como `{ "error": "mensaje" }`; los fallos de validació
 - `POST /api/usuarios`: `{ "email", "nombre", "rol", "password" }` (contraseña de 8 a 72 caracteres, hash bcrypt de 12 rondas).
 - `PATCH /api/usuarios/:id`: `{ "nombre"?, "rol"?, "activo"? }`.
 - `POST /api/usuarios/:id/aprobar`: `{ "rol"?: "usuario" }`; activa la cuenta y limpia la marca de pendiente.
+- `POST /api/valores` (`multipart/form-data`): campos `tipo`, `nombre`, `descripcion` y archivo `archivo`.
+- `POST /api/valores/:id/tablas`: `{ "hoja", "filaCabecera", "columnas": [{ "letra", "etiqueta" }], "filas": [["…"]], "truncada"? }`. Máximo 60 columnas, 1500 filas y 400 caracteres por celda; si la hoja ya existía, se reemplaza.
+- `POST /api/formatos`: `{ "nombre", "descripcion"?, "campos": ["…"], "valorId"? }`.
+- `POST /api/formatos/:id/registros`: `{ "valores": { "<campo>": "…" } }`.
+
+Los cuerpos JSON admiten hasta 4 MB, suficiente para guardar tablas analizadas; los archivos siguen viajando por `multipart/form-data` o por la subida directa a Blob.
 
 ## Autenticación
 
@@ -295,7 +333,7 @@ Los errores se devuelven como `{ "error": "mensaje" }`; los fallos de validació
 - **Roles:** `admin` y `usuario`. Solo `admin` ve y usa el módulo **Usuarios** y las rutas de administración; el resto recibe `403`.
 - **Colaboración:** cualquier sesión puede crear tareas y comentar o adjuntar en las tareas que tenga permitidas. Solo el creador de la tarea, el líder del proyecto, el líder del tablero o un `admin` pueden asignar responsable y aprobar o devolver; solo el asignado puede pulsar **Entendido** y enviar a revisión. Solo `admin` puede eliminar tareas; cada comentario o adjunto solo lo puede borrar quien lo subió o un `admin`.
 - Las cuentas desactivadas o pendientes no pueden iniciar sesión.
-- La pantalla de login y registro usa un monograma **SEI** provisional sobre la paleta naranja/gris/blanco del sistema, a la espera de la imagen institucional definitiva.
+- La pantalla de login y registro usa un monograma **SEI** provisional sobre la paleta naranja/gris/blanco del sistema, a la espera de la imagen definitiva.
 - La sesión viaja en una cookie `httpOnly` `rap_sid`; solo se guarda el hash SHA-256 del token en la tabla `sesiones`.
 
 Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
@@ -303,7 +341,7 @@ Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_
 ## Estado
 
 - Login RAP-16 probado de extremo a extremo: acceso local, sesión, rutas protegidas y cierre de sesión.
-- Dominio modelado en PostgreSQL, **sin datos de ejemplo**: se llenará con los documentos institucionales nuevos.
+- Dominio modelado en PostgreSQL, **sin datos de ejemplo**: se llenará con los documentos nuevos.
 - Dashboard, mi tablero, tableros, proyectos, seguimiento, antecedentes, informes, documentos, calendario, usuarios y perfil conectados a la API, con estados vacíos.
 - Administración de usuarios probada de extremo a extremo: alta local, cambio de rol, activación/desactivación, protección del último administrador y respuesta `403` para no administradores.
 - Asignación real de tareas probada: creación con responsable, avatares, filtros por persona y edición desde la API.
@@ -315,5 +353,8 @@ Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_
 - Notificaciones de tareas próximas a vencer y calendario personal probados de extremo a extremo (alta, edición y eliminación de eventos).
 - Interfaz responsiva con barra lateral desplegable en móvil y retráctil en escritorio.
 - Carga y descarga de archivos documentales probada de extremo a extremo (límite 20 MB, formatos permitidos, control de sesión y limpieza de archivos ante errores).
-- Despliegue en Vercel preparado: función serverless que envuelve Express, build conjunto de frontend y backend, SSL para PostgreSQL gestionado y `npm run db:init` verificado contra una base desechable. Los archivos admiten almacenamiento persistente en Vercel Blob (privado) con respaldo en disco local; probado en local y pendiente de probar contra un Blob store real. Las subidas directas al storage para superar el límite de ~4.5 MB siguen pendientes.
+- Formatos probado de extremo a extremo: carga y vista previa de valores de referencia, análisis de una hoja con cabecera detectada y corregible, guardado y eliminación de la tabla extraída, alta de un formato a partir de sus columnas, prellenado de campos desde una fila y registro guardado.
+- Respaldos ampliados y probados: `pg_dump` para la base local, respaldo lógico de datos para bases remotas (restaurado en una base desechable con conteos idénticos) y copia de `backend/uploads`; la descarga del Blob store queda pendiente de probar contra un store real.
+- Seguridad: helmet y límite de peticiones activos y verificados en local; CSP y cabeceras del frontend definidas en `vercel.json`, pendientes de comprobar en el dominio publicado.
+- Despliegue en Vercel preparado: función serverless que envuelve Express, build conjunto de frontend y backend, SSL para PostgreSQL gestionado y `npm run db:init` verificado contra una base desechable. Los archivos admiten almacenamiento persistente en Vercel Blob (privado) con respaldo en disco local, y las subidas directas navegador→Blob ya están implementadas con respaldo multipart; probado en local y pendiente de probar contra un Blob store real.
 - Pendiente: cargar los documentos definitivos, edición de la ficha FR-019 y manual de usuario en Word.

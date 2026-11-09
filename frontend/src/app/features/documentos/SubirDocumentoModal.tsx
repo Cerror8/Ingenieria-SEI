@@ -52,16 +52,15 @@ export function SubirDocumentoModal({
 
     setEnviando(true);
     setError(null);
-    const datos = new FormData();
-    datos.append("proyectoId", proyectoSel);
-    datos.append("tipo", tipo);
-    datos.append("estado", estado);
-    datos.append("version", "v1.0");
-    if (nombre.trim()) datos.append("nombre", nombre.trim());
-    datos.append("archivo", archivo);
 
     try {
-      await api.subirDocumento(datos);
+      await api.subirDocumento(archivo, {
+        proyectoId: proyectoSel,
+        tipo,
+        estado,
+        version: "v1.0",
+        nombre: nombre.trim() || undefined,
+      });
       onSubido();
       onCerrar();
     } catch (e) {

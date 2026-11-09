@@ -89,6 +89,45 @@ async function subirArchivo<T>(path: string, datos: FormData): Promise<T> {
   return json as T;
 }
 
+type ArchivoEnBlob = { nombre: string; ruta: string; mime: string | null; tamano: number };
+type CarpetaSubida = "documentos" | "valores" | "tareas";
+
+let soporteSubidaDirecta: Promise<boolean> | null = null;
+
+function admiteSubidaDirecta() {
+  if (!soporteSubidaDirecta) {
+    soporteSubidaDirecta = request<{ directo: boolean }>("/archivos/config")
+      .then((r) => r.directo)
+      .catch(() => false);
+  }
+  return soporteSubidaDirecta;
+}
+
+// Con Blob conectado el navegador sube directo al store y evita el límite de cuerpo de Vercel.
+async function subirEnBlob(archivo: File, carpeta: CarpetaSubida): Promise<ArchivoEnBlob | null> {
+  if (!(await admiteSubidaDirecta())) return null;
+
+  try {
+    const { upload } = await import("@vercel/blob/client");
+    const extension = archivo.name.match(/\.[a-z0-9]+$/i)?.[0].toLowerCase() ?? "";
+    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const blob = await upload(`${carpeta}/${id}${extension}`, archivo, {
+      access: "private",
+      handleUploadUrl: `${API_URL}/archivos`,
+      clientPayload: JSON.stringify({ carpeta }),
+      contentType: archivo.type || undefined,
+    });
+    return {
+      nombre: archivo.name,
+      ruta: `blob:${blob.pathname}`,
+      mime: archivo.type || null,
+      tamano: archivo.size,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function fechaCorta(iso: string | null | undefined): string {
   if (!iso) return "—";
   const [anio, mes, dia] = iso.slice(0, 10).split("-");
@@ -206,6 +245,28 @@ export type ValorReferenciaApi = {
   archivoMime: string | null;
   archivoTamano: number;
   creadoEn: string;
+  totalTablas: number;
+};
+
+export type ColumnaTablaApi = { letra: string; etiqueta: string };
+
+export type ValorTablaApi = {
+  id: string;
+  hoja: string;
+  filaCabecera: number;
+  columnas: ColumnaTablaApi[];
+  totalFilas: number;
+  truncada: boolean;
+  analizadaPor: string;
+  actualizadoEn: string;
+};
+
+export type NuevaValorTabla = {
+  hoja: string;
+  filaCabecera: number;
+  columnas: ColumnaTablaApi[];
+  filas: string[][];
+  truncada?: boolean;
 };
 
 export type EstiloCeldaApi = {
@@ -380,20 +441,26 @@ export const api = {
     request<{ indicadores: IndicadorApi[] }>(`/indicadores${query({ proyectoId })}`),
   documentos: (proyectoId?: string, tipo?: string) =>
     request<{ documentos: DocumentoApi[] }>(`/documentos${query({ proyectoId, tipo })}`),
-  subirDocumento: async (datos: FormData) => {
-    let respuesta: Response;
-    try {
-      respuesta = await fetch(`${API_URL}/documentos`, {
+  subirDocumento: async (
+    archivo: File,
+    datos: { proyectoId: string; tipo: string; estado: string; version?: string; nombre?: string },
+  ) => {
+    const meta = await subirEnBlob(archivo, "documentos");
+    if (meta) {
+      return request<{ documento: DocumentoApi }>("/documentos", {
         method: "POST",
-        credentials: "include",
-        body: datos,
+        body: { ...datos, version: datos.version ?? "v1.0", archivo: meta },
       });
-    } catch {
-      throw new ApiError(0, "No se pudo conectar con el servidor. Verifica que el backend esté activo.");
     }
-    const json = (await respuesta.json().catch(() => ({}))) as { error?: string; documento?: DocumentoApi };
-    if (!respuesta.ok) throw new ApiError(respuesta.status, json.error ?? "No se pudo subir el documento");
-    return json as { documento: DocumentoApi };
+
+    const formulario = new FormData();
+    formulario.append("proyectoId", datos.proyectoId);
+    formulario.append("tipo", datos.tipo);
+    formulario.append("estado", datos.estado);
+    formulario.append("version", datos.version ?? "v1.0");
+    if (datos.nombre?.trim()) formulario.append("nombre", datos.nombre.trim());
+    formulario.append("archivo", archivo);
+    return subirArchivo<{ documento: DocumentoApi }>("/documentos", formulario);
   },
   documentoArchivoUrl: (id: string, descargar = false) =>
     `${API_URL}/documentos/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,
@@ -404,12 +471,46 @@ export const api = {
     request<{ auditoria: AuditoriaApi[] }>(`/auditoria${query({ registro })}`),
 
   valores: () => request<{ valores: ValorReferenciaApi[] }>("/valores"),
-  subirValor: (datos: FormData) => subirArchivo<{ valor: ValorReferenciaApi }>("/valores", datos),
+  subirValor: async (
+    archivo: File,
+    datos: { tipo: string; nombre?: string; descripcion?: string },
+  ) => {
+    const meta = await subirEnBlob(archivo, "valores");
+    if (meta) {
+      return request<{ valor: ValorReferenciaApi }>("/valores", {
+        method: "POST",
+        body: { ...datos, archivo: meta },
+      });
+    }
+
+    const formulario = new FormData();
+    formulario.append("tipo", datos.tipo);
+    if (datos.nombre?.trim()) formulario.append("nombre", datos.nombre.trim());
+    if (datos.descripcion?.trim()) formulario.append("descripcion", datos.descripcion.trim());
+    formulario.append("archivo", archivo);
+    return subirArchivo<{ valor: ValorReferenciaApi }>("/valores", formulario);
+  },
   valorArchivoUrl: (id: string, descargar = false) =>
     `${API_URL}/valores/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,
   valorEstilos: (id: string, hoja: string) =>
     request<{ estilos: EstilosLibroApi }>(
       `/valores/${encodeURIComponent(id)}/estilos${query({ hoja })}`,
+    ),
+  valorTablas: (id: string) =>
+    request<{ tablas: ValorTablaApi[] }>(`/valores/${encodeURIComponent(id)}/tablas`),
+  valorTablaFilas: (id: string, tablaId: string) =>
+    request<{ tabla: ValorTablaApi & { filas: string[][] } }>(
+      `/valores/${encodeURIComponent(id)}/tablas/${encodeURIComponent(tablaId)}/filas`,
+    ),
+  guardarValorTabla: (id: string, datos: NuevaValorTabla) =>
+    request<{ tabla: ValorTablaApi }>(`/valores/${encodeURIComponent(id)}/tablas`, {
+      method: "POST",
+      body: datos,
+    }),
+  eliminarValorTabla: (id: string, tablaId: string) =>
+    request<{ ok: boolean }>(
+      `/valores/${encodeURIComponent(id)}/tablas/${encodeURIComponent(tablaId)}`,
+      { method: "DELETE" },
     ),
   eliminarValor: (id: string) =>
     request<{ ok: boolean }>(`/valores/${encodeURIComponent(id)}`, { method: "DELETE" }),
@@ -487,10 +588,16 @@ export const api = {
     ),
   adjuntosTarea: (tableroId: string, tareaId: string) =>
     request<{ adjuntos: AdjuntoTarea[] }>(`${tareaPath(tableroId, tareaId)}/adjuntos`),
-  subirAdjunto: (tableroId: string, tareaId: string, archivo: File) => {
+  subirAdjunto: async (tableroId: string, tareaId: string, archivo: File) => {
+    const ruta = `${tareaPath(tableroId, tareaId)}/adjuntos`;
+    const meta = await subirEnBlob(archivo, "tareas");
+    if (meta) {
+      return request<{ adjunto: AdjuntoTarea }>(ruta, { method: "POST", body: { archivo: meta } });
+    }
+
     const datos = new FormData();
     datos.append("archivo", archivo);
-    return subirArchivo<{ adjunto: AdjuntoTarea }>(`${tareaPath(tableroId, tareaId)}/adjuntos`, datos);
+    return subirArchivo<{ adjunto: AdjuntoTarea }>(ruta, datos);
   },
   eliminarAdjunto: (tableroId: string, tareaId: string, adjuntoId: string) =>
     request<{ ok: boolean }>(

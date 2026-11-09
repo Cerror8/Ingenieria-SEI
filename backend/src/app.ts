@@ -1,9 +1,12 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import { requireAuth } from "./auth/session.js";
 import { pool } from "./db.js";
 import { ah, errorHandler } from "./http.js";
+import { archivos } from "./routes/archivos.js";
 import { auditoria } from "./routes/auditoria.js";
 import { auth } from "./routes/auth.js";
 import { calendario } from "./routes/calendario.js";
@@ -25,13 +28,32 @@ export const app = express();
 // Vercel y otros proxies: usa la IP real del cliente para el rate limit y las cookies seguras.
 app.set("trust proxy", 1);
 
+app.disable("x-powered-by");
+app.use(
+  helmet({
+    // La CSP de la interfaz se define en vercel.json; la API solo devuelve JSON o archivos.
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "same-site" },
+  }),
+);
+
+// Límite general anti-abuso; los endpoints de acceso tienen límites más estrictos en routes/auth.ts.
+const limitadorApi = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 1000,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Demasiadas peticiones. Espera unos minutos e inténtalo de nuevo." },
+});
+app.use("/api", limitadorApi);
+
 const origenes = (process.env.CORS_ORIGIN ?? "http://localhost:5174")
   .split(",")
   .map((origen) => origen.trim())
   .filter(Boolean);
 
 app.use(cors({ origin: origenes, credentials: true }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "4mb" }));
 app.use(cookieParser());
 
 app.get(
@@ -48,6 +70,7 @@ app.use("/api/dashboard", requireAuth, dashboard);
 app.use("/api/proyectos", requireAuth, proyectos);
 app.use("/api/indicadores", requireAuth, indicadores);
 app.use("/api/documentos", requireAuth, documentos);
+app.use("/api/archivos", requireAuth, archivos);
 app.use("/api/informes", requireAuth, informes);
 app.use("/api/auditoria", requireAuth, auditoria);
 app.use("/api/tableros", requireAuth, tableros);

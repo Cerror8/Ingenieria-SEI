@@ -387,3 +387,21 @@ CREATE TABLE IF NOT EXISTS formatos_registros (
 );
 
 CREATE INDEX IF NOT EXISTS ix_formatos_registros_formato ON formatos_registros (formato_id);
+
+-- Tablas extraídas de los Excel de referencia (rubros, APU, EDT) para prellenar formatos
+CREATE TABLE IF NOT EXISTS valores_tablas (
+  id              TEXT PRIMARY KEY,
+  valor_id        TEXT NOT NULL REFERENCES valores_referencia(id) ON DELETE CASCADE,
+  hoja            TEXT NOT NULL,
+  fila_cabecera   INT NOT NULL,
+  columnas        JSONB NOT NULL DEFAULT '[]',
+  filas           JSONB NOT NULL DEFAULT '[]',
+  total_filas     INT NOT NULL DEFAULT 0,
+  truncada        BOOLEAN NOT NULL DEFAULT false,
+  analizada_por   TEXT NOT NULL,
+  creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_valores_tablas_valor_hoja ON valores_tablas (valor_id, hoja);
+CREATE INDEX IF NOT EXISTS ix_valores_tablas_valor ON valores_tablas (valor_id);

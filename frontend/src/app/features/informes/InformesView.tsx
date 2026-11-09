@@ -36,7 +36,7 @@ export function InformesView({ onGenerate }: { onGenerate: () => void }) {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-900">Informes de proyectos</h1>
-        <p className="mt-0.5 text-sm text-gray-500">Generación y consulta de informes institucionales</p>
+        <p className="mt-0.5 text-sm text-gray-500">Generación y consulta de informes</p>
       </div>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">

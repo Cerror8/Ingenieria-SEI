@@ -8,7 +8,7 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
-import { eliminarArchivo, guardarArchivo, servirArchivo } from "../lib/almacen.js";
+import { eliminarArchivo, guardarArchivo, servirArchivo, archivoDirectoSchema, verificarSubidaDirecta } from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 import { CAMPOS_DOCUMENTO } from "./proyectos.js";
 
@@ -91,8 +91,9 @@ documentos.post(
   "/",
   recibirArchivo,
   ah(async (req, res) => {
+    const directo = Boolean(req.is("application/json"));
     const archivo = req.file;
-    if (!archivo) throw new HttpError(400, "Adjunta un archivo");
+    if (!directo && !archivo) throw new HttpError(400, "Adjunta un archivo");
     let clave: string | null = null;
 
     try {
@@ -100,9 +101,15 @@ documentos.post(
       const existe = await pool.query("SELECT 1 FROM proyectos WHERE id = $1", [datos.proyectoId]);
       if (!existe.rowCount) throw new HttpError(404, "Proyecto no encontrado");
 
+      const meta = directo
+        ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
+        : null;
+      const info = meta ? await verificarSubidaDirecta(meta.ruta, "documentos") : null;
+
       const usuario = res.locals.usuario as UsuarioSesion;
-      const nombre = datos.nombre?.trim() || path.parse(archivo.originalname).name;
-      clave = await guardarArchivo(archivo, "documentos");
+      const nombreArchivo = meta?.nombre ?? archivo!.originalname;
+      const nombre = datos.nombre?.trim() || path.parse(nombreArchivo).name;
+      clave = meta?.ruta ?? (await guardarArchivo(archivo!, "documentos"));
       const { rows } = await pool.query(
         `INSERT INTO documentos
            (id, nombre, tipo, version, fecha, usuario, estado, proyecto_id,
@@ -117,10 +124,10 @@ documentos.post(
           usuario.nombre,
           datos.estado,
           datos.proyectoId,
-          archivo.originalname.slice(0, 255),
+          nombreArchivo.slice(0, 255),
           clave,
-          archivo.mimetype,
-          archivo.size,
+          meta?.mime ?? archivo?.mimetype ?? null,
+          info?.tamano ?? archivo?.size ?? 0,
         ],
       );
 
@@ -129,13 +136,13 @@ documentos.post(
         accion: "Creación",
         entidad: "Documento",
         registro: nombre,
-        nuevo: `${datos.tipo} · ${archivo.originalname}`,
+        nuevo: `${datos.tipo} · ${nombreArchivo}`,
       });
 
       res.status(201).json({ documento: rows[0] });
     } catch (e) {
       if (clave) await eliminarArchivo(clave, CARPETA);
-      await fs.promises.unlink(archivo.path).catch(() => undefined);
+      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
   }),

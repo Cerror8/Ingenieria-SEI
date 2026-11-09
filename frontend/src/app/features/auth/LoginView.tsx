@@ -73,7 +73,7 @@ export function LoginView() {
 
   return (
     <div className="grid min-h-screen bg-white lg:grid-cols-[42%_58%]">
-        {/* Panel institucional */}
+        {/* Panel lateral */}
         <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#1F2937] px-10 py-12 text-white lg:flex">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#EA580C]/10" />
           <div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-white/5" />

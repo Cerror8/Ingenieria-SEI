@@ -4,7 +4,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import type { Response } from "express";
-import { del, get, put } from "@vercel/blob";
+import { del, get, head, put } from "@vercel/blob";
+import { z } from "zod";
 import { HttpError } from "../http.js";
 
 // Un store de Vercel Blob conectado inyecta BLOB_READ_WRITE_TOKEN (o BLOB_STORE_ID con OIDC).
@@ -14,8 +15,35 @@ export const almacenEnBlob = Boolean(
   process.env.BLOB_READ_WRITE_TOKEN || (process.env.VERCEL && process.env.BLOB_STORE_ID),
 );
 
+export const archivoDirectoSchema = z.object({
+  nombre: z.string().trim().min(1).max(255),
+  ruta: z.string().trim().min(1).max(600),
+  mime: z.string().trim().max(150).nullable().optional(),
+});
+
 export function esClaveBlob(clave: string | null | undefined): clave is string {
   return Boolean(clave?.startsWith(PREFIJO));
+}
+
+// Confirma que la ruta enviada por el navegador existe en el store y pertenece a la carpeta esperada.
+export async function verificarSubidaDirecta(
+  clave: string,
+  subcarpeta: string,
+): Promise<{ tamano: number; mime: string | null }> {
+  if (!almacenEnBlob) throw new HttpError(400, "El almacenamiento en Blob no está configurado");
+  if (!esClaveBlob(clave)) throw new HttpError(400, "La ruta del archivo no es válida");
+
+  const pathname = clave.slice(PREFIJO.length);
+  if (!pathname.startsWith(`${subcarpeta}/`)) {
+    throw new HttpError(400, "La ruta del archivo no es válida");
+  }
+
+  try {
+    const info = await head(pathname);
+    return { tamano: info.size, mime: info.contentType ?? null };
+  } catch {
+    throw new HttpError(400, "El archivo no se encuentra en el almacenamiento");
+  }
 }
 
 type ArchivoRecibido = { filename: string; path: string; mimetype?: string };

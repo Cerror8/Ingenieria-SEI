@@ -301,7 +301,7 @@ Eventos y reuniones propios de cada usuario. Las tareas no se duplican aquí: el
 
 ## Datos iniciales
 
-La base arranca **sin datos de ejemplo**. `03_seed.sql` no inserta registros: los proyectos, indicadores, documentos, informes, actividades, tableros y el dominio RAP se cargarán con los documentos institucionales definitivos.
+La base arranca **sin datos de ejemplo**. `03_seed.sql` no inserta registros: los proyectos, indicadores, documentos, informes, actividades, tableros y el dominio RAP se cargarán con los documentos definitivos.
 
 El único registro creado automáticamente es el administrador local, y lo hace el backend al arrancar con `ADMIN_EMAIL` y `ADMIN_PASSWORD`. El primer tablero de trabajo se crea desde la interfaz, en el módulo **Tableros**.
 

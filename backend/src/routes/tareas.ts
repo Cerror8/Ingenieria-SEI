@@ -8,7 +8,13 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
-import { eliminarArchivo, guardarArchivo, servirArchivo } from "../lib/almacen.js";
+import {
+  archivoDirectoSchema,
+  eliminarArchivo,
+  guardarArchivo,
+  servirArchivo,
+  verificarSubidaDirecta,
+} from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 
 const CARPETA = carpetaSubidas("tareas");
@@ -164,15 +170,22 @@ tareas.post(
   "/:id/tareas/:tareaId/adjuntos",
   recibirArchivo,
   ah(async (req, res) => {
+    const directo = Boolean(req.is("application/json"));
     const archivo = req.file;
-    if (!archivo) throw new HttpError(400, "Adjunta un archivo");
+    if (!directo && !archivo) throw new HttpError(400, "Adjunta un archivo");
     let clave: string | null = null;
 
     try {
       const { tableroId, tareaId } = idsDeRuta(req.params);
       const tarea = await tareaDeRuta(tableroId, tareaId);
       const usuario = res.locals.usuario as UsuarioSesion;
-      clave = await guardarArchivo(archivo, "tareas");
+
+      const meta = directo
+        ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
+        : null;
+      const info = meta ? await verificarSubidaDirecta(meta.ruta, "tareas") : null;
+      const nombreArchivo = meta?.nombre ?? archivo!.originalname;
+      clave = meta?.ruta ?? (await guardarArchivo(archivo!, "tareas"));
 
       const { rows } = await pool.query(
         `INSERT INTO adjuntos_tarea (tarea_id, usuario_id, nombre, ruta, mime, tamano)
@@ -181,10 +194,10 @@ tareas.post(
         [
           tareaId,
           usuario.id,
-          archivo.originalname.slice(0, 255),
+          nombreArchivo.slice(0, 255),
           clave,
-          archivo.mimetype,
-          archivo.size,
+          meta?.mime ?? archivo?.mimetype ?? null,
+          info?.tamano ?? archivo?.size ?? 0,
         ],
       );
 
@@ -193,7 +206,7 @@ tareas.post(
         accion: "Creación",
         entidad: "Adjunto de tarea",
         registro: tarea.titulo,
-        nuevo: archivo.originalname,
+        nuevo: nombreArchivo,
       });
 
       res.status(201).json({
@@ -206,7 +219,7 @@ tareas.post(
       });
     } catch (e) {
       if (clave) await eliminarArchivo(clave, CARPETA);
-      await fs.promises.unlink(archivo.path).catch(() => undefined);
+      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
   }),

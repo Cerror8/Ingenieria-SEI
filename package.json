@@ -12,7 +12,7 @@
     "db:up": "docker compose -f database/docker-compose.yml up -d",
     "db:down": "docker compose -f database/docker-compose.yml down",
     "db:init": "node backend/scripts/init-db.mjs",
-    "db:backup": "node scripts/backup-db.mjs"
+    "db:backup": "node backend/scripts/backup-db.mjs && node backend/scripts/backup-archivos.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

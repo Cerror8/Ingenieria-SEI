@@ -174,4 +174,4 @@ Para cambiar la contraseña de desarrollo, actualiza `ADMIN_PASSWORD` y elimina 
 
 ## Recursos pendientes
 
-- Registro institucional de marca: el login y el registro usan `frontend/public/brand/logo-sebastian-escandon.jpg` (logo completo) y `logo-se-mark.jpg` (marca para la barra lateral y la carga), con la paleta naranja/gris/blanco del sistema.
+- Marca provisional: el login, el registro, la barra lateral y la carga usan un monograma **SEI** en texto, con la paleta naranja/gris/blanco del sistema, a la espera de la imagen definitiva.

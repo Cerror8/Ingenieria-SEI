@@ -9,10 +9,12 @@ import type { UsuarioSesion } from "../auth/session.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import {
+  archivoDirectoSchema,
   eliminarArchivo,
   guardarArchivo,
   rutaLocalParaLeer,
   servirArchivo,
+  verificarSubidaDirecta,
 } from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 
@@ -63,6 +65,27 @@ const CAMPOS_VALOR = `
   archivo_tamano AS "archivoTamano", creado_en AS "creadoEn"
 `;
 
+const CAMPOS_TABLA = `
+  id, hoja, fila_cabecera AS "filaCabecera", columnas,
+  total_filas AS "totalFilas", truncada,
+  analizada_por AS "analizadaPor", actualizado_en AS "actualizadoEn"
+`;
+
+const columnaSchema = z.object({
+  letra: z.string().trim().min(1).max(3),
+  etiqueta: z.string().trim().min(1, "La columna no tiene etiqueta").max(120),
+});
+
+const tablaSchema = z.object({
+  hoja: z.string().trim().min(1, "Indica la hoja").max(120),
+  filaCabecera: z.number().int().min(1).max(200000),
+  columnas: z.array(columnaSchema).min(1, "La tabla no tiene columnas").max(60),
+  filas: z
+    .array(z.array(z.string().max(400)).max(60))
+    .max(1500, "La tabla supera el máximo de 1500 filas"),
+  truncada: z.boolean().optional(),
+});
+
 const requiereAdmin: RequestHandler = (_req, res, next) => {
   const usuario = res.locals.usuario as UsuarioSesion;
   if (usuario.rol !== "admin") {
@@ -78,7 +101,9 @@ valores.get(
   "/",
   ah(async (_req, res) => {
     const { rows } = await pool.query(
-      `SELECT ${CAMPOS_VALOR} FROM valores_referencia ORDER BY creado_en DESC, id`,
+      `SELECT ${CAMPOS_VALOR},
+              (SELECT count(*)::int FROM valores_tablas t WHERE t.valor_id = valores_referencia.id) AS "totalTablas"
+         FROM valores_referencia ORDER BY creado_en DESC, id`,
     );
     res.json({ valores: rows });
   }),
@@ -89,30 +114,37 @@ valores.post(
   requiereAdmin,
   recibirArchivo,
   ah(async (req, res) => {
+    const directo = Boolean(req.is("application/json"));
     const archivo = req.file;
-    if (!archivo) throw new HttpError(400, "Adjunta un archivo");
+    if (!directo && !archivo) throw new HttpError(400, "Adjunta un archivo");
     let clave: string | null = null;
 
     try {
       const datos = valorSchema.parse(req.body);
+      const meta = directo
+        ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
+        : null;
+      const info = meta ? await verificarSubidaDirecta(meta.ruta, "valores") : null;
+
       const usuario = res.locals.usuario as UsuarioSesion;
-      const nombre = datos.nombre?.trim() || path.parse(archivo.originalname).name;
-      clave = await guardarArchivo(archivo, "valores");
+      const nombreArchivo = meta?.nombre ?? archivo!.originalname;
+      const nombre = datos.nombre?.trim() || path.parse(nombreArchivo).name;
+      clave = meta?.ruta ?? (await guardarArchivo(archivo!, "valores"));
 
       const { rows } = await pool.query(
         `INSERT INTO valores_referencia
            (id, nombre, tipo, descripcion, archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano, subido_por)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING ${CAMPOS_VALOR}`,
+         RETURNING ${CAMPOS_VALOR}, 0 AS "totalTablas"`,
         [
           crypto.randomUUID(),
           nombre,
           datos.tipo,
           datos.descripcion ?? null,
-          archivo.originalname.slice(0, 255),
+          nombreArchivo.slice(0, 255),
           clave,
-          archivo.mimetype,
-          archivo.size,
+          meta?.mime ?? archivo?.mimetype ?? null,
+          info?.tamano ?? archivo?.size ?? 0,
           usuario.nombre,
         ],
       );
@@ -122,13 +154,13 @@ valores.post(
         accion: "Creación",
         entidad: "Valor de referencia",
         registro: nombre,
-        nuevo: `${datos.tipo} · ${archivo.originalname}`,
+        nuevo: `${datos.tipo} · ${nombreArchivo}`,
       });
 
       res.status(201).json({ valor: rows[0] });
     } catch (e) {
       if (clave) await eliminarArchivo(clave, CARPETA);
-      await fs.promises.unlink(archivo.path).catch(() => undefined);
+      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
   }),
@@ -153,6 +185,117 @@ valores.delete(
       accion: "Eliminación",
       entidad: "Valor de referencia",
       registro: valor.nombre,
+    });
+
+    res.json({ ok: true });
+  }),
+);
+
+valores.get(
+  "/:id/tablas",
+  ah(async (req, res) => {
+    const existe = await pool.query("SELECT 1 FROM valores_referencia WHERE id = $1", [req.params.id]);
+    if (!existe.rowCount) throw new HttpError(404, "Valor no encontrado");
+
+    const { rows } = await pool.query(
+      `SELECT ${CAMPOS_TABLA} FROM valores_tablas WHERE valor_id = $1 ORDER BY hoja`,
+      [req.params.id],
+    );
+    res.json({ tablas: rows });
+  }),
+);
+
+valores.get(
+  "/:id/tablas/:tablaId/filas",
+  ah(async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT ${CAMPOS_TABLA}, filas FROM valores_tablas WHERE id = $1 AND valor_id = $2`,
+      [req.params.tablaId, req.params.id],
+    );
+    const tabla = rows[0];
+    if (!tabla) throw new HttpError(404, "Tabla no encontrada");
+    res.json({ tabla });
+  }),
+);
+
+valores.post(
+  "/:id/tablas",
+  requiereAdmin,
+  ah(async (req, res) => {
+    const datos = tablaSchema.parse(req.body);
+    const usuario = res.locals.usuario as UsuarioSesion;
+
+    const { rows: valorRows } = await pool.query<{ nombre: string }>(
+      "SELECT nombre FROM valores_referencia WHERE id = $1",
+      [req.params.id],
+    );
+    const valor = valorRows[0];
+    if (!valor) throw new HttpError(404, "Valor no encontrado");
+
+    const filas = datos.filas.map((fila) =>
+      Array.from({ length: datos.columnas.length }, (_, indice) => fila[indice] ?? ""),
+    );
+    const totalFilas = filas.length;
+
+    const { rows } = await pool.query(
+      `INSERT INTO valores_tablas
+         (id, valor_id, hoja, fila_cabecera, columnas, filas, total_filas, truncada, analizada_por)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9)
+       ON CONFLICT (valor_id, hoja) DO UPDATE SET
+         fila_cabecera = EXCLUDED.fila_cabecera,
+         columnas = EXCLUDED.columnas,
+         filas = EXCLUDED.filas,
+         total_filas = EXCLUDED.total_filas,
+         truncada = EXCLUDED.truncada,
+         analizada_por = EXCLUDED.analizada_por,
+         actualizado_en = now()
+       RETURNING ${CAMPOS_TABLA}`,
+      [
+        crypto.randomUUID(),
+        req.params.id,
+        datos.hoja,
+        datos.filaCabecera,
+        JSON.stringify(datos.columnas),
+        JSON.stringify(filas),
+        totalFilas,
+        datos.truncada ?? false,
+        usuario.nombre,
+      ],
+    );
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Análisis",
+      entidad: "Valor de referencia",
+      registro: valor.nombre,
+      nuevo: `Hoja “${datos.hoja}” · ${totalFilas} fila(s) · ${datos.columnas.length} columna(s)`,
+    });
+
+    res.status(201).json({ tabla: rows[0] });
+  }),
+);
+
+valores.delete(
+  "/:id/tablas/:tablaId",
+  requiereAdmin,
+  ah(async (req, res) => {
+    const usuario = res.locals.usuario as UsuarioSesion;
+    const { rows } = await pool.query<{ hoja: string; nombre: string }>(
+      `DELETE FROM valores_tablas t
+        USING valores_referencia v
+        WHERE t.id = $1 AND t.valor_id = $2 AND v.id = t.valor_id
+        RETURNING t.hoja, v.nombre`,
+      [req.params.tablaId, req.params.id],
+    );
+    const tabla = rows[0];
+    if (!tabla) throw new HttpError(404, "Tabla no encontrada");
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Eliminación",
+      entidad: "Tabla de valor",
+      registro: tabla.nombre,
+      previo: `Hoja “${tabla.hoja}”`,
     });
 
     res.json({ ok: true });

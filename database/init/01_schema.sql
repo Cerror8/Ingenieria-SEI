@@ -5,7 +5,7 @@
 CREATE SCHEMA IF NOT EXISTS app;
 SET search_path = app, public;
 
--- Usuarios institucionales (Google) y administradores locales.
+-- Usuarios con Google y administradores locales.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email         TEXT NOT NULL,
