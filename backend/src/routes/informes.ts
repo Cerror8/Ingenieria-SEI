@@ -39,7 +39,7 @@ informes.post(
 
     const { rows: creados } = await pool.query(
       `INSERT INTO informes (id, fecha, tipo, periodo, proyecto, generado_por, formato)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
+       VALUES ($1, (now() AT TIME ZONE 'America/Bogota')::date, $2, $3, $4, $5, $6)
        RETURNING ${CAMPOS_INFORME}`,
       [rows[0].id, datos.tipo, datos.periodo, datos.proyecto, usuario.nombre, datos.formato],
     );

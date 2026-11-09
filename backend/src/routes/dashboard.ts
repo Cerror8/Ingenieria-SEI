@@ -72,8 +72,8 @@ dashboard.get(
             ORDER BY cumplimiento, id`,
         ),
         pool.query<{ desde: number; hasta: number }>(
-          `SELECT COALESCE(EXTRACT(YEAR FROM MIN(fecha_inicio))::int, EXTRACT(YEAR FROM CURRENT_DATE)::int) AS desde,
-                  COALESCE(EXTRACT(YEAR FROM MAX(fecha_fin))::int, EXTRACT(YEAR FROM CURRENT_DATE)::int) AS hasta
+          `SELECT COALESCE(EXTRACT(YEAR FROM MIN(fecha_inicio))::int, EXTRACT(YEAR FROM (now() AT TIME ZONE 'America/Bogota'))::int) AS desde,
+                  COALESCE(EXTRACT(YEAR FROM MAX(fecha_fin))::int, EXTRACT(YEAR FROM (now() AT TIME ZONE 'America/Bogota'))::int) AS hasta
              FROM proyectos`,
         ),
         pool.query<{ id: string; nombre: string; presupuesto: number; ejecucionPct: number }>(

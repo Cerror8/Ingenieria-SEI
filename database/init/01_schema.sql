@@ -5,6 +5,15 @@
 CREATE SCHEMA IF NOT EXISTS app;
 SET search_path = app, public;
 
+-- Con poolers (Neon/PgBouncer) un SET de sesión no sobrevive entre consultas.
+-- Fijarlo por base garantiza que toda conexión nueva herede el esquema.
+DO $$
+BEGIN
+  EXECUTE format('ALTER DATABASE %I SET search_path TO app, public', current_database());
+  EXECUTE format('ALTER DATABASE %I SET timezone TO %L', current_database(), 'America/Bogota');
+END
+$$;
+
 -- Usuarios con Google y administradores locales.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

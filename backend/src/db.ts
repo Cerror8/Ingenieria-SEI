@@ -16,9 +16,6 @@ export const pool = new pg.Pool({
   ...(usaSsl ? { ssl: { rejectUnauthorized: false } } : {}),
   max: Number(process.env.PG_POOL_MAX ?? (process.env.VERCEL ? 3 : 10)),
 });
-pool.on("connect", (c) => {
-  void c.query("SET search_path = app, public; SET TIME ZONE 'America/Bogota'");
-});
 
 export type Db = pg.PoolClient;
 

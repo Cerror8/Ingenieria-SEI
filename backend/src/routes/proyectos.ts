@@ -102,9 +102,9 @@ proyectos.post(
          (id, nombre, linea, responsable, estado, avance, presupuesto, ejecucion_pct,
           fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, lider_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-         COALESCE($9::date, CURRENT_DATE),
-         COALESCE($10::date, COALESCE($9::date, CURRENT_DATE) + 364),
-         GREATEST(0, COALESCE($10::date, COALESCE($9::date, CURRENT_DATE) + 364) - CURRENT_DATE),
+         COALESCE($9::date, (now() AT TIME ZONE 'America/Bogota')::date),
+         COALESCE($10::date, COALESCE($9::date, (now() AT TIME ZONE 'America/Bogota')::date) + 364),
+         GREATEST(0, COALESCE($10::date, COALESCE($9::date, (now() AT TIME ZONE 'America/Bogota')::date) + 364) - (now() AT TIME ZONE 'America/Bogota')::date),
          $11, $12, $13)
        RETURNING ${CAMPOS_PROYECTO}`,
       [

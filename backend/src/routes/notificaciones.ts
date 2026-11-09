@@ -20,12 +20,12 @@ notificaciones.get(
               ta.fecha_limite AS "fechaLimite",
               tb.id AS "tableroId",
               tb.nombre AS tablero,
-              (ta.fecha_limite - CURRENT_DATE) AS "diasRestantes"
+              (ta.fecha_limite - (now() AT TIME ZONE 'America/Bogota')::date) AS "diasRestantes"
          FROM tareas_tablero ta
          JOIN tableros tb ON tb.id = ta.tablero_id
         WHERE ta.fecha_limite IS NOT NULL
           AND ta.columna <> 'completado'
-          AND ta.fecha_limite <= CURRENT_DATE + 7
+          AND ta.fecha_limite <= (now() AT TIME ZONE 'America/Bogota')::date + 7
           AND ($1 OR ta.responsable_id = $2)
         ORDER BY ta.fecha_limite,
                  CASE ta.prioridad WHEN 'Alta' THEN 1 WHEN 'Media' THEN 2 ELSE 3 END`,

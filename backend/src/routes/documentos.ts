@@ -114,7 +114,7 @@ documentos.post(
         `INSERT INTO documentos
            (id, nombre, tipo, version, fecha, usuario, estado, proyecto_id,
             archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano)
-         VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7, $8, $9, $10, $11)
+         VALUES ($1, $2, $3, $4, (now() AT TIME ZONE 'America/Bogota')::date, $5, $6, $7, $8, $9, $10, $11)
          RETURNING ${CAMPOS_DOCUMENTO}`,
         [
           crypto.randomUUID(),
