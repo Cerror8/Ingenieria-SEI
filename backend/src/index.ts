@@ -1,10 +1,12 @@
 import "dotenv/config";
 import { app } from "./app.js";
 import { asegurarAdmin } from "./auth/admin.js";
+import { asegurarEsquema } from "./lib/esquema.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
-asegurarAdmin()
+asegurarEsquema()
+  .then(() => asegurarAdmin())
   .then(() => {
     app.listen(port, () => {
       console.log(`API RAP-16 escuchando en http://localhost:${port}/api`);

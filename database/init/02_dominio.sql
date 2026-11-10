@@ -86,6 +86,11 @@ CREATE TABLE IF NOT EXISTS documentos (
 CREATE INDEX IF NOT EXISTS ix_documentos_proyecto ON documentos (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_documentos_tipo ON documentos (tipo);
 
+-- Plantilla documental: estructura elegida por proyecto y carpeta de cada documento.
+-- Idempotente para bases creadas antes de esta función.
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS estructura TEXT;
+ALTER TABLE documentos ADD COLUMN IF NOT EXISTS carpeta TEXT;
+
 DROP TRIGGER IF EXISTS documentos_touch ON documentos;
 CREATE TRIGGER documentos_touch
 BEFORE UPDATE ON documentos

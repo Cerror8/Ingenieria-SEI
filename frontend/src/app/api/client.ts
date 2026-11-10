@@ -72,11 +72,15 @@ const query = (params: Record<string, string | undefined>) => {
 const tareaPath = (tableroId: string, tareaId: string) =>
   `/tableros/${encodeURIComponent(tableroId)}/tareas/${encodeURIComponent(tareaId)}`;
 
-async function subirArchivo<T>(path: string, datos: FormData): Promise<T> {
+async function subirArchivo<T>(
+  path: string,
+  datos: FormData,
+  metodo: "POST" | "PATCH" = "POST",
+): Promise<T> {
   let respuesta: Response;
   try {
     respuesta = await fetch(`${API_URL}${path}`, {
-      method: "POST",
+      method: metodo,
       credentials: "include",
       body: datos,
     });
@@ -134,10 +138,18 @@ export function fechaCorta(iso: string | null | undefined): string {
   return dia && mes && anio ? `${dia}/${mes}/${anio}` : iso;
 }
 
+export type EstructuraApi = {
+  id: string;
+  nombre: string;
+  raiz: string;
+  carpetas: string[];
+};
+
 export type ProyectoApi = {
   id: string;
   nombre: string;
   linea: string;
+  estructura: string | null;
   responsable: string;
   liderId: string | null;
   estado: ProjectStatus;
@@ -167,6 +179,7 @@ export type DocumentoApi = {
   id: string;
   nombre: string;
   tipo: string;
+  carpeta: string | null;
   version: string;
   fecha: string;
   usuario: string;
@@ -343,6 +356,7 @@ export type NuevoProyecto = {
   id: string;
   nombre: string;
   linea: string;
+  estructura?: string | null;
   responsable: string;
   liderId?: string | null;
   estado: ProjectStatus;
@@ -392,6 +406,7 @@ export const mapDocumento = (d: DocumentoApi): Document => ({
   projectId: d.proyectoId,
   fileName: d.archivoNombre,
   fileSize: d.archivoTamano,
+  folder: d.carpeta,
 });
 
 export const mapInforme = (r: InformeApi): Report => ({
@@ -450,13 +465,24 @@ export const api = {
   crearProyecto: (datos: NuevoProyecto) =>
     request<{ proyecto: ProyectoApi }>("/proyectos", { method: "POST", body: datos }),
 
+  estructuras: () => request<{ estructuras: EstructuraApi[] }>("/estructuras"),
+  estructura: (id: string) =>
+    request<{ estructura: EstructuraApi }>(`/estructuras/${encodeURIComponent(id)}`),
+
   indicadores: (proyectoId?: string) =>
     request<{ indicadores: IndicadorApi[] }>(`/indicadores${query({ proyectoId })}`),
   documentos: (proyectoId?: string, tipo?: string) =>
     request<{ documentos: DocumentoApi[] }>(`/documentos${query({ proyectoId, tipo })}`),
   subirDocumento: async (
     archivo: File,
-    datos: { proyectoId: string; tipo: string; estado: string; version?: string; nombre?: string },
+    datos: {
+      proyectoId: string;
+      tipo: string;
+      carpeta?: string | null;
+      estado: string;
+      version?: string;
+      nombre?: string;
+    },
   ) => {
     const meta = await subirEnBlob(archivo, "documentos");
     if (meta) {
@@ -469,11 +495,51 @@ export const api = {
     const formulario = new FormData();
     formulario.append("proyectoId", datos.proyectoId);
     formulario.append("tipo", datos.tipo);
+    if (datos.carpeta) formulario.append("carpeta", datos.carpeta);
     formulario.append("estado", datos.estado);
     formulario.append("version", datos.version ?? "v1.0");
     if (datos.nombre?.trim()) formulario.append("nombre", datos.nombre.trim());
     formulario.append("archivo", archivo);
     return subirArchivo<{ documento: DocumentoApi }>("/documentos", formulario);
+  },
+  actualizarDocumento: async (
+    id: string,
+    datos: {
+      tipo?: string;
+      carpeta?: string | null;
+      estado?: string;
+      version?: string;
+      nombre?: string;
+    },
+    archivo?: File,
+  ) => {
+    if (archivo) {
+      const meta = await subirEnBlob(archivo, "documentos");
+      if (meta) {
+        return request<{ documento: DocumentoApi }>(`/documentos/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: { ...datos, archivo: meta },
+        });
+      }
+
+      const formulario = new FormData();
+      if (datos.nombre?.trim()) formulario.append("nombre", datos.nombre.trim());
+      if (datos.tipo) formulario.append("tipo", datos.tipo);
+      if (datos.carpeta !== undefined) formulario.append("carpeta", datos.carpeta ?? "");
+      if (datos.estado) formulario.append("estado", datos.estado);
+      if (datos.version) formulario.append("version", datos.version);
+      formulario.append("archivo", archivo);
+      return subirArchivo<{ documento: DocumentoApi }>(
+        `/documentos/${encodeURIComponent(id)}`,
+        formulario,
+        "PATCH",
+      );
+    }
+
+    return request<{ documento: DocumentoApi }>(`/documentos/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    });
   },
   documentoArchivoUrl: (id: string, descargar = false) =>
     `${API_URL}/documentos/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,

@@ -4,6 +4,7 @@ import { api, mapDocumento } from "../../api/client";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
 import type { Document } from "../../types";
 import { SubirDocumentoModal } from "./SubirDocumentoModal";
+import { ActualizarDocumentoModal } from "./ActualizarDocumentoModal";
 
 export function DocumentosView() {
   const [cat, setCat] = useState("Todos");
@@ -11,6 +12,7 @@ export function DocumentosView() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarSubida, setMostrarSubida] = useState(false);
+  const [docEditando, setDocEditando] = useState<Document | null>(null);
 
   const categorias = ["Todos", "Ficha técnica", "Actas", "Informes", "Antecedentes", "Evidencias", "Otros"];
 
@@ -77,6 +79,7 @@ export function DocumentosView() {
                       <div>
                         <span className="text-sm font-semibold text-gray-800">{doc.name}</span>
                         {doc.fileName && <p className="text-[10px] text-gray-400">{doc.fileName}</p>}
+                        {doc.folder && <p className="text-[10px] text-gray-400">{doc.folder}</p>}
                       </div>
                     </div>
                   </td>
@@ -110,7 +113,7 @@ export function DocumentosView() {
                       >
                         <Download className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" className="rounded p-1 text-gray-300 transition-colors hover:text-amber-600" title="Nueva versión"><Clock className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => setDocEditando(doc)} className="rounded p-1 text-gray-300 transition-colors hover:text-amber-600" title="Nueva versión"><Clock className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -127,6 +130,13 @@ export function DocumentosView() {
         abierto={mostrarSubida}
         onCerrar={() => setMostrarSubida(false)}
         onSubido={() => void cargar()}
+      />
+
+      <ActualizarDocumentoModal
+        abierto={Boolean(docEditando)}
+        documento={docEditando}
+        onCerrar={() => setDocEditando(null)}
+        onActualizado={() => void cargar()}
       />
     </div>
   );

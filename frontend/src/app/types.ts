@@ -80,6 +80,7 @@ export interface Document {
   projectId: string;
   fileName: string | null;
   fileSize: number | null;
+  folder: string | null;
 }
 
 export interface AuditEntry {

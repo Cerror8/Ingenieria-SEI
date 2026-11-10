@@ -3,12 +3,13 @@ import { z } from "zod";
 import { registrarAuditoria } from "../audit.js";
 import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { estructuraPorId } from "../lib/estructura.js";
 import type { UsuarioSesion } from "../auth/session.js";
 
 const ESTADOS = ["En formulación", "En ejecución", "Suspendido", "Finalizado", "Cerrado"] as const;
 
 export const CAMPOS_PROYECTO = `
-  id, nombre, linea, responsable, lider_id AS "liderId", estado, avance, presupuesto,
+  id, nombre, linea, estructura, responsable, lider_id AS "liderId", estado, avance, presupuesto,
   ejecucion_pct AS "ejecucionPct", fecha_inicio AS "fechaInicio", fecha_fin AS "fechaFin",
   dias_restantes AS "diasRestantes", dependencia, objetivo
 `;
@@ -19,7 +20,7 @@ export const CAMPOS_INDICADOR = `
 `;
 
 export const CAMPOS_DOCUMENTO = `
-  id, nombre, tipo, version, fecha, usuario, estado, proyecto_id AS "proyectoId",
+  id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id AS "proyectoId",
   archivo_nombre AS "archivoNombre", archivo_mime AS "archivoMime",
   archivo_tamano AS "archivoTamano"
 `;
@@ -38,6 +39,7 @@ const proyectoSchema = z.object({
     .regex(/^[A-Za-z0-9-]+$/, "El código solo admite letras, números y guiones"),
   nombre: z.string().trim().min(3, "El nombre es obligatorio").max(200),
   linea: z.string().trim().min(1, "La línea es obligatoria").max(120),
+  estructura: z.string().trim().max(60).nullable().optional(),
   responsable: z.string().trim().max(120).optional().default("Sin asignar"),
   liderId: z.string().uuid("Líder inválido").nullable().optional(),
   estado: z.enum(ESTADOS).optional().default("En formulación"),
@@ -88,6 +90,10 @@ proyectos.post(
     const datos = proyectoSchema.parse(req.body);
     const id = datos.id.toUpperCase();
     const liderId = datos.liderId ?? null;
+    const estructura = datos.estructura ? estructuraPorId(datos.estructura) : null;
+    if (datos.estructura && !estructura) {
+      throw new HttpError(400, "La estructura documental no existe.");
+    }
 
     if (liderId) {
       const { rows: lider } = await pool.query(
@@ -100,12 +106,12 @@ proyectos.post(
     const { rows } = await pool.query(
       `INSERT INTO proyectos
          (id, nombre, linea, responsable, estado, avance, presupuesto, ejecucion_pct,
-          fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, lider_id)
+          fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, lider_id, estructura)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
          COALESCE($9::date, (now() AT TIME ZONE 'America/Bogota')::date),
          COALESCE($10::date, COALESCE($9::date, (now() AT TIME ZONE 'America/Bogota')::date) + 364),
          GREATEST(0, COALESCE($10::date, COALESCE($9::date, (now() AT TIME ZONE 'America/Bogota')::date) + 364) - (now() AT TIME ZONE 'America/Bogota')::date),
-         $11, $12, $13)
+         $11, $12, $13, $14)
        RETURNING ${CAMPOS_PROYECTO}`,
       [
         id,
@@ -121,6 +127,7 @@ proyectos.post(
         datos.dependencia || "Sin definir",
         datos.objetivo,
         liderId,
+        estructura?.id ?? null,
       ],
     );
 

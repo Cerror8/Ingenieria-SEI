@@ -22,6 +22,8 @@ export function SubirDocumentoModal({
   const [proyectoSel, setProyectoSel] = useState(proyectoId ?? "");
   const [tipo, setTipo] = useState(TIPOS[0]);
   const [estado, setEstado] = useState<(typeof ESTADOS)[number]>("En revisión");
+  const [carpetas, setCarpetas] = useState<string[]>([]);
+  const [carpeta, setCarpeta] = useState("");
   const [nombre, setNombre] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -32,6 +34,7 @@ export function SubirDocumentoModal({
     setProyectoSel(proyectoId ?? "");
     setTipo(TIPOS[0]);
     setEstado("En revisión");
+    setCarpeta("");
     setNombre("");
     setArchivo(null);
     setError(null);
@@ -42,6 +45,32 @@ export function SubirDocumentoModal({
         .catch(() => setError("No se pudieron cargar los proyectos."));
     }
   }, [abierto, proyectoId]);
+
+  useEffect(() => {
+    if (!abierto || !proyectoSel) {
+      setCarpetas([]);
+      return;
+    }
+
+    let vigente = true;
+    setCarpeta("");
+
+    api
+      .proyecto(proyectoSel)
+      .then(({ proyecto }) =>
+        proyecto.estructura ? api.estructura(proyecto.estructura) : null,
+      )
+      .then((respuesta) => {
+        if (vigente) setCarpetas(respuesta?.estructura.carpetas ?? []);
+      })
+      .catch(() => {
+        if (vigente) setCarpetas([]);
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [abierto, proyectoSel]);
 
   if (!abierto) return null;
 
@@ -57,6 +86,7 @@ export function SubirDocumentoModal({
       await api.subirDocumento(archivo, {
         proyectoId: proyectoSel,
         tipo,
+        carpeta: carpeta || null,
         estado,
         version: "v1.0",
         nombre: nombre.trim() || undefined,
@@ -128,6 +158,23 @@ export function SubirDocumentoModal({
               </select>
             </div>
           </div>
+
+          {carpetas.length > 0 && (
+            <div className="space-y-1.5">
+              <label htmlFor="carpeta" className="text-xs font-semibold text-slate-700">Carpeta</label>
+              <select
+                id="carpeta"
+                value={carpeta}
+                onChange={(e) => setCarpeta(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+              >
+                <option value="">Raíz del proyecto</option>
+                {carpetas.map((ruta) => (
+                  <option key={ruta} value={ruta}>{ruta}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="nombre" className="text-xs font-semibold text-slate-700">

@@ -19,6 +19,7 @@ import {
 } from "../../../api/client";
 import { CargandoModule, ErrorModule } from "../../../components/DataState";
 import { SubirDocumentoModal } from "../../documentos/SubirDocumentoModal";
+import { ActualizarDocumentoModal } from "../../documentos/ActualizarDocumentoModal";
 import { IND_CFG, ACT_STATUS_CFG, GANTT_MONTHS, PROJ_TABS } from "../../../constants";
 import { fmt } from "../../../lib/format";
 import { StatusBadge, IndBadge, Bar2, Crumb } from "../../../components/shared";
@@ -34,6 +35,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
   const [seguimientoDesc, setSeguimientoDesc] = useState("");
   const [showActModal, setShowActModal] = useState(false);
   const [mostrarSubida, setMostrarSubida] = useState(false);
+  const [docEditando, setDocEditando] = useState<Document | null>(null);
   const [mostrarZip, setMostrarZip] = useState(false);
   const [zipArchivo, setZipArchivo] = useState<File | null>(null);
   const [zipEnviando, setZipEnviando] = useState(false);
@@ -41,6 +43,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
   const [zipResumen, setZipResumen] = useState<ResumenZipApi | null>(null);
 
   const [project, setProject] = useState<Project | null>(null);
+  const [estructuraNombre, setEstructuraNombre] = useState<string | null>(null);
   const [projIndicators, setProjIndicators] = useState<Indicator[]>([]);
   const [projDocs, setProjDocs] = useState<Document[]>([]);
   const [informes, setInformes] = useState<Report[]>([]);
@@ -53,13 +56,20 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
     setCargando(true);
     setError(null);
     try {
-      const [detalle, informesRes, auditoriaRes] = await Promise.all([
+      const [detalle, informesRes, auditoriaRes, estructurasRes] = await Promise.all([
         api.proyecto(projectId),
         api.informes(),
         api.auditoria(projectId),
+        api.estructuras().catch(() => ({ estructuras: [] })),
       ]);
       const proyecto = mapProyecto(detalle.proyecto);
       setProject(proyecto);
+      const estructuraId = detalle.proyecto.estructura;
+      setEstructuraNombre(
+        estructuraId
+          ? estructurasRes.estructuras.find((e) => e.id === estructuraId)?.nombre ?? null
+          : null,
+      );
       setSeguimientoAvance(proyecto.progress);
       setProjIndicators(detalle.indicadores.map(mapIndicador));
       setProjDocs(detalle.documentos.map(mapDocumento));
@@ -775,7 +785,12 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
           {tab === "documentos" && (
             <div className="space-y-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-sm font-bold text-gray-800">Repositorio documental</h2>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-800">Repositorio documental</h2>
+                  {estructuraNombre && (
+                    <p className="text-[11px] text-gray-400">Plantilla: {estructuraNombre}</p>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => { window.location.href = api.documentosZipUrl(projectId); }}
@@ -828,6 +843,9 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                             <Paperclip className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
                             <span className="text-sm font-semibold text-gray-800">{doc.name}</span>
                           </div>
+                          {doc.folder && (
+                            <p className="mt-0.5 pl-[22px] text-[10px] text-gray-400">{doc.folder}</p>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-xs text-gray-500">{doc.type}</td>
                         <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{doc.version}</td>
@@ -858,7 +876,7 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
                             >
                               <Download className="w-3.5 h-3.5" />
                             </button>
-                            <button className="p-1 text-gray-300 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Nueva versión"><Clock className="w-3.5 h-3.5" /></button>
+                            <button type="button" onClick={() => setDocEditando(doc)} className="p-1 text-gray-300 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Nueva versión"><Clock className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -1033,6 +1051,13 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
         proyectoId={projectId}
         onCerrar={() => setMostrarSubida(false)}
         onSubido={() => void recargarDocs()}
+      />
+
+      <ActualizarDocumentoModal
+        abierto={Boolean(docEditando)}
+        documento={docEditando}
+        onCerrar={() => setDocEditando(null)}
+        onActualizado={() => void recargarDocs()}
       />
 
       {mostrarZip && (

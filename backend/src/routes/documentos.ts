@@ -20,6 +20,11 @@ import {
   verificarSubidaDirecta,
 } from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
+import {
+  estructuraPorId,
+  normalizarCarpeta,
+  type Estructura,
+} from "../lib/estructura.js";
 import { CAMPOS_DOCUMENTO } from "./proyectos.js";
 
 const CARPETA = carpetaSubidas();
@@ -54,6 +59,7 @@ type EntradaManifiesto = {
   id?: string;
   archivo: string;
   tipo?: string;
+  carpeta?: string;
   nombre?: string;
   version?: string;
   estado?: string;
@@ -65,6 +71,7 @@ type DocumentoExistente = {
   id: string;
   nombre: string;
   tipo: string;
+  carpeta: string | null;
   version: string;
   estado: string;
   archivoNombre: string | null;
@@ -104,6 +111,39 @@ function tipoDeRuta(ruta: string, proyectoId: string, respaldo: string): string 
   const sinRaiz =
     partes[0]?.toLowerCase() === proyectoId.toLowerCase() ? partes.slice(1) : partes;
   return sinRaiz.find((parte) => TIPOS.includes(parte)) ?? respaldo;
+}
+
+function carpetaDeCarga(valor: unknown, estructura: Estructura | null): string | null {
+  const carpeta = normalizarCarpeta(valor);
+  if (!carpeta) return null;
+  if (!estructura) {
+    throw new HttpError(400, "El proyecto no tiene una estructura documental definida.");
+  }
+  const valida = estructura.carpetas.some(
+    (ruta) => ruta.toLowerCase() === carpeta.toLowerCase(),
+  );
+  if (!valida) throw new HttpError(400, "La carpeta no pertenece a la estructura del proyecto.");
+  return carpeta;
+}
+
+function carpetaDeEntrada(
+  ruta: string,
+  proyectoId: string,
+  estructura: Estructura | null,
+  manifiesto?: EntradaManifiesto,
+): string | null {
+  const desdeManifiesto = normalizarCarpeta(manifiesto?.carpeta);
+  if (desdeManifiesto) return desdeManifiesto;
+
+  const partes = ruta.split("/");
+  if (partes.length < 2) return null;
+
+  const primera = partes[0].toLowerCase();
+  if (primera === proyectoId.toLowerCase()) partes.shift();
+  else if (estructura && primera === estructura.raiz.toLowerCase()) partes.shift();
+  partes.pop();
+
+  return normalizarCarpeta(partes.join("/"));
 }
 
 function estadoValido(valor: string | undefined): string | null {
@@ -184,9 +224,18 @@ const recibirPaquete: RequestHandler = (req, res, next) => {
 const documentoSchema = z.object({
   proyectoId: z.string().trim().min(1, "El proyecto es obligatorio"),
   tipo: z.string().trim().min(1, "El tipo es obligatorio").max(60),
+  carpeta: z.string().trim().max(300).optional(),
   nombre: z.string().trim().max(200).optional(),
   version: z.string().trim().max(20).optional().default("v1.0"),
   estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional().default("En revisión"),
+});
+
+const documentoActualizacionSchema = z.object({
+  tipo: z.string().trim().max(60).optional(),
+  carpeta: z.string().trim().max(300).nullable().optional(),
+  nombre: z.string().trim().max(200).optional(),
+  version: z.string().trim().max(20).optional(),
+  estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional(),
 });
 
 export const documentos = Router();
@@ -229,8 +278,12 @@ documentos.post(
 
     try {
       const datos = documentoSchema.parse(req.body);
-      const existe = await pool.query("SELECT 1 FROM proyectos WHERE id = $1", [datos.proyectoId]);
-      if (!existe.rowCount) throw new HttpError(404, "Proyecto no encontrado");
+      const { rows: proyectoRows } = await pool.query<{ estructura: string | null }>(
+        "SELECT estructura FROM proyectos WHERE id = $1",
+        [datos.proyectoId],
+      );
+      if (!proyectoRows[0]) throw new HttpError(404, "Proyecto no encontrado");
+      const carpeta = carpetaDeCarga(datos.carpeta, estructuraPorId(proyectoRows[0].estructura));
 
       const meta = directo
         ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
@@ -243,14 +296,15 @@ documentos.post(
       clave = meta?.ruta ?? (await guardarArchivo(archivo!, "documentos"));
       const { rows } = await pool.query(
         `INSERT INTO documentos
-           (id, nombre, tipo, version, fecha, usuario, estado, proyecto_id,
+           (id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id,
             archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano)
-         VALUES ($1, $2, $3, $4, (now() AT TIME ZONE 'America/Bogota')::date, $5, $6, $7, $8, $9, $10, $11)
+         VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'America/Bogota')::date, $6, $7, $8, $9, $10, $11, $12)
          RETURNING ${CAMPOS_DOCUMENTO}`,
         [
           crypto.randomUUID(),
           nombre,
           datos.tipo,
+          carpeta,
           datos.version,
           usuario.nombre,
           datos.estado,
@@ -267,12 +321,130 @@ documentos.post(
         accion: "Creación",
         entidad: "Documento",
         registro: nombre,
-        nuevo: `${datos.tipo} · ${nombreArchivo}`,
+        nuevo: `${datos.tipo}${carpeta ? ` · ${carpeta}` : ""} · ${nombreArchivo}`,
       });
 
       res.status(201).json({ documento: rows[0] });
     } catch (e) {
       if (clave) await eliminarArchivo(clave, CARPETA);
+      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
+      throw e;
+    }
+  }),
+);
+
+documentos.patch(
+  "/:id",
+  recibirArchivo,
+  ah(async (req, res) => {
+    const directo = Boolean(req.is("application/json"));
+    const archivo = req.file;
+    let claveNueva: string | null = null;
+
+    try {
+      const datos = documentoActualizacionSchema.parse(req.body);
+      const { rows: actualRows } = await pool.query<{
+        id: string;
+        proyectoId: string;
+        version: string;
+        nombre: string;
+        ruta: string | null;
+      }>(
+        `SELECT id, proyecto_id AS "proyectoId", version, nombre, archivo_ruta AS ruta
+           FROM documentos WHERE id = $1`,
+        [req.params.id],
+      );
+      const actual = actualRows[0];
+      if (!actual) throw new HttpError(404, "Documento no encontrado");
+
+      const tieneCarpeta = Object.prototype.hasOwnProperty.call(req.body, "carpeta");
+      let carpeta: string | null = null;
+      if (tieneCarpeta) {
+        const { rows: proyectoRows } = await pool.query<{ estructura: string | null }>(
+          "SELECT estructura FROM proyectos WHERE id = $1",
+          [actual.proyectoId],
+        );
+        carpeta = carpetaDeCarga(
+          datos.carpeta ?? "",
+          estructuraPorId(proyectoRows[0]?.estructura ?? null),
+        );
+      }
+
+      const meta =
+        directo && req.body?.archivo != null
+          ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
+          : null;
+      const info = meta ? await verificarSubidaDirecta(meta.ruta, "documentos") : null;
+
+      let archivoNombre: string | null = null;
+      let mime: string | null = null;
+      let tamano: number | null = null;
+      let version = datos.version?.trim() || actual.version;
+
+      if (meta) {
+        claveNueva = meta.ruta;
+        archivoNombre = meta.nombre;
+        mime = meta.mime ?? null;
+        tamano = info!.tamano;
+        if (!datos.version) version = siguienteVersion(actual.version);
+      } else if (archivo) {
+        claveNueva = await guardarArchivo(archivo, "documentos");
+        archivoNombre = archivo.originalname;
+        mime = archivo.mimetype ?? null;
+        tamano = archivo.size;
+        if (!datos.version) version = siguienteVersion(actual.version);
+      }
+
+      const usuario = res.locals.usuario as UsuarioSesion;
+      const { rows } = await pool.query(
+        `UPDATE documentos
+            SET nombre = COALESCE($2, nombre),
+                tipo = COALESCE($3, tipo),
+                carpeta = CASE WHEN $4 THEN $5 ELSE carpeta END,
+                estado = COALESCE($6, estado),
+                version = $7,
+                fecha = (now() AT TIME ZONE 'America/Bogota')::date,
+                usuario = $8,
+                archivo_nombre = COALESCE($9, archivo_nombre),
+                archivo_ruta = COALESCE($10, archivo_ruta),
+                archivo_mime = COALESCE($11, archivo_mime),
+                archivo_tamano = COALESCE($12, archivo_tamano)
+          WHERE id = $1 AND proyecto_id = $13
+          RETURNING ${CAMPOS_DOCUMENTO}`,
+        [
+          actual.id,
+          datos.nombre?.trim() || null,
+          datos.tipo || null,
+          tieneCarpeta,
+          carpeta,
+          datos.estado ?? null,
+          version,
+          usuario.nombre,
+          archivoNombre,
+          claveNueva,
+          mime,
+          tamano,
+          actual.proyectoId,
+        ],
+      );
+
+      const actualizado = rows[0];
+      if (claveNueva && actual.ruta) await eliminarArchivo(actual.ruta, CARPETA);
+      claveNueva = null;
+
+      await registrarAuditoria({
+        usuario: usuario.nombre,
+        accion: "Actualización",
+        entidad: "Documento",
+        registro: actualizado.nombre,
+        nuevo: `${actualizado.version}${actualizado.carpeta ? ` · ${actualizado.carpeta}` : ""}${
+          archivoNombre ? ` · nuevo archivo ${archivoNombre}` : " · metadatos"
+        }`,
+      });
+
+      res.json({ documento: actualizado });
+    } catch (e) {
+      if (claveNueva) await eliminarArchivo(claveNueva, CARPETA);
       if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
@@ -285,17 +457,19 @@ documentos.get(
     const proyectoId = typeof req.query.proyectoId === "string" ? req.query.proyectoId.trim() : "";
     if (!proyectoId) throw new HttpError(400, "Indica el proyecto a descargar");
 
-    const { rows: proyectoRows } = await pool.query<{ nombre: string }>(
-      "SELECT nombre FROM proyectos WHERE id = $1",
-      [proyectoId],
-    );
+    const { rows: proyectoRows } = await pool.query<{
+      nombre: string;
+      estructura: string | null;
+    }>("SELECT nombre, estructura FROM proyectos WHERE id = $1", [proyectoId]);
     const proyecto = proyectoRows[0];
     if (!proyecto) throw new HttpError(404, "Proyecto no encontrado");
+    const estructura = estructuraPorId(proyecto.estructura);
 
     const { rows } = await pool.query<{
       id: string;
       nombre: string;
       tipo: string;
+      carpeta: string | null;
       version: string;
       fecha: string;
       usuario: string;
@@ -303,7 +477,7 @@ documentos.get(
       archivoNombre: string | null;
       ruta: string | null;
     }>(
-      `SELECT id, nombre, tipo, version, to_char(fecha, 'YYYY-MM-DD') AS fecha, usuario, estado,
+      `SELECT id, nombre, tipo, carpeta, version, to_char(fecha, 'YYYY-MM-DD') AS fecha, usuario, estado,
               archivo_nombre AS "archivoNombre", archivo_ruta AS ruta
          FROM documentos WHERE proyecto_id = $1 ORDER BY tipo, nombre, id`,
       [proyectoId],
@@ -311,6 +485,9 @@ documentos.get(
 
     const zip = new JSZip();
     const raiz = zip.folder(proyectoId)!;
+    if (estructura) {
+      for (const carpeta of estructura.carpetas) raiz.folder(carpeta);
+    }
     const manifiesto: EntradaManifiesto[] = [];
     const usadas = new Set<string>();
     let total = 0;
@@ -325,15 +502,17 @@ documentos.get(
       }
 
       const tipo = TIPOS.includes(documento.tipo) ? documento.tipo : "Otros";
+      const carpeta = normalizarCarpeta(documento.carpeta) ?? tipo;
       const extension =
         path.extname(documento.ruta) || path.extname(documento.archivoNombre ?? "");
       const archivo = sanearSegmento(documento.archivoNombre || `${documento.nombre}${extension}`);
-      const ruta = rutaUnica(`${tipo}/${archivo}`, usadas);
+      const ruta = rutaUnica(`${carpeta}/${archivo}`, usadas);
       raiz.file(ruta, contenido);
       manifiesto.push({
         id: documento.id,
         archivo: ruta,
         tipo,
+        carpeta,
         nombre: documento.nombre,
         version: documento.version,
         estado: documento.estado,
@@ -348,6 +527,7 @@ documentos.get(
         {
           proyecto: proyectoId,
           nombre: proyecto.nombre,
+          estructura: proyecto.estructura,
           generadoEn: new Date().toISOString(),
           documentos: manifiesto,
         },
@@ -391,8 +571,12 @@ documentos.post(
       .min(1, "El proyecto es obligatorio")
       .parse(cuerpo.proyectoId);
 
-    const existe = await pool.query("SELECT 1 FROM proyectos WHERE id = $1", [proyectoId]);
-    if (!existe.rowCount) throw new HttpError(404, "Proyecto no encontrado");
+    const { rows: proyectoRows } = await pool.query<{ estructura: string | null }>(
+      "SELECT estructura FROM proyectos WHERE id = $1",
+      [proyectoId],
+    );
+    if (!proyectoRows[0]) throw new HttpError(404, "Proyecto no encontrado");
+    const estructura = estructuraPorId(proyectoRows[0].estructura);
 
     let rutaTemporal: string | null = null;
     let rutaPaquete: string | null = null;
@@ -449,7 +633,7 @@ documentos.post(
       }
 
       const { rows: existentes } = await pool.query<DocumentoExistente>(
-        `SELECT id, nombre, tipo, version, estado,
+        `SELECT id, nombre, tipo, carpeta, version, estado,
                 archivo_nombre AS "archivoNombre", archivo_ruta AS ruta
            FROM documentos WHERE proyecto_id = $1`,
         [proyectoId],
@@ -468,6 +652,7 @@ documentos.post(
         mime: string | null;
         tamano: number;
         tipo: string;
+        carpeta: string | null;
         entrada?: EntradaManifiesto;
         existente?: DocumentoExistente;
       };
@@ -504,6 +689,7 @@ documentos.post(
         }
 
         const fila = porRuta.get(ruta.toLowerCase()) ?? porArchivo.get(archivo.toLowerCase());
+        const carpeta = carpetaDeEntrada(ruta, proyectoId, estructura, fila);
         let existente =
           (fila?.id ? porId.get(fila.id) : undefined) ??
           porNombreArchivo.get(archivo.toLowerCase());
@@ -536,6 +722,7 @@ documentos.post(
           mime,
           tamano: contenido.byteLength,
           tipo,
+          carpeta,
           entrada: fila,
           existente,
         });
@@ -562,14 +749,15 @@ documentos.post(
 
             await cliente.query(
               `UPDATE documentos
-                  SET tipo = $2, version = $3, estado = $4,
+                  SET tipo = $2, carpeta = COALESCE($3, carpeta), version = $4, estado = $5,
                       fecha = (now() AT TIME ZONE 'America/Bogota')::date,
-                      usuario = $5, archivo_nombre = $6, archivo_ruta = $7,
-                      archivo_mime = $8, archivo_tamano = $9
-                WHERE id = $1 AND proyecto_id = $10`,
+                      usuario = $6, archivo_nombre = $7, archivo_ruta = $8,
+                      archivo_mime = $9, archivo_tamano = $10
+                WHERE id = $1 AND proyecto_id = $11`,
               [
                 preparado.existente.id,
                 preparado.tipo,
+                preparado.carpeta,
                 version,
                 estado,
                 usuario.nombre,
@@ -588,14 +776,15 @@ documentos.post(
 
           await cliente.query(
             `INSERT INTO documentos
-               (id, nombre, tipo, version, fecha, usuario, estado, proyecto_id,
+               (id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id,
                 archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano)
-             VALUES ($1, $2, $3, $4, (now() AT TIME ZONE 'America/Bogota')::date,
-                $5, $6, $7, $8, $9, $10, $11)`,
+             VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'America/Bogota')::date,
+                $6, $7, $8, $9, $10, $11, $12)`,
             [
               crypto.randomUUID(),
               preparado.entrada?.nombre?.trim() || path.parse(preparado.archivo).name,
               preparado.tipo,
+              preparado.carpeta,
               preparado.entrada?.version?.trim() || "v1.0",
               usuario.nombre,
               estadoValido(preparado.entrada?.estado) ?? "En revisión",

@@ -6,7 +6,11 @@ async function preparar() {
   if (!preparacion) {
     preparacion = (async () => {
       try {
-        const { asegurarAdmin } = await import("../backend/dist/auth/admin.js");
+        const [{ asegurarAdmin }, { asegurarEsquema }] = await Promise.all([
+          import("../backend/dist/auth/admin.js"),
+          import("../backend/dist/lib/esquema.js"),
+        ]);
+        await asegurarEsquema();
         await asegurarAdmin();
       } catch (error) {
         console.error("[vercel] No se pudo preparar el administrador:", error.message);

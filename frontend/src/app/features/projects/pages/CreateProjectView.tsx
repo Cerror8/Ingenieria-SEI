@@ -12,7 +12,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend
 } from "recharts";
 import { ProjectStatus, type UsuarioAsignable } from "../../../types";
-import { api } from "../../../api/client";
+import { api, type EstructuraApi } from "../../../api/client";
 import { STATUS_CFG, WIZARD_STEPS } from "../../../constants";
 import { fmt } from "../../../lib/format";
 import { Bar2, Crumb } from "../../../components/shared";
@@ -26,10 +26,11 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
   const [guardando, setGuardando] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [lideres, setLideres] = useState<UsuarioAsignable[]>([]);
+  const [estructuras, setEstructuras] = useState<EstructuraApi[]>([]);
 
   // Step 1
   const [form, setForm] = useState({
-    codigo: "", nombre: "", linea: "", dependencia: "", responsable: "", liderId: "",
+    codigo: "", nombre: "", linea: "", estructura: "", dependencia: "", responsable: "", liderId: "",
     estado: "En formulación", fecha: "", gestionPMO: "", valorTotal: "", valorSupervision: "", objetivo: ""
   });
   const upd = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -39,6 +40,9 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
     api.usuariosAsignables()
       .then(({ usuarios }) => setLideres(usuarios))
       .catch(() => setLideres([]));
+    api.estructuras()
+      .then(({ estructuras }) => setEstructuras(estructuras))
+      .catch(() => setEstructuras([]));
   }, []);
 
   // Step 2 FR-019 dynamic data
@@ -102,6 +106,7 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
         id: form.codigo.trim().toUpperCase(),
         nombre: form.nombre.trim(),
         linea: form.linea,
+        estructura: form.estructura || null,
         responsable: form.responsable.trim() || "Sin asignar",
         liderId: form.liderId || null,
         estado: form.estado as ProjectStatus,
@@ -236,6 +241,16 @@ export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSa
                 <label className={labelCls}>Línea de investigación *</label>
                 <input type="text" placeholder="Ej. Tecnología e Innovación" value={form.linea} onChange={e => upd("linea", e.target.value)} className={`${inputCls} ${errors.linea ? "border-red-400" : ""}`} />
                 {errors.linea && <p className="text-xs text-red-500 mt-1">{errors.linea}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Estructura documental</label>
+                <select value={form.estructura} onChange={e => upd("estructura", e.target.value)} className={inputCls}>
+                  <option value="">Sin plantilla de carpetas</option>
+                  {estructuras.map(e => (
+                    <option key={e.id} value={e.id}>{e.nombre} · {e.carpetas.length} carpetas</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">Define el árbol de carpetas del ZIP del proyecto.</p>
               </div>
               <div>
                 <label className={labelCls}>Estado *</label>
