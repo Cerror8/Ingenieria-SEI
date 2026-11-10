@@ -20,6 +20,7 @@ import {
 import { CargandoModule, ErrorModule } from "../../../components/DataState";
 import { SubirDocumentoModal } from "../../documentos/SubirDocumentoModal";
 import { ActualizarDocumentoModal } from "../../documentos/ActualizarDocumentoModal";
+import { EdtTab } from "../EdtTab";
 import { IND_CFG, ACT_STATUS_CFG, GANTT_MONTHS, PROJ_TABS } from "../../../constants";
 import { fmt } from "../../../lib/format";
 import { StatusBadge, IndBadge, Bar2, Crumb } from "../../../components/shared";
@@ -451,6 +452,9 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
               )}
             </div>
           )}
+
+          {/* ── EDT ── */}
+          {tab === "edt" && <EdtTab proyectoId={projectId} onShowToast={onShowToast} />}
 
           {/* ── GANTT ── */}
           {tab === "gantt" && (

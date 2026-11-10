@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   email         TEXT NOT NULL,
   nombre        TEXT NOT NULL,
   foto_url      TEXT,
+  telefono      TEXT,
+  whatsapp_opt_in BOOLEAN NOT NULL DEFAULT false,
   proveedor     TEXT NOT NULL CHECK (proveedor IN ('google', 'local')),
   google_id     TEXT UNIQUE,
   password_hash TEXT,

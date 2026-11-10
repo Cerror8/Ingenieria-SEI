@@ -66,7 +66,10 @@ La etapa existe en el formato, pero no tiene actividades diligenciadas. La prime
 - Fechas de "Informes semanales" y "Actas de reunión".
 - Correos del personal responsable en la hoja `Personal`.
 
-## Relación con SEI
+## Implementación en SEI
 
-- El EDT puede modelarse como checklist por proyecto con tres etapas fijas, actividades y subproductos predecesores.
-- Las alertas de vencimiento ya pueden salir por correo; WhatsApp queda como canal opcional usando los teléfonos de la hoja `Personal`.
+- Cada proyecto tiene la pestaña **EDT** con las tres etapas fijas del formato.
+- El botón **Cargar plantilla EDT** crea las actividades diligenciadas de la etapa constructiva y sus subproductos; las etapas 1 y 3 se agregan según el proyecto.
+- Se pueden crear, editar y eliminar actividades y subproductos, cambiar el estado en línea y ver el avance del checklist.
+- Una actividad principal no puede marcarse como completada mientras tenga subproductos pendientes.
+- Las alertas de vencimiento salen por correo; WhatsApp es un canal opcional (ver `docs/WHATSAPP.md`) que usa el teléfono y el consentimiento registrados en el perfil, no la hoja `Personal` directamente.

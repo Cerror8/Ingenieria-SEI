@@ -11,13 +11,16 @@ export type UsuarioSesion = {
   email: string;
   nombre: string;
   fotoUrl: string | null;
+  telefono: string | null;
+  whatsappOptIn: boolean;
   proveedor: "google" | "local";
   rol: "admin" | "usuario";
   ultimoAcceso: string | null;
 };
 
 const CAMPOS_USUARIO = `
-  u.id, u.email, u.nombre, u.foto_url AS "fotoUrl", u.proveedor, u.rol,
+  u.id, u.email, u.nombre, u.foto_url AS "fotoUrl", u.telefono,
+  u.whatsapp_opt_in AS "whatsappOptIn", u.proveedor, u.rol,
   u.ultimo_acceso AS "ultimoAcceso"
 `;
 

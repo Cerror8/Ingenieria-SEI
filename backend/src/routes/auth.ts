@@ -14,7 +14,8 @@ const frontend = () => (process.env.FRONTEND_URL ?? "http://localhost:5174").rep
 const esProduccion = process.env.NODE_ENV === "production";
 
 const CAMPOS_USUARIO = `
-  id, email, nombre, foto_url AS "fotoUrl", proveedor, rol,
+  id, email, nombre, foto_url AS "fotoUrl", telefono,
+  whatsapp_opt_in AS "whatsappOptIn", proveedor, rol,
   ultimo_acceso AS "ultimoAcceso"
 `;
 
@@ -50,6 +51,14 @@ const perfilSchema = z.object({
   fotoUrl: z
     .union([z.string().trim().url("La URL de la foto no es válida"), z.literal(""), z.null()])
     .optional(),
+  telefono: z
+    .union([
+      z.string().trim().max(30, "El teléfono es demasiado largo"),
+      z.literal(""),
+      z.null(),
+    ])
+    .optional(),
+  whatsappOptIn: z.boolean().optional(),
 });
 
 const cambiarCorreoSchema = z.object({
@@ -67,6 +76,8 @@ type UsuarioLogin = {
   email: string;
   nombre: string;
   fotoUrl: string | null;
+  telefono: string | null;
+  whatsappOptIn: boolean;
   proveedor: "local";
   rol: "admin" | "usuario";
   passwordHash: string;
@@ -148,6 +159,8 @@ auth.post(
         email: usuario.email,
         nombre: usuario.nombre,
         fotoUrl: usuario.fotoUrl,
+        telefono: usuario.telefono,
+        whatsappOptIn: usuario.whatsappOptIn,
         proveedor: usuario.proveedor,
         rol: usuario.rol,
         ultimoAcceso: new Date().toISOString(),
@@ -288,13 +301,18 @@ auth.patch(
 
     const datos = perfilSchema.parse(req.body);
     const fotoUrl = datos.fotoUrl ? datos.fotoUrl : null;
+    const telefono = datos.telefono === undefined ? undefined : datos.telefono?.trim() || null;
 
     const { rows } = await pool.query(
       `UPDATE usuarios
-          SET nombre = $2, foto_url = $3, perfil_editado = true
+          SET nombre = $2,
+              foto_url = $3,
+              telefono = CASE WHEN $4 THEN $5 ELSE telefono END,
+              whatsapp_opt_in = COALESCE($6, whatsapp_opt_in),
+              perfil_editado = true
         WHERE id = $1
         RETURNING ${CAMPOS_USUARIO}`,
-      [actual.id, datos.nombre, fotoUrl],
+      [actual.id, datos.nombre, fotoUrl, telefono !== undefined, telefono ?? null, datos.whatsappOptIn ?? null],
     );
 
     res.json({ usuario: rows[0] });

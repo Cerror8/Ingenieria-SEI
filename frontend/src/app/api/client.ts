@@ -190,6 +190,29 @@ export type DocumentoApi = {
   archivoTamano: number | null;
 };
 
+export type EdtEstado = "Completado" | "En ejecución" | "No realizado";
+
+export type EdtActividadApi = {
+  id: string;
+  proyectoId: string;
+  etapa: number;
+  padreId: string | null;
+  nombre: string;
+  responsable: string | null;
+  fechaCumplimiento: string | null;
+  estado: EdtEstado;
+  orden: number;
+};
+
+export type NuevaEdtActividad = {
+  etapa: number;
+  padreId?: string | null;
+  nombre: string;
+  responsable?: string | null;
+  fechaCumplimiento?: string | null;
+  estado?: EdtEstado;
+};
+
 export type ResumenZipApi = {
   ok: boolean;
   actualizados: number;
@@ -450,8 +473,12 @@ export const api = {
       body: datos,
     }),
   usuarioActual: () => request<{ usuario: Usuario }>("/auth/me"),
-  actualizarPerfil: (datos: { nombre: string; fotoUrl: string | null }) =>
-    request<{ usuario: Usuario }>("/auth/me", { method: "PATCH", body: datos }),
+  actualizarPerfil: (datos: {
+    nombre: string;
+    fotoUrl: string | null;
+    telefono: string | null;
+    whatsappOptIn: boolean;
+  }) => request<{ usuario: Usuario }>("/auth/me", { method: "PATCH", body: datos }),
   cambiarCorreo: (datos: { email: string; password: string }) =>
     request<{ usuario: Usuario }>("/auth/me/correo", { method: "PATCH", body: datos }),
   cambiarPassword: (datos: { actual: string; nueva: string }) =>
@@ -559,6 +586,29 @@ export const api = {
     formulario.append("archivo", archivo);
     return subirArchivo<ResumenZipApi>("/documentos/zip", formulario);
   },
+  edt: (proyectoId: string) =>
+    request<{ actividades: EdtActividadApi[] }>(`/edt/${encodeURIComponent(proyectoId)}`),
+  crearEdtActividad: (proyectoId: string, datos: NuevaEdtActividad) =>
+    request<{ actividad: EdtActividadApi }>(`/edt/${encodeURIComponent(proyectoId)}`, {
+      method: "POST",
+      body: datos,
+    }),
+  actualizarEdtActividad: (
+    id: string,
+    datos: Partial<NuevaEdtActividad>,
+  ) =>
+    request<{ actividad: EdtActividadApi }>(`/edt/actividades/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
+  eliminarEdtActividad: (id: string) =>
+    request<{ ok: boolean }>(`/edt/actividades/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  cargarPlantillaEdt: (proyectoId: string) =>
+    request<{ actividades: EdtActividadApi[] }>(
+      `/edt/${encodeURIComponent(proyectoId)}/plantilla`,
+      { method: "POST" },
+    ),
+
   informes: () => request<{ informes: InformeApi[] }>("/informes"),
   crearInforme: (datos: { tipo: string; periodo: string; proyecto?: string; formato?: "PDF" | "Word" }) =>
     request<{ informe: InformeApi }>("/informes", { method: "POST", body: datos }),

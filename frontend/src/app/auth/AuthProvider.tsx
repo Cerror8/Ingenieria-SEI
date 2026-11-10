@@ -15,7 +15,12 @@ type ContextoAuth = {
   cargando: boolean;
   iniciarSesion: (email: string, password: string) => Promise<void>;
   cerrarSesion: () => Promise<void>;
-  actualizarPerfil: (datos: { nombre: string; fotoUrl: string | null }) => Promise<void>;
+  actualizarPerfil: (datos: {
+    nombre: string;
+    fotoUrl: string | null;
+    telefono: string | null;
+    whatsappOptIn: boolean;
+  }) => Promise<void>;
   cambiarCorreo: (datos: { email: string; password: string }) => Promise<void>;
   cambiarPassword: (datos: { actual: string; nueva: string }) => Promise<void>;
 };
@@ -56,10 +61,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
   }, []);
 
-  const actualizarPerfil = useCallback(async (datos: { nombre: string; fotoUrl: string | null }) => {
-    const { usuario: actualizado } = await api.actualizarPerfil(datos);
-    setUsuario(actualizado);
-  }, []);
+  const actualizarPerfil = useCallback(
+    async (datos: {
+      nombre: string;
+      fotoUrl: string | null;
+      telefono: string | null;
+      whatsappOptIn: boolean;
+    }) => {
+      const { usuario: actualizado } = await api.actualizarPerfil(datos);
+      setUsuario(actualizado);
+    },
+    [],
+  );
 
   const cambiarCorreo = useCallback(async (datos: { email: string; password: string }) => {
     const { usuario: actualizado } = await api.cambiarCorreo(datos);

@@ -7,6 +7,8 @@ export type Usuario = {
   email: string;
   nombre: string;
   fotoUrl: string | null;
+  telefono: string | null;
+  whatsappOptIn: boolean;
   proveedor: Proveedor;
   rol: Rol;
   ultimoAcceso: string | null;

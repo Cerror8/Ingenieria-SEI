@@ -4,6 +4,7 @@ import {
   Image as ImageIcon,
   KeyRound,
   Mail,
+  Phone,
   Save,
   ShieldCheck,
   UserRound,
@@ -37,6 +38,8 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
   const { usuario, actualizarPerfil, cambiarCorreo, cambiarPassword } = useAuth();
   const [nombre, setNombre] = useState(usuario?.nombre ?? "");
   const [fotoUrl, setFotoUrl] = useState(usuario?.fotoUrl ?? "");
+  const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
+  const [whatsappOptIn, setWhatsappOptIn] = useState(usuario?.whatsappOptIn ?? false);
   const [fotoRota, setFotoRota] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +58,10 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
   useEffect(() => {
     setNombre(usuario?.nombre ?? "");
     setFotoUrl(usuario?.fotoUrl ?? "");
+    setTelefono(usuario?.telefono ?? "");
+    setWhatsappOptIn(usuario?.whatsappOptIn ?? false);
     setCorreo(usuario?.email ?? "");
-  }, [usuario?.nombre, usuario?.fotoUrl, usuario?.email]);
+  }, [usuario?.nombre, usuario?.fotoUrl, usuario?.telefono, usuario?.whatsappOptIn, usuario?.email]);
 
   useEffect(() => {
     setFotoRota(false);
@@ -69,7 +74,12 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
     setError(null);
     setGuardando(true);
     try {
-      await actualizarPerfil({ nombre: nombre.trim(), fotoUrl: fotoUrl.trim() || null });
+      await actualizarPerfil({
+        nombre: nombre.trim(),
+        fotoUrl: fotoUrl.trim() || null,
+        telefono: telefono.trim() || null,
+        whatsappOptIn,
+      });
       onShowToast("Perfil actualizado correctamente.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo actualizar el perfil");
@@ -220,6 +230,36 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                   Déjala vacía para usar tus iniciales. Si tu cuenta es de Google, esta URL se toma de tu
                   perfil.
                 </p>
+              </div>
+
+              <div>
+                <label htmlFor="perfil-telefono" className="text-xs font-semibold text-slate-700">
+                  Teléfono para WhatsApp
+                </label>
+                <div className="relative mt-1.5">
+                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="perfil-telefono"
+                    type="tel"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    placeholder="300 123 4567"
+                    maxLength={30}
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                  />
+                </div>
+                <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={whatsappOptIn}
+                    onChange={(e) => setWhatsappOptIn(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[#C2410C]"
+                  />
+                  <span className="text-[11px] leading-relaxed text-gray-500">
+                    Recibir recordatorios de tareas por WhatsApp. El número se usa solo para avisos de
+                    Ingeniería SEI y puedes desactivarlo cuando quieras.
+                  </span>
+                </label>
               </div>
 
               {error && (

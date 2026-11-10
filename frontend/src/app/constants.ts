@@ -82,6 +82,7 @@ export const PROJ_TABS = [
   { id: "ficha",        label: "Ficha técnica FR-019"},
   { id: "dashboard",    label: "Dashboard"          },
   { id: "seguimiento",  label: "Seguimiento"        },
+  { id: "edt",          label: "EDT"                },
   { id: "gantt",        label: "Gantt"              },
   { id: "presupuesto",  label: "Presupuesto"        },
   { id: "indicadores",  label: "Indicadores"        },

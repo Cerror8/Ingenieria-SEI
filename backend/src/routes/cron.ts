@@ -4,6 +4,7 @@ import { pool } from "../db.js";
 import { ah } from "../http.js";
 import { avisarRecordatorios, correoConfigurado, type RecordatorioTarea } from "../lib/correo.js";
 import { almacenDeRespaldos, crearRespaldo } from "../lib/respaldo.js";
+import { avisarRecordatoriosWhatsApp, whatsappConfigurado } from "../lib/whatsapp.js";
 
 export const cron = Router();
 
@@ -20,6 +21,8 @@ type FilaRecordatorio = RecordatorioTarea & {
   usuarioId: string;
   email: string;
   nombre: string;
+  telefono: string | null;
+  whatsappOptIn: boolean;
 };
 
 cron.get(
@@ -30,8 +33,8 @@ cron.get(
       return;
     }
 
-    if (!correoConfigurado()) {
-      res.status(503).json({ error: "El envío de correo no está configurado." });
+    if (!correoConfigurado() && !whatsappConfigurado()) {
+      res.status(503).json({ error: "El envío de correo y WhatsApp no está configurado." });
       return;
     }
 
@@ -39,6 +42,8 @@ cron.get(
       `SELECT t.responsable_id AS "usuarioId",
               lower(u.email) AS email,
               u.nombre,
+              u.telefono,
+              u.whatsapp_opt_in AS "whatsappOptIn",
               t.titulo,
               b.nombre AS tablero,
               p.nombre AS proyecto,
@@ -57,11 +62,15 @@ cron.get(
         ORDER BY u.nombre, t.fecha_limite, t.titulo`,
     );
 
-    const grupos = new Map<string, { nombre: string; email: string; tareas: RecordatorioTarea[] }>();
+    const grupos = new Map<
+      string,
+      { nombre: string; email: string; telefono: string | null; tareas: RecordatorioTarea[] }
+    >();
     for (const fila of rows) {
-      const grupo = grupos.get(fila.email) ?? {
+      const grupo = grupos.get(fila.usuarioId) ?? {
         nombre: fila.nombre,
         email: fila.email,
+        telefono: fila.whatsappOptIn ? fila.telefono : null,
         tareas: [],
       };
       grupo.tareas.push({
@@ -72,14 +81,23 @@ cron.get(
         diasRestantes: fila.diasRestantes,
         prioridad: fila.prioridad,
       });
-      grupos.set(fila.email, grupo);
+      grupos.set(fila.usuarioId, grupo);
     }
 
-    const enviados = await avisarRecordatorios([...grupos.values()]);
+    const lista = [...grupos.values()];
+    const enviados = correoConfigurado() ? await avisarRecordatorios(lista) : 0;
+    const porWhatsApp = whatsappConfigurado() ? await avisarRecordatoriosWhatsApp(lista) : 0;
+
     console.log(
-      `[cron] recordatorios · ${rows.length} tareas · ${grupos.size} personas · ${enviados} correos`,
+      `[cron] recordatorios · ${rows.length} tareas · ${grupos.size} personas · ${enviados} correos · ${porWhatsApp} WhatsApp`,
     );
-    res.json({ ok: true, tareas: rows.length, personas: grupos.size, correosEnviados: enviados });
+    res.json({
+      ok: true,
+      tareas: rows.length,
+      personas: grupos.size,
+      correosEnviados: enviados,
+      whatsappEnviados: porWhatsApp,
+    });
   }),
 );
 

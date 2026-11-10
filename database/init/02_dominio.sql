@@ -97,6 +97,32 @@ BEFORE UPDATE ON documentos
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 
 -- ---------------------------------------------------------------------
+-- Checklist EDT (SAC-PI031): tres etapas fijas por proyecto con
+-- actividades y subproductos predecesores.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS edt_actividades (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proyecto_id        TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  etapa              SMALLINT NOT NULL CHECK (etapa BETWEEN 1 AND 3),
+  padre_id           UUID REFERENCES edt_actividades(id) ON DELETE CASCADE,
+  actividad          TEXT NOT NULL DEFAULT '',
+  responsable        TEXT,
+  fecha_cumplimiento DATE,
+  estado             TEXT NOT NULL DEFAULT 'No realizado'
+                     CHECK (estado IN ('Completado', 'En ejecución', 'No realizado')),
+  orden              INTEGER NOT NULL DEFAULT 0,
+  creado_en          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden);
+
+DROP TRIGGER IF EXISTS edt_actividades_touch ON edt_actividades;
+CREATE TRIGGER edt_actividades_touch
+BEFORE UPDATE ON edt_actividades
+FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- ---------------------------------------------------------------------
 -- Informes generados
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS informes (
