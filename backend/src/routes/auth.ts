@@ -52,6 +52,16 @@ const perfilSchema = z.object({
     .optional(),
 });
 
+const cambiarCorreoSchema = z.object({
+  email: z.string().trim().email("Correo inválido").max(160),
+  password: z.string().min(1, "La contraseña es obligatoria"),
+});
+
+const cambiarPasswordSchema = z.object({
+  actual: z.string().min(1, "La contraseña actual es obligatoria"),
+  nueva: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(72),
+});
+
 type UsuarioLogin = {
   id: string;
   email: string;
@@ -288,6 +298,96 @@ auth.patch(
     );
 
     res.json({ usuario: rows[0] });
+  }),
+);
+
+auth.patch(
+  "/me/correo",
+  limitadorLogin,
+  ah(async (req, res) => {
+    const actual = await usuarioDeSesion(req);
+    if (!actual) throw new HttpError(401, "No autenticado");
+    if (actual.proveedor !== "local") {
+      throw new HttpError(400, "El correo de una cuenta de Google se administra desde Google.");
+    }
+
+    const datos = cambiarCorreoSchema.parse(req.body);
+    const email = datos.email.toLowerCase();
+
+    const { rows: cuentas } = await pool.query<{ passwordHash: string | null }>(
+      `SELECT password_hash AS "passwordHash" FROM usuarios WHERE id = $1`,
+      [actual.id],
+    );
+    const hash = cuentas[0]?.passwordHash;
+    if (!hash || !(await bcrypt.compare(datos.password, hash))) {
+      throw new HttpError(401, "La contraseña actual no es correcta.");
+    }
+
+    if (email === actual.email.toLowerCase()) {
+      res.json({ usuario: actual });
+      return;
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE usuarios SET email = $2 WHERE id = $1 RETURNING ${CAMPOS_USUARIO}`,
+      [actual.id, email],
+    ).catch((e: { code?: string }) => {
+      if (e.code === "23505") throw new HttpError(409, "Ya existe una cuenta con ese correo.");
+      throw e;
+    });
+
+    await registrarAuditoria({
+      usuario: actual.nombre,
+      accion: "Actualización",
+      entidad: "Usuario",
+      registro: actual.nombre,
+      previo: `Correo: ${actual.email}`,
+      nuevo: `Correo: ${email}`,
+    });
+
+    res.json({ usuario: rows[0] });
+  }),
+);
+
+auth.patch(
+  "/me/password",
+  limitadorLogin,
+  ah(async (req, res) => {
+    const actual = await usuarioDeSesion(req);
+    if (!actual) throw new HttpError(401, "No autenticado");
+    if (actual.proveedor !== "local") {
+      throw new HttpError(400, "Tu cuenta ingresa con Google y no tiene contraseña local.");
+    }
+
+    const datos = cambiarPasswordSchema.parse(req.body);
+
+    const { rows: cuentas } = await pool.query<{ passwordHash: string | null }>(
+      `SELECT password_hash AS "passwordHash" FROM usuarios WHERE id = $1`,
+      [actual.id],
+    );
+    const hash = cuentas[0]?.passwordHash;
+    if (!hash || !(await bcrypt.compare(datos.actual, hash))) {
+      throw new HttpError(401, "La contraseña actual no es correcta.");
+    }
+    if (datos.nueva === datos.actual) {
+      throw new HttpError(400, "La nueva contraseña debe ser diferente de la actual.");
+    }
+
+    const nuevoHash = await bcrypt.hash(datos.nueva, 12);
+    await pool.query(`UPDATE usuarios SET password_hash = $2 WHERE id = $1`, [
+      actual.id,
+      nuevoHash,
+    ]);
+
+    await registrarAuditoria({
+      usuario: actual.nombre,
+      accion: "Actualización",
+      entidad: "Usuario",
+      registro: actual.nombre,
+      nuevo: "Contraseña actualizada",
+    });
+
+    res.json({ ok: true });
   }),
 );
 

@@ -428,6 +428,10 @@ export const api = {
   usuarioActual: () => request<{ usuario: Usuario }>("/auth/me"),
   actualizarPerfil: (datos: { nombre: string; fotoUrl: string | null }) =>
     request<{ usuario: Usuario }>("/auth/me", { method: "PATCH", body: datos }),
+  cambiarCorreo: (datos: { email: string; password: string }) =>
+    request<{ usuario: Usuario }>("/auth/me/correo", { method: "PATCH", body: datos }),
+  cambiarPassword: (datos: { actual: string; nueva: string }) =>
+    request<{ ok: boolean }>("/auth/me/password", { method: "PATCH", body: datos }),
   urlGoogle: `${API_URL}/auth/google`,
 
   dashboard: () => request<DashboardApi>("/dashboard"),

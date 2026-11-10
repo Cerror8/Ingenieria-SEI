@@ -16,6 +16,8 @@ type ContextoAuth = {
   iniciarSesion: (email: string, password: string) => Promise<void>;
   cerrarSesion: () => Promise<void>;
   actualizarPerfil: (datos: { nombre: string; fotoUrl: string | null }) => Promise<void>;
+  cambiarCorreo: (datos: { email: string; password: string }) => Promise<void>;
+  cambiarPassword: (datos: { actual: string; nueva: string }) => Promise<void>;
 };
 
 const AuthContext = createContext<ContextoAuth | null>(null);
@@ -59,9 +61,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(actualizado);
   }, []);
 
+  const cambiarCorreo = useCallback(async (datos: { email: string; password: string }) => {
+    const { usuario: actualizado } = await api.cambiarCorreo(datos);
+    setUsuario(actualizado);
+  }, []);
+
+  const cambiarPassword = useCallback(async (datos: { actual: string; nueva: string }) => {
+    await api.cambiarPassword(datos);
+  }, []);
+
   const valor = useMemo(
-    () => ({ usuario, cargando, iniciarSesion, cerrarSesion, actualizarPerfil }),
-    [usuario, cargando, iniciarSesion, cerrarSesion, actualizarPerfil],
+    () => ({
+      usuario,
+      cargando,
+      iniciarSesion,
+      cerrarSesion,
+      actualizarPerfil,
+      cambiarCorreo,
+      cambiarPassword,
+    }),
+    [
+      usuario,
+      cargando,
+      iniciarSesion,
+      cerrarSesion,
+      actualizarPerfil,
+      cambiarCorreo,
+      cambiarPassword,
+    ],
   );
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

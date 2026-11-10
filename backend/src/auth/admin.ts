@@ -11,12 +11,11 @@ export async function asegurarAdmin() {
   }
 
   const { rowCount } = await pool.query(
-    "SELECT 1 FROM usuarios WHERE lower(email) = lower($1)",
-    [email],
+    "SELECT 1 FROM usuarios WHERE rol = 'admin' AND activo = true LIMIT 1",
   );
 
   if (rowCount) {
-    console.log(`[auth] Usuario administrador ya existe: ${email}`);
+    console.log("[auth] Administrador local ya configurado; no se crea otro.");
     return;
   }
 
