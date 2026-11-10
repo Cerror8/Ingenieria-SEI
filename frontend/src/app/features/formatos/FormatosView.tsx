@@ -5,6 +5,7 @@ import {
   Eye,
   FileSpreadsheet,
   FolderDown,
+  Pencil,
   Plus,
   Send,
   Table2,
@@ -42,7 +43,9 @@ export function FormatosView() {
   const [formatos, setFormatos] = useState<FormatoApi[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalValor, setModalValor] = useState(false);
+  const [valorEditar, setValorEditar] = useState<ValorReferenciaApi | null>(null);
   const [modalFormato, setModalFormato] = useState(false);
+  const [formatoEditar, setFormatoEditar] = useState<FormatoApi | null>(null);
   const [formatoActivo, setFormatoActivo] = useState<FormatoApi | null>(null);
   const [valorPreview, setValorPreview] = useState<ValorReferenciaApi | null>(null);
   const [valorAnalisis, setValorAnalisis] = useState<ValorReferenciaApi | null>(null);
@@ -80,10 +83,17 @@ export function FormatosView() {
   };
 
   const eliminarFormato = async (formato: FormatoApi) => {
-    if (!window.confirm(`¿Eliminar el formato “${formato.nombre}” junto con sus ${formato.totalRegistros} registro(s)?`)) return;
+    const mensaje = formato.esReferencia
+      ? `¿Desactivar el formato de referencia “${formato.nombre}”? Conserva sus ${formato.totalRegistros} registro(s), pero deja de aparecer en la lista.`
+      : `¿Eliminar el formato “${formato.nombre}” junto con sus ${formato.totalRegistros} registro(s)?`;
+    if (!window.confirm(mensaje)) return;
     try {
       await api.eliminarFormato(formato.id);
-      mostrarAviso(`Formato “${formato.nombre}” eliminado.`);
+      mostrarAviso(
+        formato.esReferencia
+          ? `Formato de referencia “${formato.nombre}” desactivado.`
+          : `Formato “${formato.nombre}” eliminado.`,
+      );
       void cargar();
     } catch (e) {
       mostrarAviso(e instanceof Error ? e.message : "No se pudo eliminar el formato");
@@ -147,6 +157,9 @@ export function FormatosView() {
                   <p className="truncate text-xs text-gray-400">
                     {valor.tipo} · {valor.archivoNombre} · {TAMANO_LEGIBLE(Number(valor.archivoTamano))} ·{" "}
                     {fechaCorta(valor.creadoEn)}
+                    {valor.actualizadoEn.slice(0, 10) !== valor.creadoEn.slice(0, 10)
+                      ? ` · actualizado ${fechaCorta(valor.actualizadoEn)}`
+                      : ""}
                     {valor.totalTablas > 0 ? ` · ${valor.totalTablas} tabla(s) analizada(s)` : ""}
                   </p>
                   {valor.descripcion && (
@@ -178,6 +191,17 @@ export function FormatosView() {
                   <Download className="h-3.5 w-3.5" />
                   Descargar
                 </a>
+                {esAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setValorEditar(valor)}
+                    aria-label={`Editar ${valor.nombre}`}
+                    title="Editar referencia o subir nueva versión"
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-amber-50 hover:text-amber-600"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {esAdmin && (
                   <button
                     type="button"
@@ -228,7 +252,14 @@ export function FormatosView() {
             {formatos.map((formato) => (
               <li key={formato.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-gray-800">{formato.nombre}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-gray-800">{formato.nombre}</p>
+                    {formato.esReferencia && (
+                      <span className="flex-shrink-0 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A3412]">
+                        Referencia
+                      </span>
+                    )}
+                  </div>
                   <p className="truncate text-xs text-gray-400">
                     {formato.campos.length} campo(s)
                     {formato.valorNombre ? ` · basado en “${formato.valorNombre}”` : ""} ·{" "}
@@ -243,6 +274,17 @@ export function FormatosView() {
                   <Send className="h-3.5 w-3.5" />
                   Diligenciar
                 </button>
+                {esAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setFormatoEditar(formato)}
+                    aria-label={`Editar ${formato.nombre}`}
+                    title="Editar formato"
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-amber-50 hover:text-amber-600"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {esAdmin && (
                   <button
                     type="button"
@@ -265,6 +307,19 @@ export function FormatosView() {
           onCerrar={() => setModalValor(false)}
           onListo={(mensaje) => {
             setModalValor(false);
+            mostrarAviso(mensaje);
+            void cargar();
+          }}
+        />
+      )}
+
+      {valorEditar && (
+        <ModalValor
+          valores={valores}
+          valor={valorEditar}
+          onCerrar={() => setValorEditar(null)}
+          onListo={(mensaje) => {
+            setValorEditar(null);
             mostrarAviso(mensaje);
             void cargar();
           }}
@@ -295,6 +350,19 @@ export function FormatosView() {
             void cargar();
           }}
           onCambio={() => void cargar()}
+        />
+      )}
+
+      {formatoEditar && (
+        <ModalFormato
+          valores={valores}
+          formato={formatoEditar}
+          onCerrar={() => setFormatoEditar(null)}
+          onListo={(mensaje) => {
+            setFormatoEditar(null);
+            mostrarAviso(mensaje);
+            void cargar();
+          }}
         />
       )}
 
@@ -339,49 +407,70 @@ const INPUT =
 
 function ModalValor({
   valores,
+  valor,
   onCerrar,
   onListo,
 }: {
   valores: ValorReferenciaApi[];
+  valor?: ValorReferenciaApi;
   onCerrar: () => void;
   onListo: (mensaje: string) => void;
 }) {
-  const [nombre, setNombre] = useState("");
-  const [tipo, setTipo] = useState(TIPOS_VALOR[0]);
-  const [descripcion, setDescripcion] = useState("");
+  const editar = Boolean(valor);
+  const [nombre, setNombre] = useState(valor?.nombre ?? "");
+  const [tipo, setTipo] = useState(valor?.tipo ?? TIPOS_VALOR[0]);
+  const [descripcion, setDescripcion] = useState(valor?.descripcion ?? "");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const opcionesTipo = TIPOS_VALOR.includes(tipo) ? TIPOS_VALOR : [tipo, ...TIPOS_VALOR];
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!archivo) {
+    if (!editar && !archivo) {
       setError("Selecciona un archivo");
       return;
     }
     setCargando(true);
     setError(null);
     try {
-      await api.subirValor(archivo, {
-        tipo,
-        nombre: nombre.trim() || undefined,
-        descripcion: descripcion.trim() || undefined,
-      });
-      onListo(`Valor “${nombre.trim() || archivo.name}” subido correctamente.`);
+      if (valor) {
+        await api.actualizarValor(valor.id, {
+          nombre: nombre.trim() || undefined,
+          tipo,
+          descripcion: descripcion.trim() || null,
+        });
+        if (archivo) await api.reemplazarValorArchivo(valor.id, archivo);
+        onListo(
+          `Valor “${nombre.trim() || valor.nombre}” actualizado${
+            archivo ? " con una nueva versión del archivo" : ""
+          }.`,
+        );
+      } else {
+        await api.subirValor(archivo!, {
+          tipo,
+          nombre: nombre.trim() || undefined,
+          descripcion: descripcion.trim() || undefined,
+        });
+        onListo(`Valor “${nombre.trim() || archivo!.name}” subido correctamente.`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo subir el archivo");
+      setError(err instanceof Error ? err.message : "No se pudo guardar el valor");
     } finally {
       setCargando(false);
     }
   };
 
   return (
-    <Modal titulo="Subir valor de referencia" onCerrar={onCerrar}>
+    <Modal
+      titulo={editar ? "Editar valor de referencia" : "Subir valor de referencia"}
+      onCerrar={onCerrar}
+    >
       <form onSubmit={enviar} className="space-y-4">
         <div>
           <label className="mb-1 block text-xs font-bold text-gray-600">Tipo</label>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={INPUT}>
-            {TIPOS_VALOR.map((t) => (
+            {opcionesTipo.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
@@ -409,13 +498,21 @@ function ModalValor({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold text-gray-600">Archivo</label>
+          <label className="mb-1 block text-xs font-bold text-gray-600">
+            {editar ? "Nueva versión del archivo (opcional)" : "Archivo"}
+          </label>
           <input
             type="file"
             accept=".xls,.xlsx,.pdf,.doc,.docx,.csv,.txt,.png,.jpg,.jpeg"
             onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
             className="w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#C2410C]/10 file:px-3 file:py-2 file:text-xs file:font-bold file:text-[#C2410C]"
           />
+          {editar && !archivo && (
+            <p className="mt-1 text-[11px] text-gray-400">
+              Archivo actual: {valor!.archivoNombre}. Si adjuntas otro, lo reemplaza y conserva las
+              tablas ya analizadas.
+            </p>
+          )}
           {archivo && (
             <p className="mt-1 text-xs text-gray-400">
               {archivo.name} · {TAMANO_LEGIBLE(archivo.size)}
@@ -436,7 +533,7 @@ function ModalValor({
             disabled={cargando}
             className="rounded-lg bg-[#C2410C] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#9A3412] disabled:opacity-50"
           >
-            {cargando ? "Subiendo…" : "Subir"}
+            {cargando ? "Guardando…" : editar ? "Guardar cambios" : "Subir"}
           </button>
         </div>
       </form>
@@ -446,19 +543,24 @@ function ModalValor({
 
 function ModalFormato({
   valores,
+  formato,
   onCerrar,
   onListo,
 }: {
   valores: ValorReferenciaApi[];
+  formato?: FormatoApi;
   onCerrar: () => void;
   onListo: (mensaje: string) => void;
 }) {
-  const [nombre, setNombre] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [valorId, setValorId] = useState("");
+  const editar = Boolean(formato);
+  const [nombre, setNombre] = useState(formato?.nombre ?? "");
+  const [descripcion, setDescripcion] = useState(formato?.descripcion ?? "");
+  const [valorId, setValorId] = useState(formato?.valorId ?? "");
   const [tablas, setTablas] = useState<ValorTablaApi[]>([]);
   const [tablaId, setTablaId] = useState("");
-  const [campos, setCampos] = useState<string[]>([""]);
+  const [campos, setCampos] = useState<string[]>(
+    formato?.campos.length ? formato.campos : [""],
+  );
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -505,22 +607,32 @@ function ModalFormato({
     setCargando(true);
     setError(null);
     try {
-      await api.crearFormato({
-        nombre: nombre.trim(),
-        descripcion: descripcion.trim() || undefined,
-        campos: limpios,
-        valorId: valorId || null,
-      });
-      onListo(`Formato “${nombre.trim()}” creado correctamente.`);
+      if (formato) {
+        await api.actualizarFormato(formato.id, {
+          nombre: nombre.trim(),
+          descripcion: descripcion.trim() || null,
+          campos: limpios,
+          valorId: valorId || null,
+        });
+        onListo(`Formato “${nombre.trim()}” actualizado correctamente.`);
+      } else {
+        await api.crearFormato({
+          nombre: nombre.trim(),
+          descripcion: descripcion.trim() || undefined,
+          campos: limpios,
+          valorId: valorId || null,
+        });
+        onListo(`Formato “${nombre.trim()}” creado correctamente.`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear el formato");
+      setError(err instanceof Error ? err.message : "No se pudo guardar el formato");
     } finally {
       setCargando(false);
     }
   };
 
   return (
-    <Modal titulo="Nuevo formato" onCerrar={onCerrar}>
+    <Modal titulo={editar ? "Editar formato" : "Nuevo formato"} onCerrar={onCerrar}>
       <form onSubmit={enviar} className="space-y-4">
         <div>
           <label className="mb-1 block text-xs font-bold text-gray-600">Nombre</label>
@@ -622,7 +734,7 @@ function ModalFormato({
             disabled={cargando}
             className="rounded-lg bg-[#C2410C] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#9A3412] disabled:opacity-50"
           >
-            {cargando ? "Creando…" : "Crear formato"}
+            {cargando ? "Guardando…" : editar ? "Guardar cambios" : "Crear formato"}
           </button>
         </div>
       </form>

@@ -290,6 +290,7 @@ export type ValorReferenciaApi = {
   archivoMime: string | null;
   archivoTamano: number;
   creadoEn: string;
+  actualizadoEn: string;
   totalTablas: number;
 };
 
@@ -334,6 +335,7 @@ export type FormatoApi = {
   descripcion: string | null;
   campos: string[];
   activo: boolean;
+  esReferencia: boolean;
   valorId: string | null;
   valorNombre: string | null;
   creadoPor: string;
@@ -637,6 +639,30 @@ export const api = {
   },
   valorArchivoUrl: (id: string, descargar = false) =>
     `${API_URL}/valores/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,
+  actualizarValor: (
+    id: string,
+    datos: { nombre?: string; tipo?: string; descripcion?: string | null },
+  ) =>
+    request<{ valor: ValorReferenciaApi }>(`/valores/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
+  reemplazarValorArchivo: async (id: string, archivo: File) => {
+    const meta = await subirEnBlob(archivo, "valores");
+    if (meta) {
+      return request<{ valor: ValorReferenciaApi }>(
+        `/valores/${encodeURIComponent(id)}/archivo`,
+        { method: "POST", body: { archivo: meta } },
+      );
+    }
+
+    const formulario = new FormData();
+    formulario.append("archivo", archivo);
+    return subirArchivo<{ valor: ValorReferenciaApi }>(
+      `/valores/${encodeURIComponent(id)}/archivo`,
+      formulario,
+    );
+  },
   valorEstilos: (id: string, hoja: string) =>
     request<{ estilos: EstilosLibroApi }>(
       `/valores/${encodeURIComponent(id)}/estilos${query({ hoja })}`,
@@ -662,6 +688,14 @@ export const api = {
   formatos: () => request<{ formatos: FormatoApi[] }>("/formatos"),
   crearFormato: (datos: { nombre: string; descripcion?: string; campos: string[]; valorId?: string | null }) =>
     request<{ formato: FormatoApi }>("/formatos", { method: "POST", body: datos }),
+  actualizarFormato: (
+    id: string,
+    datos: { nombre?: string; descripcion?: string | null; campos?: string[]; valorId?: string | null },
+  ) =>
+    request<{ formato: FormatoApi }>(`/formatos/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
   eliminarFormato: (id: string) =>
     request<{ ok: boolean }>(`/formatos/${encodeURIComponent(id)}`, { method: "DELETE" }),
   registrosFormato: (formatoId: string) =>

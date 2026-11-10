@@ -73,3 +73,4 @@ La etapa existe en el formato, pero no tiene actividades diligenciadas. La prime
 - Se pueden crear, editar y eliminar actividades y subproductos, cambiar el estado en línea y ver el avance del checklist.
 - Una actividad principal no puede marcarse como completada mientras tenga subproductos pendientes.
 - Las alertas de vencimiento salen por correo; WhatsApp es un canal opcional (ver `docs/WHATSAPP.md`) que usa el teléfono y el consentimiento registrados en el perfil, no la hoja `Personal` directamente.
+- En **Formatos** se siembra automáticamente el formato de referencia **SAC-PI031 · EDT interventoría y consultoría** (9 campos: proyecto, etapa, no., actividad, responsable, fecha de cumplimiento, estado, subproducto de y observaciones). El archivo Excel queda como valor de referencia editable: se puede reemplazar por una nueva versión, corregir nombre/tipo/descripción y asociarlo a otros formatos; sus registros diligenciados se conservan al desactivarlo.

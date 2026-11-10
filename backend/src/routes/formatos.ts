@@ -7,7 +7,7 @@ import { pool } from "../db.js";
 import { ah, HttpError } from "../http.js";
 
 const CAMPOS_FORMATO = `
-  f.id, f.nombre, f.descripcion, f.campos, f.activo,
+  f.id, f.nombre, f.descripcion, f.campos, f.activo, f.es_referencia AS "esReferencia",
   f.valor_id AS "valorId", v.nombre AS "valorNombre",
   f.creado_por AS "creadoPor", f.creado_en AS "creadoEn",
   (SELECT count(*)::int FROM formatos_registros r WHERE r.formato_id = f.id) AS "totalRegistros"
@@ -22,6 +22,21 @@ const formatoSchema = z.object({
     .max(60),
   valorId: z.string().trim().max(60).nullable().optional(),
 });
+
+const actualizarFormatoSchema = z
+  .object({
+    nombre: z.string().trim().min(1, "El nombre es obligatorio").max(200).optional(),
+    descripcion: z.string().trim().max(500).nullable().optional(),
+    campos: z
+      .array(z.string().trim().min(1, "El campo no puede estar vacío").max(120))
+      .min(1, "Define al menos un campo")
+      .max(60)
+      .optional(),
+    valorId: z.string().trim().max(60).nullable().optional(),
+  })
+  .refine((datos) => Object.keys(datos).length > 0, {
+    message: "Envía al menos un dato para actualizar",
+  });
 
 const registroSchema = z.object({
   valores: z.record(z.string(), z.string().max(2000)),
@@ -90,18 +105,81 @@ formatos.post(
   }),
 );
 
+formatos.patch(
+  "/:id",
+  requiereAdmin,
+  ah(async (req, res) => {
+    const datos = actualizarFormatoSchema.parse(req.body);
+    const usuario = res.locals.usuario as UsuarioSesion;
+
+    if (datos.valorId) {
+      const existe = await pool.query("SELECT 1 FROM valores_referencia WHERE id = $1", [datos.valorId]);
+      if (!existe.rowCount) throw new HttpError(404, "Valor de referencia no encontrado");
+    }
+
+    const { rows } = await pool.query(
+      `WITH actualizado AS (
+         UPDATE formatos
+            SET nombre = COALESCE($2, nombre),
+                descripcion = CASE WHEN $3 THEN $4 ELSE descripcion END,
+                campos = COALESCE($5::jsonb, campos),
+                valor_id = CASE WHEN $6 THEN $7 ELSE valor_id END
+          WHERE id = $1
+          RETURNING *
+       )
+       SELECT ${CAMPOS_FORMATO}
+         FROM actualizado f
+         LEFT JOIN valores_referencia v ON v.id = f.valor_id`,
+      [
+        req.params.id,
+        datos.nombre ?? null,
+        datos.descripcion !== undefined,
+        datos.descripcion ?? null,
+        datos.campos ? JSON.stringify(datos.campos) : null,
+        datos.valorId !== undefined,
+        datos.valorId ?? null,
+      ],
+    );
+    const formato = rows[0];
+    if (!formato) throw new HttpError(404, "Formato no encontrado");
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Actualización",
+      entidad: "Formato",
+      registro: formato.nombre,
+    });
+
+    res.json({ formato });
+  }),
+);
+
 formatos.delete(
   "/:id",
   requiereAdmin,
   ah(async (req, res) => {
     const usuario = res.locals.usuario as UsuarioSesion;
-    const { rows } = await pool.query<{ nombre: string }>(
-      "DELETE FROM formatos WHERE id = $1 RETURNING nombre",
+    const { rows } = await pool.query<{ nombre: string; esReferencia: boolean }>(
+      `SELECT nombre, es_referencia AS "esReferencia" FROM formatos WHERE id = $1`,
       [req.params.id],
     );
     const formato = rows[0];
     if (!formato) throw new HttpError(404, "Formato no encontrado");
 
+    // Los formatos de referencia conservan sus registros: se desactivan en lugar de borrarse.
+    if (formato.esReferencia) {
+      await pool.query("UPDATE formatos SET activo = false WHERE id = $1", [req.params.id]);
+      await registrarAuditoria({
+        usuario: usuario.nombre,
+        accion: "Desactivación",
+        entidad: "Formato",
+        registro: formato.nombre,
+      });
+      res.json({ ok: true, desactivado: true });
+      return;
+    }
+
+    await pool.query("DELETE FROM formatos WHERE id = $1", [req.params.id]);
     await registrarAuditoria({
       usuario: usuario.nombre,
       accion: "Eliminación",

@@ -62,8 +62,19 @@ const valorSchema = z.object({
 const CAMPOS_VALOR = `
   id, nombre, tipo, descripcion, subido_por AS "subidoPor",
   archivo_nombre AS "archivoNombre", archivo_mime AS "archivoMime",
-  archivo_tamano AS "archivoTamano", creado_en AS "creadoEn"
+  archivo_tamano AS "archivoTamano", creado_en AS "creadoEn",
+  actualizado_en AS "actualizadoEn"
 `;
+
+const actualizarValorSchema = z
+  .object({
+    nombre: z.string().trim().min(1, "El nombre es obligatorio").max(200).optional(),
+    tipo: z.string().trim().min(1, "El tipo es obligatorio").max(60).optional(),
+    descripcion: z.string().trim().max(500).nullable().optional(),
+  })
+  .refine((datos) => Object.keys(datos).length > 0, {
+    message: "Envía al menos un dato para actualizar",
+  });
 
 const CAMPOS_TABLA = `
   id, hoja, fila_cabecera AS "filaCabecera", columnas,
@@ -158,6 +169,119 @@ valores.post(
       });
 
       res.status(201).json({ valor: rows[0] });
+    } catch (e) {
+      if (clave) await eliminarArchivo(clave, CARPETA);
+      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
+      throw e;
+    }
+  }),
+);
+
+valores.patch(
+  "/:id",
+  requiereAdmin,
+  ah(async (req, res) => {
+    const datos = actualizarValorSchema.parse(req.body);
+    const usuario = res.locals.usuario as UsuarioSesion;
+
+    const { rows } = await pool.query(
+      `WITH actualizado AS (
+         UPDATE valores_referencia
+            SET nombre = COALESCE($2, nombre),
+                tipo = COALESCE($3, tipo),
+                descripcion = CASE WHEN $4 THEN $5 ELSE descripcion END,
+                actualizado_en = now()
+          WHERE id = $1
+          RETURNING *
+       )
+       SELECT ${CAMPOS_VALOR},
+              (SELECT count(*)::int FROM valores_tablas t WHERE t.valor_id = actualizado.id) AS "totalTablas"
+         FROM actualizado`,
+      [
+        req.params.id,
+        datos.nombre ?? null,
+        datos.tipo ?? null,
+        datos.descripcion !== undefined,
+        datos.descripcion ?? null,
+      ],
+    );
+    const valor = rows[0];
+    if (!valor) throw new HttpError(404, "Valor no encontrado");
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Actualización",
+      entidad: "Valor de referencia",
+      registro: valor.nombre,
+    });
+
+    res.json({ valor });
+  }),
+);
+
+valores.post(
+  "/:id/archivo",
+  requiereAdmin,
+  recibirArchivo,
+  ah(async (req, res) => {
+    const { rows: actuales } = await pool.query<{ nombre: string; ruta: string }>(
+      "SELECT nombre, archivo_ruta AS ruta FROM valores_referencia WHERE id = $1",
+      [req.params.id],
+    );
+    const valor = actuales[0];
+    const directo = Boolean(req.is("application/json"));
+    const archivo = req.file;
+
+    if (!valor) {
+      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
+      throw new HttpError(404, "Valor no encontrado");
+    }
+    if (!directo && !archivo) throw new HttpError(400, "Adjunta un archivo");
+
+    let clave: string | null = null;
+    try {
+      const meta = directo
+        ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
+        : null;
+      const info = meta ? await verificarSubidaDirecta(meta.ruta, "valores") : null;
+
+      const usuario = res.locals.usuario as UsuarioSesion;
+      const nombreArchivo = meta?.nombre ?? archivo!.originalname;
+      clave = meta?.ruta ?? (await guardarArchivo(archivo!, "valores"));
+
+      const { rows } = await pool.query(
+        `WITH actualizado AS (
+           UPDATE valores_referencia
+              SET archivo_nombre = $2, archivo_ruta = $3, archivo_mime = $4,
+                  archivo_tamano = $5, subido_por = $6, actualizado_en = now()
+            WHERE id = $1
+            RETURNING *
+         )
+         SELECT ${CAMPOS_VALOR},
+                (SELECT count(*)::int FROM valores_tablas t WHERE t.valor_id = actualizado.id) AS "totalTablas"
+           FROM actualizado`,
+        [
+          req.params.id,
+          nombreArchivo.slice(0, 255),
+          clave,
+          meta?.mime ?? archivo?.mimetype ?? null,
+          info?.tamano ?? archivo?.size ?? 0,
+          usuario.nombre,
+        ],
+      );
+
+      // La versión anterior deja de existir cuando la nueva quedó registrada.
+      if (clave !== valor.ruta) await eliminarArchivo(valor.ruta, CARPETA);
+
+      await registrarAuditoria({
+        usuario: usuario.nombre,
+        accion: "Actualización",
+        entidad: "Valor de referencia",
+        registro: valor.nombre,
+        nuevo: nombreArchivo,
+      });
+
+      res.json({ valor: rows[0] });
     } catch (e) {
       if (clave) await eliminarArchivo(clave, CARPETA);
       if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);

@@ -383,7 +383,8 @@ CREATE TABLE IF NOT EXISTS valores_referencia (
   archivo_mime   TEXT,
   archivo_tamano BIGINT,
   subido_por     TEXT NOT NULL,
-  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now()
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS ix_valores_referencia_tipo ON valores_referencia (tipo);
@@ -399,6 +400,7 @@ CREATE TABLE IF NOT EXISTS formatos (
   valor_id       TEXT REFERENCES valores_referencia(id) ON DELETE SET NULL,
   creado_por     TEXT NOT NULL,
   activo         BOOLEAN NOT NULL DEFAULT true,
+  es_referencia  BOOLEAN NOT NULL DEFAULT false,
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
