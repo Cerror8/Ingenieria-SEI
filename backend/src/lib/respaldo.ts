@@ -76,6 +76,9 @@ export async function crearRespaldo(): Promise<{
   });
 
   const eliminados = await limpiarAntiguos();
+  console.log(
+    `[respaldo] ${nombre} · ${tablas} tablas · ${filas} filas · ${contenido.byteLength} bytes · ${eliminados} eliminados`,
+  );
   return { nombre, bytes: contenido.byteLength, tablas, filas, eliminados };
 }
 
