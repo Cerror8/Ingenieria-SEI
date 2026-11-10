@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -60,6 +61,47 @@ export async function guardarArchivo(archivo: ArchivoRecibido, subcarpeta: strin
   });
   await fs.promises.unlink(archivo.path).catch(() => undefined);
   return `${PREFIJO}${pathname}`;
+}
+
+// Guarda contenido ya en memoria (por ejemplo, archivos extraídos de un ZIP).
+export async function guardarBuffer(
+  contenido: Buffer,
+  nombreOriginal: string,
+  mime: string | null,
+  subcarpeta: string,
+  carpeta: string,
+): Promise<string> {
+  const extension = path.extname(nombreOriginal).toLowerCase();
+  const clave = `${crypto.randomUUID()}${extension}`;
+
+  if (!almacenEnBlob) {
+    await fs.promises.mkdir(carpeta, { recursive: true });
+    await fs.promises.writeFile(path.join(carpeta, clave), contenido);
+    return clave;
+  }
+
+  const pathname = `${subcarpeta}/${clave}`;
+  await put(pathname, contenido, {
+    access: "private",
+    addRandomSuffix: false,
+    ...(mime ? { contentType: mime } : {}),
+  });
+  return `${PREFIJO}${pathname}`;
+}
+
+export async function leerArchivo(clave: string, carpeta: string): Promise<Buffer> {
+  if (esClaveBlob(clave)) {
+    const resultado = await get(clave.slice(PREFIJO.length), { access: "private" });
+    if (!resultado || resultado.statusCode !== 200 || !resultado.stream) {
+      throw new HttpError(404, "Archivo no encontrado");
+    }
+    return Buffer.from(await new Response(resultado.stream).arrayBuffer());
+  }
+
+  const ruta = path.resolve(carpeta, clave);
+  if (!ruta.startsWith(`${carpeta}${path.sep}`)) throw new HttpError(400, "Ruta inválida");
+  if (!fs.existsSync(ruta)) throw new HttpError(404, "Archivo no encontrado");
+  return fs.promises.readFile(ruta);
 }
 
 export async function eliminarArchivo(clave: string | null | undefined, carpeta: string) {

@@ -90,7 +90,7 @@ async function subirArchivo<T>(path: string, datos: FormData): Promise<T> {
 }
 
 type ArchivoEnBlob = { nombre: string; ruta: string; mime: string | null; tamano: number };
-type CarpetaSubida = "documentos" | "valores" | "tareas";
+type CarpetaSubida = "documentos" | "valores" | "tareas" | "paquetes";
 
 let soporteSubidaDirecta: Promise<boolean> | null = null;
 
@@ -175,6 +175,15 @@ export type DocumentoApi = {
   archivoNombre: string | null;
   archivoMime: string | null;
   archivoTamano: number | null;
+};
+
+export type ResumenZipApi = {
+  ok: boolean;
+  actualizados: number;
+  creados: number;
+  sinCambios: number;
+  omitidos: number;
+  advertencias: Array<{ archivo: string; motivo: string }>;
 };
 
 export type InformeApi = {
@@ -468,6 +477,22 @@ export const api = {
   },
   documentoArchivoUrl: (id: string, descargar = false) =>
     `${API_URL}/documentos/${encodeURIComponent(id)}/archivo${descargar ? "?descargar=1" : ""}`,
+  documentosZipUrl: (proyectoId: string) =>
+    `${API_URL}/documentos/zip?proyectoId=${encodeURIComponent(proyectoId)}`,
+  importarDocumentosZip: async (archivo: File, proyectoId: string) => {
+    const meta = await subirEnBlob(archivo, "paquetes");
+    if (meta) {
+      return request<ResumenZipApi>("/documentos/zip", {
+        method: "POST",
+        body: { proyectoId, archivo: meta },
+      });
+    }
+
+    const formulario = new FormData();
+    formulario.append("proyectoId", proyectoId);
+    formulario.append("archivo", archivo);
+    return subirArchivo<ResumenZipApi>("/documentos/zip", formulario);
+  },
   informes: () => request<{ informes: InformeApi[] }>("/informes"),
   crearInforme: (datos: { tipo: string; periodo: string; proyecto?: string; formato?: "PDF" | "Word" }) =>
     request<{ informe: InformeApi }>("/informes", { method: "POST", body: datos }),

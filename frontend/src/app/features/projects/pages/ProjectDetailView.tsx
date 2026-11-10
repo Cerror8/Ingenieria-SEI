@@ -5,7 +5,8 @@ import {
   Plus, Search, Download, Eye, Edit2, Bell, TrendingUp, TrendingDown,
   AlertTriangle, CheckCircle, DollarSign, ArrowLeft, X, Upload,
   Link2, MoreHorizontal, ChevronLeft, Filter, Tag, Paperclip,
-  Clock, BarChart2, Percent, Check, Trash2, Save, FileDown, Sliders
+  Clock, BarChart2, Percent, Check, Trash2, Save, FileDown, Sliders,
+  Archive, FileUp
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -14,6 +15,7 @@ import {
 import type { AuditEntry, Document, GanttActivity, Indicator, Project, Report } from "../../../types";
 import {
   api, mapActividad, mapAuditoria, mapDocumento, mapIndicador, mapInforme, mapProyecto,
+  type ResumenZipApi,
 } from "../../../api/client";
 import { CargandoModule, ErrorModule } from "../../../components/DataState";
 import { SubirDocumentoModal } from "../../documentos/SubirDocumentoModal";
@@ -32,6 +34,11 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
   const [seguimientoDesc, setSeguimientoDesc] = useState("");
   const [showActModal, setShowActModal] = useState(false);
   const [mostrarSubida, setMostrarSubida] = useState(false);
+  const [mostrarZip, setMostrarZip] = useState(false);
+  const [zipArchivo, setZipArchivo] = useState<File | null>(null);
+  const [zipEnviando, setZipEnviando] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
+  const [zipResumen, setZipResumen] = useState<ResumenZipApi | null>(null);
 
   const [project, setProject] = useState<Project | null>(null);
   const [projIndicators, setProjIndicators] = useState<Indicator[]>([]);
@@ -74,6 +81,30 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
     const detalle = await api.proyecto(projectId);
     setProjDocs(detalle.documentos.map(mapDocumento));
   }, [projectId]);
+
+  const importarZip = async () => {
+    if (!zipArchivo) {
+      setZipError("Selecciona el archivo ZIP.");
+      return;
+    }
+
+    setZipEnviando(true);
+    setZipError(null);
+    setZipResumen(null);
+
+    try {
+      const resumen = await api.importarDocumentosZip(zipArchivo, projectId);
+      setZipResumen(resumen);
+      await recargarDocs();
+      onShowToast(
+        `Paquete aplicado: ${resumen.actualizados} reemplazado(s) y ${resumen.creados} nuevo(s).`,
+      );
+    } catch (e) {
+      setZipError(e instanceof Error ? e.message : "No se pudo actualizar desde el ZIP.");
+    } finally {
+      setZipEnviando(false);
+    }
+  };
 
   const toggle = (s: string) => setExpanded(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
 
@@ -743,14 +774,33 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
           {/* ── DOCUMENTOS ── */}
           {tab === "documentos" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-sm font-bold text-gray-800">Repositorio documental</h2>
-                <button
-                  onClick={() => setMostrarSubida(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors"
-                >
-                  <Upload className="w-3.5 h-3.5" /> Cargar documento
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => { window.location.href = api.documentosZipUrl(projectId); }}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <Archive className="w-3.5 h-3.5" /> Descargar ZIP
+                  </button>
+                  <button
+                    onClick={() => {
+                      setZipArchivo(null);
+                      setZipError(null);
+                      setZipResumen(null);
+                      setMostrarZip(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50/50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition-colors hover:bg-orange-50"
+                  >
+                    <FileUp className="w-3.5 h-3.5" /> Actualizar desde ZIP
+                  </button>
+                  <button
+                    onClick={() => setMostrarSubida(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" /> Cargar documento
+                  </button>
+                </div>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {docCategories.map(cat => (
@@ -984,6 +1034,100 @@ export function ProjectDetailView({ projectId, onBack, onGenerateReport, onShowT
         onCerrar={() => setMostrarSubida(false)}
         onSubido={() => void recargarDocs()}
       />
+
+      {mostrarZip && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-bold text-gray-900">Actualizar documentos desde ZIP</h2>
+              <button
+                type="button"
+                onClick={() => setMostrarZip(false)}
+                aria-label="Cerrar"
+                className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <p className="rounded-lg border border-orange-100 bg-orange-50/60 px-3 py-2.5 text-xs leading-relaxed text-orange-900">
+                Se reemplaza el contenido de los documentos cuyo nombre de archivo coincide con el
+                ZIP y se conservan los demás. Los archivos nuevos se agregan al proyecto{" "}
+                <strong className="font-mono">{projectId}</strong>. Puedes usar el ZIP descargado
+                desde aquí como plantilla.
+              </p>
+
+              <div className="space-y-1.5">
+                <label htmlFor="zip-proyecto" className="text-xs font-semibold text-slate-700">
+                  Archivo ZIP
+                </label>
+                <input
+                  id="zip-proyecto"
+                  type="file"
+                  accept=".zip,application/zip"
+                  disabled={zipEnviando}
+                  onChange={(e) => {
+                    setZipArchivo(e.target.files?.[0] ?? null);
+                    setZipError(null);
+                    setZipResumen(null);
+                  }}
+                  className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[#C2410C] hover:file:bg-orange-100"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Máximo 100 MB · hasta 200 archivos · PDF, Word, Excel, PowerPoint, imágenes o TXT de
+                  hasta 20 MB cada uno
+                </p>
+              </div>
+
+              {zipError && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                  {zipError}
+                </p>
+              )}
+
+              {zipResumen && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-xs text-green-800">
+                  <p className="font-semibold">
+                    Paquete aplicado: {zipResumen.actualizados} reemplazado(s) ·{" "}
+                    {zipResumen.creados} nuevo(s)
+                    {zipResumen.sinCambios > 0 ? ` · ${zipResumen.sinCambios} sin cambios` : ""}
+                    {zipResumen.omitidos > 0 ? ` · ${zipResumen.omitidos} omitido(s)` : ""}.
+                  </p>
+                  {zipResumen.advertencias.length > 0 && (
+                    <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-green-700">
+                      {zipResumen.advertencias.map((item) => (
+                        <li key={item.archivo}>
+                          <span className="font-mono">{item.archivo}</span>: {item.motivo}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setMostrarZip(false)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  {zipResumen ? "Cerrar" : "Cancelar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void importarZip()}
+                  disabled={zipEnviando || !zipArchivo}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FileUp className="h-4 w-4" />
+                  {zipEnviando ? "Actualizando…" : "Actualizar documentos"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

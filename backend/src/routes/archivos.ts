@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ah, HttpError } from "../http.js";
 import { almacenEnBlob } from "../lib/almacen.js";
 
-const CARPETAS = ["documentos", "valores", "tareas"] as const;
+const CARPETAS = ["documentos", "valores", "tareas", "paquetes"] as const;
 const carpetaSchema = z.enum(CARPETAS);
 
 const EXTENSIONES = new Set([
@@ -17,6 +17,7 @@ const MAXIMO_POR_CARPETA: Record<(typeof CARPETAS)[number], number> = {
   documentos: 20 * 1024 * 1024,
   valores: 30 * 1024 * 1024,
   tareas: 20 * 1024 * 1024,
+  paquetes: 100 * 1024 * 1024,
 };
 
 export const archivos = Router();
@@ -41,9 +42,11 @@ archivos.post(
         }
 
         if (!pathname.startsWith(`${carpeta}/`)) throw new HttpError(400, "Ruta no permitida");
-        if (!EXTENSIONES.has(path.extname(pathname).toLowerCase())) {
-          throw new HttpError(400, "Formato no permitido");
-        }
+
+        const extension = path.extname(pathname).toLowerCase();
+        const permitida =
+          carpeta === "paquetes" ? extension === ".zip" : EXTENSIONES.has(extension);
+        if (!permitida) throw new HttpError(400, "Formato no permitido");
 
         return {
           maximumSizeInBytes: MAXIMO_POR_CARPETA[carpeta],
