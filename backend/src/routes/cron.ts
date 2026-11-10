@@ -76,6 +76,9 @@ cron.get(
     }
 
     const enviados = await avisarRecordatorios([...grupos.values()]);
+    console.log(
+      `[cron] recordatorios · ${rows.length} tareas · ${grupos.size} personas · ${enviados} correos`,
+    );
     res.json({ ok: true, tareas: rows.length, personas: grupos.size, correosEnviados: enviados });
   }),
 );
