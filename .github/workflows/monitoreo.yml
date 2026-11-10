@@ -1,0 +1,38 @@
+name: Monitoreo de disponibilidad
+
+on:
+  schedule:
+    # Cada 15 minutos. GitHub puede retrasarlo unos minutos en horas de carga.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoreo
+  cancel-in-progress: true
+
+jobs:
+  salud:
+    name: API y página principal
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar /api/salud
+        run: |
+          codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 https://ingenieria-sei.vercel.app/api/salud)
+          echo "Código HTTP: $codigo"
+          if [ "$codigo" != "200" ]; then
+            echo "::error::La API no responde correctamente (HTTP $codigo)."
+            exit 1
+          fi
+
+      - name: Consultar la página principal
+        run: |
+          codigo=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 https://ingenieria-sei.vercel.app/)
+          echo "Código HTTP: $codigo"
+          if [ "$codigo" != "200" ]; then
+            echo "::error::La página principal no responde (HTTP $codigo)."
+            exit 1
+          fi

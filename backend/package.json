@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:restore": "node scripts/restaurar-respaldo.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.9.0",

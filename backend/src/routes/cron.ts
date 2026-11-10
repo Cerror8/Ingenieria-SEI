@@ -3,6 +3,7 @@ import { Router } from "express";
 import { pool } from "../db.js";
 import { ah } from "../http.js";
 import { avisarRecordatorios, correoConfigurado, type RecordatorioTarea } from "../lib/correo.js";
+import { almacenDeRespaldos, crearRespaldo } from "../lib/respaldo.js";
 
 export const cron = Router();
 
@@ -76,5 +77,23 @@ cron.get(
 
     const enviados = await avisarRecordatorios([...grupos.values()]);
     res.json({ ok: true, tareas: rows.length, personas: grupos.size, correosEnviados: enviados });
+  }),
+);
+
+cron.get(
+  "/respaldo",
+  ah(async (req, res) => {
+    if (!autorizado(req.get("authorization"))) {
+      res.status(401).json({ error: "No autorizado" });
+      return;
+    }
+
+    if (!almacenDeRespaldos()) {
+      res.status(503).json({ error: "El almacenamiento en Blob no está configurado." });
+      return;
+    }
+
+    const resultado = await crearRespaldo();
+    res.json({ ok: true, ...resultado });
   }),
 );

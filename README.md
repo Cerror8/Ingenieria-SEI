@@ -211,6 +211,11 @@ Limitaciones de Vercel que conviene tener presentes:
 - El límite de duración de la función está en 60 s (`maxDuration`); la primera consulta de estilos de un Excel grande puede tardar unos segundos. El archivo se descarga una vez a `/tmp` y se reutiliza mientras viva la instancia.
 - El límite de peticiones es por instancia de la función (se guarda en memoria): en producción cada instancia cuenta por separado. Para un límite global haría falta un almacén compartido (por ejemplo Redis).
 
+### Monitoreo y respaldos
+
+- **Monitoreo:** `.github/workflows/monitoreo.yml` consulta cada 15 minutos `/api/salud` y la página principal. Si alguno falla, GitHub notifica por correo al responsable del repositorio (requiere tener activadas las notificaciones de GitHub Actions).
+- **Respaldos:** el cron diario `/api/cron/respaldo` (06:00 UTC, 01:00 en Bogotá) guarda en el Blob privado un `.json.gz` con todas las tablas de `app` (excepto `sesiones`) y conserva los últimos 14. Para restaurar, descarga el archivo y ejecuta `CONFIRMAR_RESTAURACION=si npm --prefix backend run db:restore -- ruta/al/respaldo.json.gz`; la restauración reemplaza los datos y vacía las sesiones.
+
 ## Seguridad
 
 - La API usa **helmet**: `X-Content-Type-Options`, `Referrer-Policy`, HSTS, `Cross-Origin-*` y `X-Powered-By` desactivado.
