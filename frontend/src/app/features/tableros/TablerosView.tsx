@@ -63,6 +63,22 @@ const LEYENDA_URGENCIA: { nivel: NivelUrgencia; titulo: string; punto: string }[
   { nivel: "morado", titulo: "Vencida", punto: "bg-purple-600" },
 ];
 
+type FiltroPlazo = "todos" | "cercanas" | "intermedias" | "largas" | "sin-fecha";
+
+const PLAZOS: { id: FiltroPlazo; titulo: string }[] = [
+  { id: "todos", titulo: "Todos los plazos" },
+  { id: "cercanas", titulo: "Fechas cercanas (días)" },
+  { id: "intermedias", titulo: "Fechas intermedias (semanas)" },
+  { id: "largas", titulo: "Fechas largas (semanas)" },
+  { id: "sin-fecha", titulo: "Sin fecha" },
+];
+
+const NIVELES_PLAZO: Record<Exclude<FiltroPlazo, "todos" | "sin-fecha">, NivelUrgencia[]> = {
+  cercanas: ["morado", "rojo", "naranja", "amarillo"],
+  intermedias: ["azul"],
+  largas: ["verde"],
+};
+
 function iniciales(nombre: string) {
   return nombre
     .split(/\s+/)
@@ -122,7 +138,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   const [nuevoTablero, setNuevoTablero] = useState({ nombre: "", descripcion: "" });
   const [creandoTablero, setCreandoTablero] = useState(false);
   const [busqueda, setBusqueda] = useState("");
-  const [prioridad, setPrioridad] = useState<PrioridadTablero | "Todas">("Todas");
+  const [plazo, setPlazo] = useState<FiltroPlazo>("todos");
   const [asignacion, setAsignacion] = useState("todas");
   const [filtroProyecto, setFiltroProyecto] = useState("");
   const [filtroFase, setFiltroFase] = useState("");
@@ -256,6 +272,14 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     return [...mapa.values()];
   }, [tableros]);
 
+  const gruposGuia = useMemo(
+    () =>
+      filtroProyecto
+        ? tablerosPorProyecto.filter((grupo) => grupo[0]?.proyectoId === filtroProyecto)
+        : tablerosPorProyecto,
+    [tablerosPorProyecto, filtroProyecto],
+  );
+
   const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     return tareas.filter((tarea) => {
@@ -274,16 +298,20 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           .join(" ")
           .toLowerCase()
           .includes(texto);
-      const coincidePrioridad = prioridad === "Todas" || tarea.prioridad === prioridad;
+      const nivel = calcularUrgencia(tarea.fechaLimite).nivel;
+      const coincidePlazo =
+        plazo === "todos" ||
+        (plazo === "sin-fecha" && nivel === "sin-fecha") ||
+        (plazo !== "sin-fecha" && NIVELES_PLAZO[plazo].includes(nivel));
       const coincideResponsable =
         asignacion === "todas" ||
         (asignacion === "mias" && tarea.responsableId === usuario?.id) ||
         (asignacion === "sin-asignar" && !tarea.responsableId) ||
         (asignacion.startsWith("persona:") &&
           tarea.responsableId === asignacion.slice("persona:".length));
-      return coincideTexto && coincidePrioridad && coincideResponsable;
+      return coincideTexto && coincidePlazo && coincideResponsable;
     });
-  }, [tareas, busqueda, prioridad, asignacion, usuario?.id]);
+  }, [tareas, busqueda, plazo, asignacion, usuario?.id]);
 
   const actualizarTarea = useCallback((actualizada: TareaTablero) => {
     setTareas((prev) => prev.map((tarea) => (tarea.id === actualizada.id ? actualizada : tarea)));
@@ -568,10 +596,88 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
       )}
 
       <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-        <label htmlFor="selector-tablero" className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-          Tablero guía
-        </label>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            Tablero guía
+          </span>
+          <span className="text-xs font-medium text-gray-400">
+            {filtradas.length} de {tareas.length} tareas
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar tarea, proyecto, fase o responsable…"
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+            />
+          </div>
+          {enGeneral && (
+            <>
+              <select
+                value={filtroProyecto}
+                onChange={(e) => setFiltroProyecto(e.target.value)}
+                aria-label="Filtrar por proyecto"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+              >
+                <option value="">Todos los proyectos</option>
+                {proyectosGeneral.map((proyecto) => (
+                  <option key={proyecto.id} value={proyecto.id}>
+                    {proyecto.id} · {proyecto.nombre}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filtroFase}
+                onChange={(e) => setFiltroFase(e.target.value)}
+                aria-label="Filtrar por fase"
+                disabled={fasesDisponibles.length === 0}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50"
+              >
+                <option value="">Todas las fases</option>
+                {fasesDisponibles.map((fase) => (
+                  <option key={fase.id} value={fase.id}>
+                    {fase.nombre}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <select
+            value={plazo}
+            onChange={(e) => setPlazo(e.target.value as FiltroPlazo)}
+            aria-label="Filtrar por plazo"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+          >
+            {PLAZOS.map((opcion) => (
+              <option key={opcion.id} value={opcion.id}>
+                {opcion.titulo}
+              </option>
+            ))}
+          </select>
+          <select
+            value={asignacion}
+            onChange={(e) => setAsignacion(e.target.value)}
+            aria-label="Filtrar por responsable"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+          >
+            <option value="todas">Todas las personas</option>
+            <option value="mias">Mis tareas</option>
+            <option value="sin-asignar">Sin asignar</option>
+            <optgroup label="Por persona">
+              {usuariosAsignables.map((u) => (
+                <option key={u.id} value={`persona:${u.id}`}>
+                  {u.nombre}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
           <button
             type="button"
             onClick={() => void abrirTablero("")}
@@ -585,7 +691,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             General
             <span className="rounded-full bg-white/70 px-1.5 text-[10px]">{tareas.length}</span>
           </button>
-          {tablerosPorProyecto.map((grupo) => (
+          {gruposGuia.map((grupo) => (
             <div key={grupo[0]?.proyectoId ?? "sin"} className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
                 {grupo[0]?.proyectoId ?? "Sin proyecto"}
@@ -611,6 +717,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             </div>
           ))}
         </div>
+
         <label htmlFor="selector-tablero" className="sr-only">
           Seleccionar tablero
         </label>
@@ -621,7 +728,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-[#EA580C] sm:max-w-md"
         >
           <option value="">Tablero general (todos los proyectos)</option>
-          {tablerosPorProyecto.map((grupo) => (
+          {gruposGuia.map((grupo) => (
             <optgroup
               key={grupo[0]?.proyectoId ?? "sin"}
               label={grupo[0]?.proyectoNombre ?? grupo[0]?.proyectoId ?? "Sin proyecto"}
@@ -634,79 +741,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             </optgroup>
           ))}
         </select>
-      </div>
-
-      <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar tarea, proyecto, fase o responsable…"
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
-          />
-        </div>
-        {enGeneral && (
-          <>
-            <select
-              value={filtroProyecto}
-              onChange={(e) => setFiltroProyecto(e.target.value)}
-              aria-label="Filtrar por proyecto"
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
-            >
-              <option value="">Todos los proyectos</option>
-              {proyectosGeneral.map((proyecto) => (
-                <option key={proyecto.id} value={proyecto.id}>
-                  {proyecto.id} · {proyecto.nombre}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filtroFase}
-              onChange={(e) => setFiltroFase(e.target.value)}
-              aria-label="Filtrar por fase"
-              disabled={fasesDisponibles.length === 0}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50"
-            >
-              <option value="">Todas las fases</option>
-              {fasesDisponibles.map((fase) => (
-                <option key={fase.id} value={fase.id}>
-                  {fase.nombre}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        <select
-          value={prioridad}
-          onChange={(e) => setPrioridad(e.target.value as PrioridadTablero | "Todas")}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
-        >
-          <option value="Todas">Todas las prioridades</option>
-          <option value="Alta">Prioridad alta</option>
-          <option value="Media">Prioridad media</option>
-          <option value="Baja">Prioridad baja</option>
-        </select>
-        <select
-          value={asignacion}
-          onChange={(e) => setAsignacion(e.target.value)}
-          aria-label="Filtrar por responsable"
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
-        >
-          <option value="todas">Todas las personas</option>
-          <option value="mias">Mis tareas</option>
-          <option value="sin-asignar">Sin asignar</option>
-          <optgroup label="Por persona">
-            {usuariosAsignables.map((u) => (
-              <option key={u.id} value={`persona:${u.id}`}>
-                {u.nombre}
-              </option>
-            ))}
-          </optgroup>
-        </select>
-        <span className="text-xs font-medium text-gray-400 sm:ml-auto">
-          {filtradas.length} de {tareas.length} tareas
-        </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-slate-100 bg-white px-4 py-2.5 text-[11px] font-medium text-slate-500">

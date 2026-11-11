@@ -44,12 +44,14 @@ La columna del tablero se deriva del estado del EDT: `No realizado → por-hacer
 - `tableros`: la lista de tableros con su conteo de tareas.
 - `proyectos`: los proyectos que tienen tareas.
 
-La pantalla **Tableros** abre por defecto en la vista **Tablero general de proyectos**. Incluye:
+La pantalla **Tableros** abre por defecto en la vista **Tablero general de proyectos**. El panel superior **Tablero guía** combina la navegación con los filtros:
 
-- Chips **TABLERO GUÍA** agrupados por proyecto para saltar a un tablero de fase.
-- Selector de tablero: `Tablero general (todos los proyectos)` o un tablero concreto.
+- Chips de tableros agrupados por proyecto; al elegir un proyecto, los chips se reducen a sus fases.
+- Selector de proyecto y de fase.
 - Búsqueda por tarea, proyecto, fase o responsable.
-- Filtros por **proyecto**, **fase**, **prioridad** y **responsable**.
+- Filtro por **plazo**: fechas cercanas (días, hasta 14 días), intermedias (15–30 días), largas (más de 30 días) o sin fecha. Sustituye el filtro anterior por prioridad Alta/Media/Baja.
+- Filtro por **responsable** y contador `N de M tareas`.
+- Selector de tablero: `Tablero general (todos los proyectos)` o un tablero concreto.
 - Leyenda de urgencia y tarjetas con fecha límite, tiempo restante y color de borde.
 - Botón **Entendido, iniciar tarea** para que la persona asignada confirme que la recibió antes de pasar a **En curso**.
 - En modo tablero de fase, botón **Nueva tarea** y acciones de gestión según permisos.
