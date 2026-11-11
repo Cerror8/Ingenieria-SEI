@@ -367,4 +367,4 @@ Detalle completo en [docs/AUTENTICACION.md](docs/AUTENTICACION.md) y [docs/BASE_
 - Respaldos ampliados y probados: `pg_dump` para la base local, respaldo lógico de datos para bases remotas (restaurado en una base desechable con conteos idénticos) y copia de `backend/uploads`; la descarga del Blob store queda pendiente de probar contra un store real.
 - Seguridad: helmet y límite de peticiones activos y verificados en local; CSP y cabeceras del frontend definidas en `vercel.json`, pendientes de comprobar en el dominio publicado.
 - Despliegue en Vercel preparado: función serverless que envuelve Express, build conjunto de frontend y backend, SSL para PostgreSQL gestionado y `npm run db:init` verificado contra una base desechable. Los archivos admiten almacenamiento persistente en Vercel Blob (privado) con respaldo en disco local, y las subidas directas navegador→Blob ya están implementadas con respaldo multipart; probado en local y pendiente de probar contra un Blob store real.
-- Pendiente: cargar los documentos definitivos, edición de la ficha FR-019 y manual de usuario en Word.
+- Pendiente: cargar los documentos definitivos y el manual de usuario en Word.

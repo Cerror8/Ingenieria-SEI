@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import type { ViewType } from "../types";
 import { Crumb } from "../components/shared";
-import { PDFModal } from "../components/PDFModal";
 import { Toast } from "../components/Toast";
 import { Sidebar } from "./Sidebar";
 import { ProfileMenu } from "./ProfileMenu";
@@ -45,7 +44,7 @@ export function AppShell() {
     () => window.localStorage.getItem(CLAVE_SIDEBAR) === "1",
   );
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [showPDF, setShowPDF] = useState(false);
+  const [projectTab, setProjectTab] = useState("resumen");
   const [toast, setToast] = useState<string | null>(null);
   const [menuAbierto, setMenuAbierto] = useState(false);
 
@@ -55,9 +54,16 @@ export function AppShell() {
     setMenuAbierto(false);
   };
 
-  const selectProject = (id: string) => {
+  const selectProject = (id: string, tab = "resumen") => {
     setSelectedProjectId(id);
+    setProjectTab(tab);
     setView("project-detail");
+    setMenuAbierto(false);
+  };
+
+  const editProject = (id: string) => {
+    setSelectedProjectId(id);
+    setView("edit-project");
     setMenuAbierto(false);
   };
 
@@ -68,8 +74,8 @@ export function AppShell() {
   }, [sidebarColapsado]);
 
   const getBreadcrumb = () => {
-    if (view === "create-project") {
-      return [{ label: "Proyectos" }, { label: "Nuevo proyecto" }];
+    if (view === "create-project" || view === "edit-project") {
+      return [{ label: "Proyectos" }, { label: view === "edit-project" ? "Editar proyecto" : "Nuevo proyecto" }];
     }
     if (view === "project-detail" && selectedProjectId) {
       return [{ label: "Proyectos" }, { label: selectedProjectId }];
@@ -132,7 +138,7 @@ export function AppShell() {
           {view === "dashboard" && (
             <DashboardView
               onProjectSelect={selectProject}
-              onGenerateReport={() => setShowPDF(true)}
+              onOpenReports={() => navigate("informes")}
             />
           )}
           {view === "mi-tablero" && <MiTableroView onNavigate={navigate} />}
@@ -140,29 +146,34 @@ export function AppShell() {
           {view === "projects" && (
             <ProjectsListView
               onSelectProject={selectProject}
-              onCreateProject={() => setView("create-project")}
+              onEditProject={editProject}
+              onDocumentsProject={(id) => selectProject(id, "documentos")}
+              onCreateProject={() => { setSelectedProjectId(null); setView("create-project"); }}
             />
           )}
-          {view === "create-project" && (
+          {(view === "create-project" || (view === "edit-project" && selectedProjectId)) && (
             <CreateProjectView
+              key={view === "edit-project" ? selectedProjectId : "nuevo"}
+              proyectoId={view === "edit-project" ? selectedProjectId ?? undefined : undefined}
               onBack={() => setView("projects")}
               onSave={(id) => {
-                setSelectedProjectId(id);
-                setView("project-detail");
-                showToast("Proyecto creado correctamente.");
+                selectProject(id);
+                showToast(view === "edit-project" ? "Proyecto actualizado correctamente." : "Proyecto creado correctamente.");
               }}
             />
           )}
           {view === "project-detail" && selectedProjectId && (
             <ProjectDetailView
+              key={`${selectedProjectId}-${projectTab}`}
               projectId={selectedProjectId}
+              initialTab={projectTab}
               onBack={() => setView("projects")}
-              onGenerateReport={() => setShowPDF(true)}
+              onEdit={() => editProject(selectedProjectId)}
               onShowToast={showToast}
             />
           )}
           {view === "antecedentes" && <AntecedentesView />}
-          {view === "informes" && <InformesView onGenerate={() => setShowPDF(true)} />}
+          {view === "informes" && <InformesView />}
           {view === "documentos" && <DocumentosView />}
           {view === "seguimiento" && <SeguimientoView onSelectProject={selectProject} />}
           {view === "calendario" && <CalendarView />}
@@ -172,12 +183,6 @@ export function AppShell() {
         </main>
       </div>
 
-      {showPDF && (
-        <PDFModal
-          onClose={() => setShowPDF(false)}
-          onGenerate={() => showToast("Informe generado correctamente.")}
-        />
-      )}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );

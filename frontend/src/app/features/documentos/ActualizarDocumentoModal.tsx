@@ -4,7 +4,7 @@ import { RefreshCw, X } from "lucide-react";
 import { api, ApiError } from "../../api/client";
 import type { Document, DocStatus } from "../../types";
 
-const TIPOS = ["Ficha técnica", "Actas", "Informes", "Antecedentes", "Evidencias", "Otros"];
+const TIPOS = ["Actas", "Informes", "Antecedentes", "Evidencias", "Documentación técnica", "Comunicaciones", "Otros"];
 const ESTADOS: DocStatus[] = ["En revisión", "Aprobado", "Borrador", "Rechazado"];
 const ACEPTADOS = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt";
 
@@ -24,6 +24,9 @@ export function ActualizarDocumentoModal({
   const [carpetas, setCarpetas] = useState<string[]>([]);
   const [carpeta, setCarpeta] = useState("");
   const [nombre, setNombre] = useState("");
+  const [fechaDocumento, setFechaDocumento] = useState("");
+  const [numeroDocumento, setNumeroDocumento] = useState("");
+  const [cargaDocumento, setCargaDocumento] = useState<"cargando" | "listo" | "error">("cargando");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +37,9 @@ export function ActualizarDocumentoModal({
     setEstado(documento.status);
     setCarpeta(documento.folder ?? "");
     setNombre(documento.name);
+    setFechaDocumento("");
+    setNumeroDocumento("");
+    setCargaDocumento("cargando");
     setArchivo(null);
     setError(null);
   }, [abierto, documento]);
@@ -45,16 +51,32 @@ export function ActualizarDocumentoModal({
     }
 
     let vigente = true;
+    setCarpetas([]);
     api
       .proyecto(documento.projectId)
-      .then(({ proyecto }) =>
-        proyecto.estructura ? api.estructura(proyecto.estructura) : null,
-      )
-      .then((respuesta) => {
-        if (vigente) setCarpetas(respuesta?.estructura.carpetas ?? []);
+      .then(({ proyecto, documentos }) => {
+        if (!vigente) return;
+        const actual = documentos.find((d) => d.id === documento.id);
+        if (!actual) throw new Error("No se encontró el documento.");
+
+        setFechaDocumento(actual.fechaDocumento?.slice(0, 10) ?? "");
+        setNumeroDocumento(actual.numeroDocumento ?? "");
+        setCargaDocumento("listo");
+
+        if (!proyecto.estructura) return;
+        return api
+          .estructura(proyecto.estructura)
+          .then((respuesta) => {
+            if (vigente) setCarpetas(respuesta.estructura.carpetas);
+          })
+          .catch(() => {
+            if (vigente) setCarpetas([]);
+          });
       })
-      .catch(() => {
-        if (vigente) setCarpetas([]);
+      .catch((e) => {
+        if (!vigente) return;
+        setCargaDocumento("error");
+        setError(e instanceof ApiError ? e.message : "No se pudieron cargar los datos del documento. Cierra y vuelve a abrir para reintentar.");
       });
 
     return () => {
@@ -66,6 +88,7 @@ export function ActualizarDocumentoModal({
 
   const enviar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (enviando || cargaDocumento !== "listo") return;
     setEnviando(true);
     setError(null);
 
@@ -77,6 +100,8 @@ export function ActualizarDocumentoModal({
           tipo,
           carpeta: carpetas.length > 0 ? carpeta || null : undefined,
           estado,
+          fechaDocumento: fechaDocumento || null,
+          numeroDocumento: numeroDocumento.trim() || null,
         },
         archivo ?? undefined,
       );
@@ -91,7 +116,7 @@ export function ActualizarDocumentoModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-gray-900">Actualizar documento</h2>
@@ -166,6 +191,24 @@ export function ActualizarDocumentoModal({
             />
           </div>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="edit-fecha-documento" className="text-xs font-semibold text-slate-700">Fecha del documento</label>
+              <input id="edit-fecha-documento" type="date" value={fechaDocumento}
+                disabled={enviando || cargaDocumento !== "listo"}
+                onChange={(e) => setFechaDocumento(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
+              <p className="text-[11px] text-slate-400">Fecha interna; no modifica la fecha de subida ({documento.date}).</p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="edit-numero-documento" className="text-xs font-semibold text-slate-700">Número acta/documento</label>
+              <input id="edit-numero-documento" type="text" maxLength={80} value={numeroDocumento}
+                disabled={enviando || cargaDocumento !== "listo"}
+                onChange={(e) => setNumeroDocumento(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label htmlFor="edit-archivo" className="text-xs font-semibold text-slate-700">
               Nuevo archivo <span className="font-normal text-slate-400">(opcional)</span>
@@ -200,11 +243,11 @@ export function ActualizarDocumentoModal({
             </button>
             <button
               type="submit"
-              disabled={enviando}
+              disabled={enviando || cargaDocumento !== "listo"}
               className="inline-flex items-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw className="h-4 w-4" />
-              {enviando ? "Actualizando…" : "Guardar cambios"}
+              {cargaDocumento === "cargando" ? "Cargando…" : enviando ? "Actualizando…" : "Guardar cambios"}
             </button>
           </div>
         </form>

@@ -32,14 +32,17 @@ import type { Indicator, Project } from "../../types";
 const COLOR_ESTADO: Record<string, string> = {
   "En formulación": "#F59E0B",
   "En ejecución": "#EA580C",
+  "En ejecución, prorrogado en tiempo": "#D97706",
+  "En ejecución, adición presupuestal": "#2563EB",
+  "En ejecución, modificado": "#7C3AED",
   Suspendido: "#64748B",
   Finalizado: "#10B981",
   Cerrado: "#9CA3AF",
 };
 
-export function DashboardView({ onProjectSelect, onGenerateReport }: {
+export function DashboardView({ onProjectSelect, onOpenReports }: {
   onProjectSelect: (id: string) => void;
-  onGenerateReport: () => void;
+  onOpenReports: () => void;
 }) {
   const [activeSeg, setActiveSeg] = useState<string | null>(null);
   const [datos, setDatos] = useState<DashboardApi | null>(null);
@@ -88,11 +91,8 @@ export function DashboardView({ onProjectSelect, onGenerateReport }: {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={onGenerateReport} className="inline-flex items-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]">
-            <FileText className="h-4 w-4" />Generar informe
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-            <Download className="h-4 w-4" />Descargar PDF
+          <button onClick={onOpenReports} className="inline-flex items-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]">
+            <FileText className="h-4 w-4" />Ir a informes
           </button>
         </div>
       </div>

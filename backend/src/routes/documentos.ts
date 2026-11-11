@@ -21,11 +21,12 @@ import {
 } from "../lib/almacen.js";
 import { carpetaSubidas } from "../lib/carpetas.js";
 import {
+  carpetaConstruccionActual,
   estructuraPorId,
   normalizarCarpeta,
   type Estructura,
 } from "../lib/estructura.js";
-import { CAMPOS_DOCUMENTO } from "./proyectos.js";
+import { CAMPOS_DOCUMENTO, ORDEN_DOCUMENTOS } from "./proyectos.js";
 
 const CARPETA = carpetaSubidas();
 
@@ -34,8 +35,9 @@ const EXTENSIONES = new Set([
   ".png", ".jpg", ".jpeg", ".txt",
 ]);
 
-const TIPOS = ["Ficha técnica", "Actas", "Informes", "Antecedentes", "Evidencias", "Otros"];
-const ESTADOS = ["Aprobado", "En revisión", "Borrador", "Rechazado"];
+const TIPOS = ["Actas", "Informes", "Antecedentes", "Evidencias", "Documentación técnica", "Comunicaciones", "Otros"];
+type EstadoDocumento = "Aprobado" | "En revisión" | "Borrador" | "Rechazado";
+const ESTADOS: EstadoDocumento[] = ["Aprobado", "En revisión", "Borrador", "Rechazado"];
 const MANIFIESTO = "_sei-documentos.json";
 const LIMITE_PAQUETE = 100 * 1024 * 1024;
 const LIMITE_ARCHIVO = 20 * 1024 * 1024;
@@ -55,17 +57,30 @@ const MIME_POR_EXTENSION: Record<string, string> = {
   ".txt": "text/plain",
 };
 
-type EntradaManifiesto = {
-  id?: string;
-  archivo: string;
-  tipo?: string;
-  carpeta?: string;
-  nombre?: string;
-  version?: string;
-  estado?: string;
-  fecha?: string;
-  usuario?: string;
-};
+const fechaDocumentoSchema = z.string().refine((valor) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor) || valor.startsWith("0000-")) return false;
+  const fecha = new Date(`${valor}T00:00:00.000Z`);
+  return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+}, "Indica una fecha real en formato YYYY-MM-DD");
+const numeroDocumentoSchema = z.string().trim().max(80).nullable()
+  .transform((valor) => valor || null);
+const fechaDocumentoActualizacionSchema = z.union([fechaDocumentoSchema, z.literal(""), z.null()])
+  .transform((valor) => valor || null);
+
+const entradaManifiestoSchema = z.object({
+  id: z.string().trim().min(1).optional(),
+  archivo: z.string().min(1),
+  tipo: z.string().trim().min(1).max(60).optional(),
+  carpeta: z.string().trim().max(300).nullable().optional(),
+  nombre: z.string().trim().max(200).optional(),
+  version: z.string().trim().max(20).optional(),
+  estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional(),
+  fecha: fechaDocumentoSchema.nullable().optional(),
+  fechaDocumento: fechaDocumentoSchema.nullable().optional(),
+  numeroDocumento: numeroDocumentoSchema.optional(),
+  usuario: z.string().optional(),
+});
+type EntradaManifiesto = z.infer<typeof entradaManifiestoSchema>;
 
 type DocumentoExistente = {
   id: string;
@@ -74,6 +89,8 @@ type DocumentoExistente = {
   carpeta: string | null;
   version: string;
   estado: string;
+  fechaDocumento: string | null;
+  numeroDocumento: string | null;
   archivoNombre: string | null;
   ruta: string | null;
 };
@@ -106,24 +123,63 @@ function rutaUnica(base: string, usadas: Set<string>): string {
   return ruta;
 }
 
-function tipoDeRuta(ruta: string, proyectoId: string, respaldo: string): string {
-  const partes = ruta.split("/");
-  const sinRaiz =
-    partes[0]?.toLowerCase() === proyectoId.toLowerCase() ? partes.slice(1) : partes;
-  return sinRaiz.find((parte) => TIPOS.includes(parte)) ?? respaldo;
+// El ZIP exportado lleva una carpeta raíz con el código del proyecto de origen.
+// Al importar en otro proyecto esa raíz no coincide, así que también se descarta
+// cualquier primer nivel que no pertenezca a la plantilla del proyecto destino.
+function sinRaizDePaquete(
+  partes: string[],
+  proyectoId: string,
+  estructura: Estructura | null,
+): string[] {
+  const primera = partes[0]?.toLowerCase();
+  if (!primera) return partes;
+  if (primera === proyectoId.toLowerCase() || primera === estructura?.raiz.toLowerCase()) {
+    return partes.slice(1);
+  }
+  const esNivelDePlantilla = estructura?.carpetas.some(
+    (ruta) => ruta.split("/")[0].toLowerCase() === primera,
+  );
+  return partes.length > 1 && estructura && !esNivelDePlantilla ? partes.slice(1) : partes;
+}
+
+function tipoDeRuta(
+  ruta: string,
+  proyectoId: string,
+  estructura: Estructura | null,
+  respaldo: string,
+): string {
+  const partes = sinRaizDePaquete(ruta.split("/"), proyectoId, estructura);
+  return partes.find((parte) => TIPOS.includes(parte)) ?? respaldo;
 }
 
 function carpetaDeCarga(valor: unknown, estructura: Estructura | null): string | null {
-  const carpeta = normalizarCarpeta(valor);
-  if (!carpeta) return null;
+  if (valor == null || valor === "") return null;
+  if (typeof valor !== "string") throw new HttpError(400, "La carpeta no es válida.");
+  const ruta = valor.trim().replaceAll("\\", "/");
+  if (!ruta) return null;
+  const carpeta = normalizarCarpeta(ruta);
+  // No convertir traversal, segmentos inválidos o rutas truncadas en carpetas válidas.
+  if (!carpeta || carpeta !== ruta) throw new HttpError(400, `Carpeta no válida: ${ruta}`);
   if (!estructura) {
     throw new HttpError(400, "El proyecto no tiene una estructura documental definida.");
   }
-  const valida = estructura.carpetas.some(
-    (ruta) => ruta.toLowerCase() === carpeta.toLowerCase(),
+  const actual = estructura.id === "construccion" ? carpetaConstruccionActual(carpeta) : carpeta;
+  const valida = estructura.carpetas.find(
+    (rutaPermitida) => rutaPermitida.toLowerCase() === actual.toLowerCase(),
   );
-  if (!valida) throw new HttpError(400, "La carpeta no pertenece a la estructura del proyecto.");
-  return carpeta;
+  if (!valida) {
+    throw new HttpError(400, `La carpeta no pertenece a la estructura del proyecto: ${actual}`);
+  }
+  return valida;
+}
+
+function rutaSeguraZip(valor: string): string {
+  const ruta = normalizarRuta(valor);
+  if (/[\u0000-\u001f<>:"|?*]/.test(ruta) ||
+      ruta.split("/").some((parte) => !parte || parte === "." || parte === "..")) {
+    throw new HttpError(400, `Ruta no válida en el ZIP: ${valor}`);
+  }
+  return ruta;
 }
 
 function carpetaDeEntrada(
@@ -132,26 +188,20 @@ function carpetaDeEntrada(
   estructura: Estructura | null,
   manifiesto?: EntradaManifiesto,
 ): string | null {
-  const desdeManifiesto = normalizarCarpeta(manifiesto?.carpeta);
-  if (desdeManifiesto) return desdeManifiesto;
-
-  const partes = ruta.split("/");
-  if (partes.length < 2) return null;
-
-  const primera = partes[0].toLowerCase();
-  if (primera === proyectoId.toLowerCase()) partes.shift();
-  else if (estructura && primera === estructura.raiz.toLowerCase()) partes.shift();
+  const partes = sinRaizDePaquete(ruta.split("/"), proyectoId, estructura);
   partes.pop();
 
-  return normalizarCarpeta(partes.join("/"));
+  // El manifiesto manda sobre la ruta física, pero su carpeta también se valida
+  // contra la plantilla: nunca puede introducir una ruta fuera de la estructura.
+  if (manifiesto?.carpeta !== undefined) return carpetaDeCarga(manifiesto.carpeta, estructura);
+  return partes.length > 0 ? carpetaDeCarga(partes.join("/"), estructura) : null;
 }
 
-function estadoValido(valor: string | undefined): string | null {
-  return valor && ESTADOS.includes(valor) ? valor : null;
+function estadoValido(valor: string | undefined): EstadoDocumento | null {
+  return valor && (ESTADOS as string[]).includes(valor) ? (valor as EstadoDocumento) : null;
 }
 
-function siguienteVersion(version: string): string {
-  const resultado = /^v?(\d+)\.(\d+)$/i.exec(version.trim());
+function siguienteVersion(version: string): string {  const resultado = /^v?(\d+)\.(\d+)$/i.exec(version.trim());
   return resultado ? `v${resultado[1]}.${Number(resultado[2]) + 1}` : version;
 }
 
@@ -224,10 +274,12 @@ const recibirPaquete: RequestHandler = (req, res, next) => {
 const documentoSchema = z.object({
   proyectoId: z.string().trim().min(1, "El proyecto es obligatorio"),
   tipo: z.string().trim().min(1, "El tipo es obligatorio").max(60),
-  carpeta: z.string().trim().max(300).optional(),
+  carpeta: z.string().trim().max(300).nullable().optional(),
   nombre: z.string().trim().max(200).optional(),
   version: z.string().trim().max(20).optional().default("v1.0"),
   estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional().default("En revisión"),
+  fechaDocumento: fechaDocumentoSchema,
+  numeroDocumento: numeroDocumentoSchema.optional(),
 });
 
 const documentoActualizacionSchema = z.object({
@@ -236,6 +288,8 @@ const documentoActualizacionSchema = z.object({
   nombre: z.string().trim().max(200).optional(),
   version: z.string().trim().max(20).optional(),
   estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional(),
+  fechaDocumento: fechaDocumentoActualizacionSchema.optional(),
+  numeroDocumento: numeroDocumentoSchema.optional(),
 });
 
 export const documentos = Router();
@@ -259,7 +313,7 @@ documentos.get(
 
     const donde = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
     const { rows } = await pool.query(
-      `SELECT ${CAMPOS_DOCUMENTO} FROM documentos ${donde} ORDER BY fecha DESC, id`,
+      `SELECT ${CAMPOS_DOCUMENTO} FROM documentos ${donde} ORDER BY ${ORDEN_DOCUMENTOS}`,
       valores,
     );
 
@@ -275,6 +329,7 @@ documentos.post(
     const archivo = req.file;
     if (!directo && !archivo) throw new HttpError(400, "Adjunta un archivo");
     let clave: string | null = null;
+    let confirmado = false;
 
     try {
       const datos = documentoSchema.parse(req.body);
@@ -297,8 +352,9 @@ documentos.post(
       const { rows } = await pool.query(
         `INSERT INTO documentos
            (id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id,
-            archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano)
-         VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'America/Bogota')::date, $6, $7, $8, $9, $10, $11, $12)
+            archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano, fecha_documento, numero_documento)
+         VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'America/Bogota')::date,
+                 $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING ${CAMPOS_DOCUMENTO}`,
         [
           crypto.randomUUID(),
@@ -313,8 +369,12 @@ documentos.post(
           clave,
           meta?.mime ?? archivo?.mimetype ?? null,
           info?.tamano ?? archivo?.size ?? 0,
+          datos.fechaDocumento,
+          datos.numeroDocumento ?? null,
         ],
       );
+      // La auditoría no debe provocar la eliminación de un archivo ya referenciado.
+      confirmado = true;
 
       await registrarAuditoria({
         usuario: usuario.nombre,
@@ -326,8 +386,10 @@ documentos.post(
 
       res.status(201).json({ documento: rows[0] });
     } catch (e) {
-      if (clave) await eliminarArchivo(clave, CARPETA);
-      if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
+      if (!confirmado) {
+        if (clave) await eliminarArchivo(clave, CARPETA);
+        if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
+      }
       throw e;
     }
   }),
@@ -340,6 +402,8 @@ documentos.patch(
     const directo = Boolean(req.is("application/json"));
     const archivo = req.file;
     let claveNueva: string | null = null;
+    let claveAnterior: string | null = null;
+    let confirmado = false;
 
     try {
       const datos = documentoActualizacionSchema.parse(req.body);
@@ -356,6 +420,7 @@ documentos.patch(
       );
       const actual = actualRows[0];
       if (!actual) throw new HttpError(404, "Documento no encontrado");
+      claveAnterior = actual.ruta;
 
       const tieneCarpeta = Object.prototype.hasOwnProperty.call(req.body, "carpeta");
       let carpeta: string | null = null;
@@ -403,12 +468,13 @@ documentos.patch(
                 carpeta = CASE WHEN $4 THEN $5 ELSE carpeta END,
                 estado = COALESCE($6, estado),
                 version = $7,
-                fecha = (now() AT TIME ZONE 'America/Bogota')::date,
                 usuario = $8,
                 archivo_nombre = COALESCE($9, archivo_nombre),
                 archivo_ruta = COALESCE($10, archivo_ruta),
                 archivo_mime = COALESCE($11, archivo_mime),
-                archivo_tamano = COALESCE($12, archivo_tamano)
+                archivo_tamano = COALESCE($12, archivo_tamano),
+                fecha_documento = CASE WHEN $14 THEN $15::date ELSE fecha_documento END,
+                numero_documento = CASE WHEN $16 THEN $17::text ELSE numero_documento END
           WHERE id = $1 AND proyecto_id = $13
           RETURNING ${CAMPOS_DOCUMENTO}`,
         [
@@ -425,12 +491,17 @@ documentos.patch(
           mime,
           tamano,
           actual.proyectoId,
+          datos.fechaDocumento !== undefined,
+          datos.fechaDocumento ?? null,
+          datos.numeroDocumento !== undefined,
+          datos.numeroDocumento ?? null,
         ],
       );
 
       const actualizado = rows[0];
       if (claveNueva && actual.ruta) await eliminarArchivo(actual.ruta, CARPETA);
       claveNueva = null;
+      confirmado = true;
 
       await registrarAuditoria({
         usuario: usuario.nombre,
@@ -444,7 +515,7 @@ documentos.patch(
 
       res.json({ documento: actualizado });
     } catch (e) {
-      if (claveNueva) await eliminarArchivo(claveNueva, CARPETA);
+      if (!confirmado && claveNueva) await eliminarArchivo(claveNueva, CARPETA);
       if (archivo) await fs.promises.unlink(archivo.path).catch(() => undefined);
       throw e;
     }
@@ -472,14 +543,17 @@ documentos.get(
       carpeta: string | null;
       version: string;
       fecha: string;
+      fechaDocumento: string | null;
+      numeroDocumento: string | null;
       usuario: string;
       estado: string;
       archivoNombre: string | null;
       ruta: string | null;
     }>(
-      `SELECT id, nombre, tipo, carpeta, version, to_char(fecha, 'YYYY-MM-DD') AS fecha, usuario, estado,
-              archivo_nombre AS "archivoNombre", archivo_ruta AS ruta
-         FROM documentos WHERE proyecto_id = $1 ORDER BY tipo, nombre, id`,
+      `SELECT id, nombre, tipo, carpeta, version, to_char(fecha, 'YYYY-MM-DD') AS fecha,
+              fecha_documento AS "fechaDocumento", numero_documento AS "numeroDocumento",
+              usuario, estado, archivo_nombre AS "archivoNombre", archivo_ruta AS ruta
+         FROM documentos WHERE proyecto_id = $1 ORDER BY ${ORDEN_DOCUMENTOS}`,
       [proyectoId],
     );
 
@@ -515,8 +589,10 @@ documentos.get(
         carpeta,
         nombre: documento.nombre,
         version: documento.version,
-        estado: documento.estado,
+        estado: estadoValido(documento.estado) ?? undefined,
         fecha: documento.fecha,
+        fechaDocumento: documento.fechaDocumento,
+        numeroDocumento: documento.numeroDocumento,
         usuario: documento.usuario,
       });
     }
@@ -614,10 +690,10 @@ documentos.post(
             documentos?: unknown;
           };
           if (Array.isArray(datos.documentos)) {
-            manifiesto = datos.documentos.filter(
-              (fila): fila is EntradaManifiesto =>
-                Boolean(fila) && typeof (fila as EntradaManifiesto).archivo === "string",
-            );
+            manifiesto = datos.documentos.flatMap((fila) => {
+              const revisada = entradaManifiestoSchema.safeParse(fila);
+              return revisada.success ? [revisada.data] : [];
+            });
           }
         } catch {
           manifiesto = [];
@@ -634,6 +710,7 @@ documentos.post(
 
       const { rows: existentes } = await pool.query<DocumentoExistente>(
         `SELECT id, nombre, tipo, carpeta, version, estado,
+                fecha_documento AS "fechaDocumento", numero_documento AS "numeroDocumento",
                 archivo_nombre AS "archivoNombre", archivo_ruta AS ruta
            FROM documentos WHERE proyecto_id = $1`,
         [proyectoId],
@@ -655,6 +732,7 @@ documentos.post(
         carpeta: string | null;
         entrada?: EntradaManifiesto;
         existente?: DocumentoExistente;
+        reutilizaArchivo?: boolean;
       };
 
       const preparados: Preparado[] = [];
@@ -664,7 +742,7 @@ documentos.post(
       let total = 0;
 
       for (const entrada of entradas) {
-        const ruta = normalizarRuta(entrada.name);
+        const ruta = rutaSeguraZip(entrada.name);
         if (ruta.toLowerCase() === MANIFIESTO.toLowerCase()) continue;
         if (path.posix.basename(ruta).toLowerCase() === MANIFIESTO.toLowerCase()) continue;
         if (ruta.startsWith("__MACOSX/")) continue;
@@ -696,10 +774,19 @@ documentos.post(
         if (existente && idsUsados.has(existente.id)) existente = undefined;
         if (existente) idsUsados.add(existente.id);
 
+        const tipo =
+          (fila?.tipo && TIPOS.includes(fila.tipo) ? fila.tipo : null) ??
+          tipoDeRuta(ruta, proyectoId, estructura, existente?.tipo ?? "Otros");
+
         if (existente?.ruta) {
           try {
             const anterior = await leerArchivo(existente.ruta, CARPETA);
             if (anterior.equals(contenido)) {
+              // El archivo no cambió, pero el manifiesto aún puede corregir sus metadatos.
+              preparados.push({
+                archivo, clave: existente.ruta, mime: null, tamano: contenido.byteLength,
+                tipo, carpeta, entrada: fila, existente, reutilizaArchivo: true,
+              });
               sinCambios += 1;
               continue;
             }
@@ -707,10 +794,6 @@ documentos.post(
             // Si el archivo anterior no se puede leer, se reemplaza.
           }
         }
-
-        const tipo =
-          (fila?.tipo && TIPOS.includes(fila.tipo) ? fila.tipo : null) ??
-          tipoDeRuta(ruta, proyectoId, existente?.tipo ?? "Otros");
 
         const mime = MIME_POR_EXTENSION[extension] ?? null;
         const clave = await guardarBuffer(contenido, archivo, mime, "documentos", CARPETA);
@@ -741,18 +824,22 @@ documentos.post(
 
           if (preparado.existente) {
             const versionManifiesto = preparado.entrada?.version?.trim();
-            const version =
-              versionManifiesto && versionMayor(versionManifiesto, preparado.existente.version)
-                ? versionManifiesto
+            const version = versionManifiesto && versionMayor(versionManifiesto, preparado.existente.version)
+              ? versionManifiesto
+              : preparado.reutilizaArchivo
+                ? preparado.existente.version
                 : siguienteVersion(preparado.existente.version);
             const estado = estadoValido(preparado.entrada?.estado) ?? preparado.existente.estado;
 
             await cliente.query(
               `UPDATE documentos
                   SET tipo = $2, carpeta = COALESCE($3, carpeta), version = $4, estado = $5,
-                      fecha = (now() AT TIME ZONE 'America/Bogota')::date,
-                      usuario = $6, archivo_nombre = $7, archivo_ruta = $8,
-                      archivo_mime = $9, archivo_tamano = $10
+                      fecha = CASE WHEN $12 THEN (now() AT TIME ZONE 'America/Bogota')::date ELSE fecha END,
+                      usuario = $6, archivo_nombre = COALESCE($7, archivo_nombre),
+                      archivo_ruta = COALESCE($8, archivo_ruta), archivo_mime = COALESCE($9, archivo_mime),
+                      archivo_tamano = COALESCE($10, archivo_tamano),
+                      fecha_documento = COALESCE($13::date, fecha_documento),
+                      numero_documento = COALESCE($14::text, numero_documento)
                 WHERE id = $1 AND proyecto_id = $11`,
               [
                 preparado.existente.id,
@@ -761,15 +848,20 @@ documentos.post(
                 version,
                 estado,
                 usuario.nombre,
-                archivoNombre,
-                preparado.clave,
-                preparado.mime,
-                preparado.tamano,
+                preparado.reutilizaArchivo ? null : archivoNombre,
+                preparado.reutilizaArchivo ? null : preparado.clave,
+                preparado.reutilizaArchivo ? null : preparado.mime,
+                preparado.reutilizaArchivo ? null : preparado.tamano,
                 proyectoId,
+                !preparado.reutilizaArchivo,
+                preparado.entrada?.fechaDocumento ?? null,
+                preparado.entrada?.numeroDocumento ?? null,
               ],
             );
 
-            if (preparado.existente.ruta) clavesAnteriores.push(preparado.existente.ruta);
+            if (!preparado.reutilizaArchivo && preparado.existente.ruta) {
+              clavesAnteriores.push(preparado.existente.ruta);
+            }
             actualizados += 1;
             continue;
           }
@@ -777,9 +869,10 @@ documentos.post(
           await cliente.query(
             `INSERT INTO documentos
                (id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id,
-                archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano)
+                archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano,
+                fecha_documento, numero_documento)
              VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'America/Bogota')::date,
-                $6, $7, $8, $9, $10, $11, $12)`,
+                $6, $7, $8, $9, $10, $11, $12, $13::date, $14::text)`,
             [
               crypto.randomUUID(),
               preparado.entrada?.nombre?.trim() || path.parse(preparado.archivo).name,
@@ -793,6 +886,8 @@ documentos.post(
               preparado.clave,
               preparado.mime,
               preparado.tamano,
+              preparado.entrada?.fechaDocumento ?? null,
+              preparado.entrada?.numeroDocumento ?? null,
             ],
           );
           creados += 1;

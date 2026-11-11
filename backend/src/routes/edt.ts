@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
-import { pool, withTx } from "../db.js";
+import { pool, withTx, type Db } from "../db.js";
 import { ah, HttpError } from "../http.js";
 
 export const ESTADOS_EDT = ["Completado", "En ejecución", "No realizado"] as const;
@@ -263,17 +263,69 @@ edt.delete(
   }),
 );
 
-type ItemPlantilla = {
+type HijoPlantilla = {
   nombre: string;
   responsable: string | null;
   fecha: string | null;
   estado: (typeof ESTADOS_EDT)[number];
-  hijos: Array<Omit<ItemPlantilla, "hijos">>;
 };
 
-// Actividades diligenciadas en SAC-PI031 v1.0 (etapa constructiva).
+type ItemPlantilla = HijoPlantilla & {
+  etapa: 1 | 2 | 3;
+  hijos: HijoPlantilla[];
+};
+
+// Etapa 2 transcrita del SAC-PI031 v1.0; las etapas 1 y 3 son la base editable
+// propuesta para interventoría y consultoría, sin responsables ni fechas asignadas.
 const PLANTILLA: ItemPlantilla[] = [
   {
+    etapa: 1,
+    nombre: "Revisión de información básica, estudios y diseños",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [
+      {
+        nombre: "Consolidar observaciones y solicitudes de ajuste",
+        responsable: null,
+        fecha: null,
+        estado: "No realizado",
+      },
+    ],
+  },
+  {
+    etapa: 1,
+    nombre: "Acta de inicio y socialización del contrato",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [],
+  },
+  {
+    etapa: 1,
+    nombre: "Planificación de la interventoría",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [
+      {
+        nombre: "Cronograma detallado y matriz de riesgos",
+        responsable: null,
+        fecha: null,
+        estado: "No realizado",
+      },
+    ],
+  },
+  {
+    etapa: 1,
+    nombre: "Informe preconstructivo inicial",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [],
+  },
+  {
+    etapa: 2,
     nombre: "Informe mensual preconstructivo",
     responsable: "Carlos Montenegro",
     fecha: "2026-10-31",
@@ -288,6 +340,7 @@ const PLANTILLA: ItemPlantilla[] = [
     ],
   },
   {
+    etapa: 2,
     nombre: "Informe mensual constructivo 2",
     responsable: "Carlos Montenegro",
     fecha: "2026-11-04",
@@ -295,6 +348,7 @@ const PLANTILLA: ItemPlantilla[] = [
     hijos: [],
   },
   {
+    etapa: 2,
     nombre: "Informes semanales",
     responsable: null,
     fecha: null,
@@ -309,6 +363,7 @@ const PLANTILLA: ItemPlantilla[] = [
     ],
   },
   {
+    etapa: 2,
     nombre: "Actas de reunión",
     responsable: "Carlos Montenegro",
     fecha: null,
@@ -318,7 +373,127 @@ const PLANTILLA: ItemPlantilla[] = [
       { nombre: "Acta 16", responsable: null, fecha: "2026-11-03", estado: "No realizado" },
     ],
   },
+  {
+    etapa: 3,
+    nombre: "Informe final de interventoría",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [],
+  },
+  {
+    etapa: 3,
+    nombre: "Acta de liquidación y recibo a satisfacción",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [],
+  },
+  {
+    etapa: 3,
+    nombre: "Cierre documental y financiero",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [
+      {
+        nombre: "Entrega del expediente documental",
+        responsable: null,
+        fecha: null,
+        estado: "No realizado",
+      },
+      {
+        nombre: "Paz y salvo y garantías",
+        responsable: null,
+        fecha: null,
+        estado: "No realizado",
+      },
+    ],
+  },
+  {
+    etapa: 3,
+    nombre: "Lecciones aprendidas y retroalimentación",
+    responsable: null,
+    fecha: null,
+    estado: "No realizado",
+    hijos: [],
+  },
 ];
+
+async function siguienteOrden(db: Db, proyectoId: string, etapa: number): Promise<number> {
+  const { rows } = await db.query<{ orden: number }>(
+    `SELECT COALESCE(MAX(orden), 0) + 1 AS orden
+       FROM edt_actividades
+      WHERE proyecto_id = $1 AND etapa = $2`,
+    [proyectoId, etapa],
+  );
+  return rows[0].orden;
+}
+
+async function sembrarPlantilla(db: Db, proyectoId: string): Promise<number> {
+  let creados = 0;
+
+  for (const item of PLANTILLA) {
+    const { rows: existentes } = await db.query<{ id: string }>(
+      `SELECT id FROM edt_actividades
+        WHERE proyecto_id = $1 AND etapa = $2 AND padre_id IS NULL
+          AND lower(btrim(actividad)) = lower(btrim($3))
+        LIMIT 1`,
+      [proyectoId, item.etapa, item.nombre],
+    );
+
+    let padreId = existentes[0]?.id;
+    if (!padreId) {
+      const { rows } = await db.query<{ id: string }>(
+        `INSERT INTO edt_actividades
+           (proyecto_id, etapa, actividad, responsable, fecha_cumplimiento, estado, orden)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id`,
+        [
+          proyectoId,
+          item.etapa,
+          item.nombre,
+          item.responsable,
+          item.fecha,
+          item.estado,
+          await siguienteOrden(db, proyectoId, item.etapa),
+        ],
+      );
+      padreId = rows[0].id;
+      creados += 1;
+    }
+
+    for (const hijo of item.hijos) {
+      const { rows: hijosExistentes } = await db.query<{ id: string }>(
+        `SELECT id FROM edt_actividades
+          WHERE proyecto_id = $1 AND padre_id = $2
+            AND lower(btrim(actividad)) = lower(btrim($3))
+          LIMIT 1`,
+        [proyectoId, padreId, hijo.nombre],
+      );
+      if (hijosExistentes[0]) continue;
+
+      await db.query(
+        `INSERT INTO edt_actividades
+           (proyecto_id, etapa, padre_id, actividad, responsable, fecha_cumplimiento, estado, orden)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          proyectoId,
+          item.etapa,
+          padreId,
+          hijo.nombre,
+          hijo.responsable,
+          hijo.fecha,
+          hijo.estado,
+          await siguienteOrden(db, proyectoId, item.etapa),
+        ],
+      );
+      creados += 1;
+    }
+  }
+
+  return creados;
+}
 
 edt.post(
   "/:proyectoId/plantilla",
@@ -326,59 +501,19 @@ edt.post(
     const proyecto = await proyectoDeRuta(z.string().trim().min(1).parse(req.params.proyectoId));
     const usuario = res.locals.usuario as UsuarioSesion;
 
-    await withTx(async (db) => {
-      const { rows: existentes } = await db.query(
-        "SELECT 1 FROM edt_actividades WHERE proyecto_id = $1 LIMIT 1",
-        [proyecto.id],
-      );
-      if (existentes[0]) {
-        throw new HttpError(
-          409,
-          "El checklist ya tiene actividades. Elimínalas antes de volver a cargar la plantilla.",
-        );
-      }
-
-      let orden = 0;
-
-      for (const item of PLANTILLA) {
-        orden += 1;
-        const { rows } = await db.query<{ id: string }>(
-          `INSERT INTO edt_actividades
-             (proyecto_id, etapa, actividad, responsable, fecha_cumplimiento, estado, orden)
-           VALUES ($1, 2, $2, $3, $4, $5, $6)
-           RETURNING id`,
-          [proyecto.id, item.nombre, item.responsable, item.fecha, item.estado, orden],
-        );
-        const padreId = rows[0].id;
-
-        for (const hijo of item.hijos) {
-          orden += 1;
-          await db.query(
-            `INSERT INTO edt_actividades
-               (proyecto_id, etapa, padre_id, actividad, responsable, fecha_cumplimiento, estado, orden)
-             VALUES ($1, 2, $2, $3, $4, $5, $6, $7)`,
-            [
-              proyecto.id,
-              padreId,
-              hijo.nombre,
-              hijo.responsable,
-              hijo.fecha,
-              hijo.estado,
-              orden,
-            ],
-          );
-        }
-      }
-    });
+    const creados = await withTx((db) => sembrarPlantilla(db, proyecto.id));
 
     await registrarAuditoria({
       usuario: usuario.nombre,
       accion: "Creación",
       entidad: "Actividad EDT",
       registro: proyecto.id,
-      nuevo: "Plantilla SAC-PI031 cargada",
+      nuevo: `Plantilla SAC-PI031 · ${creados} actividad(es) nueva(s)`,
     });
 
-    res.status(201).json({ actividades: await listar(proyecto.id) });
+    res.status(creados > 0 ? 201 : 200).json({
+      actividades: await listar(proyecto.id),
+      creados,
+    });
   }),
 );

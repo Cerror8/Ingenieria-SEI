@@ -101,11 +101,32 @@ export function EdtTab({
     [actividades],
   );
 
+  const hoy = new Date().toISOString().slice(0, 10);
   const resumen = useMemo(() => {
     const total = actividades.length;
     const completadas = actividades.filter((a) => a.estado === "Completado").length;
     return { total, completadas, pct: total ? Math.round((completadas / total) * 100) : 0 };
   }, [actividades]);
+
+  const resumenEtapa = useCallback(
+    (etapa: number) => {
+      const filas = actividades.filter((a) => a.etapa === etapa);
+      const completadas = filas.filter((a) => a.estado === "Completado").length;
+      const vencidas = filas.filter(
+        (a) =>
+          a.estado !== "Completado" &&
+          a.fechaCumplimiento !== null &&
+          a.fechaCumplimiento < hoy,
+      ).length;
+      return {
+        total: filas.length,
+        completadas,
+        vencidas,
+        pct: filas.length ? Math.round((completadas / filas.length) * 100) : 0,
+      };
+    },
+    [actividades, hoy],
+  );
 
   const cambiarEstado = async (actividad: EdtActividadApi, estado: EdtEstado) => {
     setError(null);
@@ -152,9 +173,13 @@ export function EdtTab({
     setError(null);
     setOcupado("plantilla");
     try {
-      const { actividades: filas } = await api.cargarPlantillaEdt(proyectoId);
+      const { actividades: filas, creados } = await api.cargarPlantillaEdt(proyectoId);
       setActividades(filas);
-      onShowToast("Plantilla EDT cargada con las actividades conocidas del formato.");
+      onShowToast(
+        creados > 0
+          ? `Plantilla EDT actualizada: ${creados} actividad(es) nueva(s).`
+          : "La plantilla EDT ya estaba completa.",
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar la plantilla EDT.");
     } finally {
@@ -279,9 +304,22 @@ export function EdtTab({
               Interventoría y consultoría · versión 1 · 23/06/2022 · tres etapas fijas por proyecto
             </p>
           </div>
-          <span className="flex-shrink-0 rounded-full bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-600">
-            {resumen.completadas} de {resumen.total} completadas
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex-shrink-0 rounded-full bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-600">
+              {resumen.completadas} de {resumen.total} completadas
+            </span>
+            {resumen.total > 0 && (
+              <button
+                type="button"
+                onClick={() => void cargarPlantilla()}
+                disabled={ocupado === "plantilla"}
+                title="Agrega las actividades de la plantilla que falten en las tres etapas"
+                className="flex-shrink-0 rounded-lg border border-orange-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-orange-700 transition-colors hover:bg-orange-50 disabled:cursor-wait disabled:opacity-60"
+              >
+                {ocupado === "plantilla" ? "Completando…" : "Completar plantilla"}
+              </button>
+            )}
+          </div>
         </div>
         <div className="mt-3 flex items-center gap-3">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
@@ -337,6 +375,7 @@ export function EdtTab({
 
       {ETAPAS.map((etapa) => {
         const principales = raices(etapa.numero);
+        const progreso = resumenEtapa(etapa.numero);
         return (
           <section
             key={etapa.numero}
@@ -352,14 +391,32 @@ export function EdtTab({
                   <p className="text-[11px] text-gray-400">{etapa.descripcion}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditor({ etapa: etapa.numero, actividad: null })}
-                className="flex items-center gap-1.5 self-start rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-orange-700 transition-colors hover:bg-orange-50 sm:self-auto"
-              >
-                <Plus className="h-3.5 w-3.5" /> Actividad
-              </button>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-gray-600">
+                    {progreso.completadas}/{progreso.total} completadas
+                  </p>
+                  {progreso.vencidas > 0 && (
+                    <p className="text-[10px] font-semibold text-red-500">
+                      {progreso.vencidas} vencida(s)
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditor({ etapa: etapa.numero, actividad: null })}
+                  className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-orange-700 transition-colors hover:bg-orange-50"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Actividad
+                </button>
+              </div>
             </header>
+            <div className="h-1 bg-gray-100">
+              <div
+                className="h-full bg-[#C2410C] transition-all"
+                style={{ width: `${progreso.pct}%` }}
+              />
+            </div>
 
             {principales.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-gray-400">

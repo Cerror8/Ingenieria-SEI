@@ -18,6 +18,9 @@ import { ProjectStatus, IndicatorStatus } from "./types";
 export const STATUS_CFG: Record<ProjectStatus, { bg: string; text: string; dot: string }> = {
   "En formulación": { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400" },
   "En ejecución":   { bg: "bg-orange-50",text: "text-orange-700",dot: "bg-orange-500"},
+  "En ejecución, prorrogado en tiempo": { bg: "bg-amber-50", text: "text-amber-800", dot: "bg-amber-500" },
+  "En ejecución, adición presupuestal": { bg: "bg-blue-50", text: "text-blue-800", dot: "bg-blue-500" },
+  "En ejecución, modificado": { bg: "bg-violet-50", text: "text-violet-800", dot: "bg-violet-500" },
   "Suspendido":     { bg: "bg-slate-100",text: "text-slate-600", dot: "bg-slate-400" },
   "Finalizado":     { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
   "Cerrado":        { bg: "bg-gray-100", text: "text-gray-600",  dot: "bg-gray-400"  },
@@ -38,8 +41,6 @@ export const ACT_STATUS_CFG = {
 };
 
 export const GANTT_MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-
-export const WIZARD_STEPS = ["Información general", "Ficha técnica FR-019", "Antecedentes", "Seguimiento", "Revisión"];
 
 export type NavItem = {
   id: string;
@@ -79,7 +80,6 @@ export const NAV_ENTRIES: NavEntry[] = [
 
 export const PROJ_TABS = [
   { id: "resumen",      label: "Resumen"            },
-  { id: "ficha",        label: "Ficha técnica FR-019"},
   { id: "dashboard",    label: "Dashboard"          },
   { id: "seguimiento",  label: "Seguimiento"        },
   { id: "edt",          label: "EDT"                },
@@ -89,6 +89,5 @@ export const PROJ_TABS = [
   { id: "documentos",   label: "Documentos"         },
   { id: "antecedentes", label: "Antecedentes"       },
   { id: "informes",     label: "Informes"           },
-  { id: "historial",    label: "Historial"          },
   { id: "auditoria",    label: "Auditoría"          },
 ];

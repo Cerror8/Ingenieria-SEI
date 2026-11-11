@@ -1,860 +1,317 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  LayoutDashboard, Briefcase, BookOpen, FileText, FolderOpen,
-  Activity, ChevronRight, ChevronDown, ChevronUp,
-  Plus, Search, Download, Eye, Edit2, Bell, TrendingUp, TrendingDown,
-  AlertTriangle, CheckCircle, DollarSign, ArrowLeft, X, Upload,
-  Link2, MoreHorizontal, ChevronLeft, Filter, Tag, Paperclip,
-  Clock, BarChart2, Percent, Check, Trash2, FileDown, Sliders
-} from "lucide-react";
-import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend
-} from "recharts";
-import { ProjectStatus, type UsuarioAsignable } from "../../../types";
-import { api, type EstructuraApi } from "../../../api/client";
-import { STATUS_CFG, WIZARD_STEPS } from "../../../constants";
-import { fmt } from "../../../lib/format";
-import { Bar2, Crumb } from "../../../components/shared";
-import { ProjectCreatedModal } from "../components/ProjectCreatedModal";
+import { useEffect, useRef, useState, type FormEvent, type InputHTMLAttributes } from "react";
+import { ArrowLeft, Save } from "lucide-react";
+import { api, fechaCorta, type EstructuraApi, type ProyectoApi } from "../../../api/client";
+import { useAuth } from "../../../auth/AuthProvider";
+import { CargandoModule, ErrorModule } from "../../../components/DataState";
+import { Crumb } from "../../../components/shared";
+import { STATUS_CFG } from "../../../constants";
+import type { ProjectStatus, UsuarioAsignable } from "../../../types";
 
-export function CreateProjectView({ onBack, onSave }: { onBack: () => void; onSave: (id: string) => void }) {
-  const [step, setStep] = useState(1);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [assocModal, setAssocModal] = useState<string | null>(null);
-  const [creado, setCreado] = useState<{ id: string; nombre: string; estado: string } | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+type Props = {
+  onBack: () => void;
+  onSave: (id: string) => void;
+  proyectoId?: string;
+};
+
+const FORM_INICIAL = {
+  id: "", prefijo: "OBR", consecutivo: "", nombre: "", nombreCorto: "", numeroContrato: "",
+  organizadores: "", entidadContratante: "", entidadContratista: "", fechaAsignacion: "",
+  fechaInicio: "", fechaFin: "", linea: "", dependencia: "", responsable: "", liderId: "",
+  estructura: "", objetivo: "", presupuesto: "0", estado: "En ejecución", avance: "0", ejecucionPct: "0",
+};
+type Campo = keyof typeof FORM_INICIAL;
+const PREFIJOS = ["OBR", "INT", "CON"];
+const inputCls = "w-full min-w-0 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:opacity-60 read-only:bg-gray-100";
+const labelCls = "mb-1.5 block text-xs font-semibold text-gray-700";
+
+// El cambio entre alta y edición reinicia el formulario sin reutilizar datos de otro proyecto.
+export function CreateProjectView(props: Props) {
+  return <ProjectForm key={props.proyectoId ? `editar:${props.proyectoId}` : "alta"} {...props} />;
+}
+
+function ProjectForm({ onBack, onSave, proyectoId }: Props) {
+  const { usuario } = useAuth();
+  const editando = Boolean(proyectoId);
+  const [form, setForm] = useState(FORM_INICIAL);
+  const [original, setOriginal] = useState<ProyectoApi | null>(null);
+  const [cargando, setCargando] = useState(editando);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [intentoCarga, setIntentoCarga] = useState(0);
   const [lideres, setLideres] = useState<UsuarioAsignable[]>([]);
   const [estructuras, setEstructuras] = useState<EstructuraApi[]>([]);
-
-  // Step 1
-  const [form, setForm] = useState({
-    codigo: "", nombre: "", linea: "", estructura: "", dependencia: "", responsable: "", liderId: "",
-    estado: "En formulación", fecha: "", gestionPMO: "", valorTotal: "", valorSupervision: "", objetivo: ""
-  });
-  const upd = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errorCatalogos, setErrorCatalogos] = useState<string | null>(null);
+  const [intentoCatalogos, setIntentoCatalogos] = useState(0);
+  const [guardando, setGuardando] = useState(false);
+  const guardandoRef = useRef(false);
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<Campo, string>>>({});
+  const formularioRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    api.usuariosAsignables()
-      .then(({ usuarios }) => setLideres(usuarios))
-      .catch(() => setLideres([]));
-    api.estructuras()
-      .then(({ estructuras }) => setEstructuras(estructuras))
-      .catch(() => setEstructuras([]));
-  }, []);
+    let activo = true;
+    setErrorCatalogos(null);
+    Promise.allSettled([api.usuariosAsignables(), api.estructuras()]).then(([usuarios, plantillas]) => {
+      if (!activo) return;
+      if (usuarios.status === "fulfilled") setLideres(usuarios.value.usuarios);
+      if (plantillas.status === "fulfilled") setEstructuras(plantillas.value.estructuras);
+      if (usuarios.status === "rejected" || plantillas.status === "rejected") {
+        setErrorCatalogos("No se pudieron cargar todos los líderes o estructuras. Los valores actuales se conservan.");
+      }
+    });
+    return () => { activo = false; };
+  }, [intentoCatalogos]);
 
-  // Step 2 FR-019 dynamic data
-  const [objetivos, setObjetivos] = useState([{ desc: "", orden: 1 }]);
-  const [riesgos, setRiesgos] = useState([{ riesgo: "", prob: "Media", cons: "Media", plan: "" }]);
-  const [coberturas, setCoberturas] = useState([{ pais: "Colombia", depto: "", municipio: "" }]);
-  const [poblacion, setPoblacion] = useState<{ cat: string; cant: string }[]>([]);
-  const [enfoques, setEnfoques] = useState<{ tipo: string; desc: string }[]>([]);
-  const [grupos, setGrupos] = useState<{ tipo: string; desc: string }[]>([]);
-  const [componentes, setComponentes] = useState([{ nombre: "", desc: "", resultado: "", actividades: "" }]);
-  const [indicadoresFR, setIndicadoresFR] = useState([{ actividad: "", indicador: "", meta: "", avance: "", tiempo: "", responsable: "", estado: "Pendiente" }]);
-  const [ingresos, setIngresos] = useState([{ tipo: "Recursos propios", concepto: "", valor: "" }]);
-  const [gastos, setGastos] = useState([{ cat: "", concepto: "", unidad: "", cant: "", valorUnit: "", valorTotal: "" }]);
-  const [aprobaciones, setAprobaciones] = useState([{ rol: "", nombre: "", fecha: "", estado: "Pendiente" }]);
-  const [fr019Expanded, setFr019Expanded] = useState<string[]>(["Sec 05: Objetivos específicos"]);
-  const [odsSelected, setOdsSelected] = useState<number[]>([]);
+  useEffect(() => {
+    if (!proyectoId) return;
+    let activo = true;
+    setCargando(true);
+    setErrorCarga(null);
+    api.proyecto(proyectoId).then(({ proyecto: p }) => {
+      if (!activo) return;
+      setOriginal(p);
+      setForm({
+        ...FORM_INICIAL,
+        id: p.id, nombre: p.nombre, nombreCorto: p.nombreCorto ?? "", numeroContrato: p.numeroContrato ?? "",
+        organizadores: p.organizadores ?? "", entidadContratante: p.entidadContratante ?? "",
+        entidadContratista: p.entidadContratista ?? "", fechaAsignacion: p.fechaAsignacion?.slice(0, 10) ?? "",
+        fechaInicio: p.fechaInicio?.slice(0, 10) ?? "", fechaFin: p.fechaFin?.slice(0, 10) ?? "",
+        linea: p.linea ?? "", dependencia: p.dependencia ?? "", responsable: p.responsable ?? "",
+        liderId: p.liderId ?? "", estructura: p.estructura ?? "", objetivo: p.objetivo ?? "",
+        presupuesto: String(p.presupuesto ?? 0), estado: p.estado,
+        avance: String(p.avance ?? 0), ejecucionPct: String(p.ejecucionPct ?? 0),
+      });
+    }).catch((e: unknown) => {
+      if (activo) setErrorCarga(e instanceof Error ? e.message : "No se pudo cargar el proyecto.");
+    }).finally(() => { if (activo) setCargando(false); });
+    return () => { activo = false; };
+  }, [proyectoId, intentoCarga]);
 
-  const toggleFR = (s: string) => setFr019Expanded(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
-  const toggleODS = (n: number) => setOdsSelected(p => p.includes(n) ? p.filter(x => x !== n) : [...p, n]);
+  const upd = (campo: Campo, valor: string) => {
+    setForm(f => ({ ...f, [campo]: valor }));
+    setErrors(e => ({ ...e, [campo]: undefined, ...(campo === "fechaInicio" ? { fechaFin: undefined } : {}) }));
+    setErrorGuardado(null);
+  };
 
-  // Step 4 Seguimiento
-  const [avanceTecnico, setAvanceTecnico] = useState(0);
-  const [avanceDesc, setAvanceDesc] = useState("");
+  // Los proyectos antiguos pueden conservar campos contractuales aún no registrados.
+  const contractualObligatorio = (campo: "nombreCorto" | "numeroContrato" | "entidadContratante" | "entidadContratista" | "fechaAsignacion" | "fechaInicio" | "fechaFin") =>
+    !editando || Boolean(original?.[campo]);
 
-  // Step 5 checklist
-  const checklistItems = [
-    { label: "Información general", status: form.nombre && form.codigo ? "ok" : "warn" as "ok" | "warn" | "err" },
-    { label: "Ficha FR-019", status: "warn" as const },
-    { label: "Antecedentes", status: "warn" as const },
-    { label: "Presupuesto", status: ingresos.some(i => i.concepto.trim() && i.valor.trim()) ? "ok" : "warn" as "ok" | "warn" | "err" },
-    { label: "Actividades", status: "warn" as const },
-    { label: "Gantt", status: "warn" as const },
-    { label: "Indicadores", status: indicadoresFR.some(i => i.indicador.trim() || i.actividad.trim()) ? "ok" : "warn" as "ok" | "warn" | "err" },
-  ];
-
-  const validateStep1 = () => {
-    const e: Record<string, string> = {};
-    if (!form.codigo) e.codigo = "El código es obligatorio";
-    if (!form.nombre) e.nombre = "El nombre es obligatorio";
-    if (!form.linea) e.linea = "La línea de investigación es obligatoria";
-    if (!form.estado) e.estado = "El estado es obligatorio";
+  const handleSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (guardandoRef.current || cargando || (editando && !original)) return;
+    if (!usuario) {
+      setErrorGuardado("Debe iniciar sesión para guardar el proyecto.");
+      return;
+    }
+    const e: Partial<Record<Campo, string>> = {};
+    const requeridos: [Campo, string][] = [
+      ["nombre", "Ingrese el nombre del proyecto."], ["linea", "Ingrese la línea / área del proyecto."],
+      ["estado", "Seleccione el estado del proyecto."],
+    ];
+    const contractuales = ["nombreCorto", "numeroContrato", "entidadContratante", "entidadContratista", "fechaAsignacion", "fechaInicio", "fechaFin"] as const;
+    contractuales.forEach(campo => {
+      if (contractualObligatorio(campo)) requeridos.push([campo, "Este campo es obligatorio."]);
+    });
+    requeridos.forEach(([campo, mensaje]) => { if (!form[campo].trim()) e[campo] = mensaje; });
+    if (!editando) {
+      if (!PREFIJOS.includes(form.prefijo)) e.prefijo = "Seleccione OBR, INT o CON.";
+      if (!/^\d+$/.test(form.consecutivo.trim())) e.consecutivo = "Ingrese el consecutivo asignado usando sólo números.";
+    }
+    for (const campo of ["fechaAsignacion", "fechaInicio", "fechaFin"] as const) {
+      const valor = form[campo];
+      if (!valor) continue;
+      const fecha = new Date(`${valor}T00:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(valor) || !Number.isFinite(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== valor) {
+        e[campo] = "Ingrese una fecha válida.";
+      }
+    }
+    if (form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {
+      e.fechaFin = "La fecha de finalización debe ser igual o posterior a la fecha de inicio.";
+    }
+    for (const campo of ["presupuesto", "avance", "ejecucionPct"] as const) {
+      const valor = Number(form[campo]);
+      if (!form[campo].trim() || !Number.isFinite(valor) || valor < 0 || (campo !== "presupuesto" && valor > 100)) {
+        e[campo] = campo === "presupuesto" ? "Ingrese un valor válido mayor o igual a cero." : "Ingrese un porcentaje entre 0 y 100.";
+      }
+    }
     setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleNext = () => {
-    if (step === 1 && !validateStep1()) return;
-    setStep(s => s + 1);
-  };
-
-  const handleSave = async () => {
-    if (!validateStep1()) {
-      setStep(1);
+    if (Object.keys(e).length) {
+      setErrorGuardado("Revise los campos señalados antes de guardar.");
+      const campo = formularioRef.current?.elements.namedItem(`proyecto-${Object.keys(e)[0]}`);
+      if (campo instanceof HTMLElement) campo.focus();
       return;
     }
 
+    guardandoRef.current = true;
     setGuardando(true);
     setErrorGuardado(null);
     try {
-      const { proyecto } = await api.crearProyecto({
-        id: form.codigo.trim().toUpperCase(),
-        nombre: form.nombre.trim(),
-        linea: form.linea,
-        estructura: form.estructura || null,
-        responsable: form.responsable.trim() || "Sin asignar",
-        liderId: form.liderId || null,
-        estado: form.estado as ProjectStatus,
-        dependencia: form.dependencia.trim() || "Sin definir",
-        objetivo: form.objetivo.trim(),
-        presupuesto: Number(form.valorTotal.replace(/\D/g, "")) || 0,
-        fechaInicio: form.fecha || undefined,
-        avance: avanceTecnico,
-      });
-      setCreado({ id: proyecto.id, nombre: proyecto.nombre, estado: proyecto.estado });
-      setShowSuccess(true);
+      const base = {
+        nombre: form.nombre.trim(), nombreCorto: form.nombreCorto.trim(), numeroContrato: form.numeroContrato.trim(),
+        organizadores: form.organizadores.trim(), entidadContratante: form.entidadContratante.trim(),
+        entidadContratista: form.entidadContratista.trim(), linea: form.linea.trim(),
+        dependencia: form.dependencia.trim(), responsable: form.responsable.trim(),
+        liderId: form.liderId || null, estructura: form.estructura || null, objetivo: form.objetivo.trim(),
+        presupuesto: Number(form.presupuesto), estado: form.estado as ProjectStatus,
+        avance: Number(form.avance), ejecucionPct: Number(form.ejecucionPct),
+      };
+      // Las fechas vacías se omiten para no invalidar proyectos antiguos al completarlos.
+      const fechas = {
+        ...(form.fechaAsignacion ? { fechaAsignacion: form.fechaAsignacion } : {}),
+        ...(form.fechaInicio ? { fechaInicio: form.fechaInicio } : {}),
+        ...(form.fechaFin ? { fechaFin: form.fechaFin } : {}),
+      };
+      const { proyecto } = proyectoId
+        ? await api.actualizarProyecto(proyectoId, { ...base, ...fechas })
+        : await api.crearProyecto({
+            ...base,
+            ...fechas,
+            id: `${form.prefijo}-${form.consecutivo.trim()}`,
+            fechaAsignacion: form.fechaAsignacion,
+          });
+      onSave(proyecto.id);
     } catch (e) {
       setErrorGuardado(e instanceof Error ? e.message : "No se pudo guardar el proyecto.");
     } finally {
+      guardandoRef.current = false;
       setGuardando(false);
     }
   };
 
-  const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-gray-50/50";
-  const labelCls = "block text-xs font-semibold text-gray-700 mb-1.5";
-
-  const fr019Sections = [
-    "Sec 05: Objetivos específicos",
-    "Sec 06: Enfoque",
-    "Sec 07: Problema",
-    "Sec 08: Justificación",
-    "Sec 09: Sostenibilidad y ODS",
-    "Sec 10: Riesgos",
-    "Sec 11: Cobertura geográfica",
-    "Sec 11: Población participante",
-    "Sec 12: Enfoques diferenciales",
-    "Sec 13: Grupos de interés",
-    "Sec 14–15: Componentes de metodología",
-    "Sec 16: Indicadores",
-    "Sec 17.1: Ingresos",
-    "Sec 17.2: Gastos",
-    "Aprobaciones",
-  ];
-
-  const antecedentes: {
-    id: string;
-    name: string;
-    line: string;
-    tipo: string;
-    year: number;
-    nivel: string;
-  }[] = [];
-
-  if (showSuccess && creado) {
-    return (
-      <ProjectCreatedModal
-        project={creado}
-        onGoToProject={() => { setShowSuccess(false); onSave(creado.id); }}
-        onGoToDashboard={() => { setShowSuccess(false); onBack(); }}
-      />
-    );
-  }
+  const atributos = (campo: Campo) => ({
+    id: `proyecto-${campo}`, name: `proyecto-${campo}`, value: form[campo],
+    "aria-invalid": Boolean(errors[campo]),
+    "aria-describedby": errors[campo] ? `error-${campo}` : undefined,
+    className: `${inputCls} ${errors[campo] ? "border-red-400" : ""}`,
+  });
+  const errorCampo = (campo: Campo) => errors[campo] && <p id={`error-${campo}`} className="mt-1 text-xs text-red-600">{errors[campo]}</p>;
+  const campo = (key: Campo, label: string, opciones: InputHTMLAttributes<HTMLInputElement> = {}) => (
+    <div>
+      <label htmlFor={`proyecto-${key}`} className={labelCls}>{label}{opciones.required ? " *" : ""}</label>
+      <input {...opciones} {...atributos(key)} onChange={e => upd(key, e.target.value)} />
+      {errorCampo(key)}
+    </div>
+  );
+  const titulo = editando ? "Editar proyecto" : "Nuevo proyecto";
 
   return (
-    <div className="max-w-4xl space-y-5">
-      {assocModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-base font-bold text-gray-900 mb-4">Asociar antecedente</h3>
-            <div className="space-y-3 mb-5">
-              <div className="flex gap-3 text-sm">
-                <span className="text-gray-400 w-24 flex-shrink-0">Proyecto:</span>
-                <span className="font-mono font-bold text-orange-700">{form.codigo || "Sin definir"}</span>
-              </div>
-              <div className="flex gap-3 text-sm">
-                <span className="text-gray-400 w-24 flex-shrink-0">Antecedente:</span>
-                <span className="font-mono font-bold text-orange-700">{assocModal}</span>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setAssocModal(null)} className="flex-1 py-2 text-sm font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
-              <button onClick={() => { setAssocModal(null); }} className="flex-1 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">Asociar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="mx-auto w-full max-w-5xl space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors">
-          <ArrowLeft className="w-4 h-4" />
+        <button type="button" onClick={onBack} disabled={guardando} title="Volver a proyectos" aria-label="Volver a proyectos" className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 disabled:opacity-60">
+          <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Nuevo proyecto</h1>
-          <Crumb items={[{ label: "Proyectos", onClick: onBack }, { label: "Nuevo proyecto" }]} />
+          <h1 className="text-xl font-bold text-gray-900">{titulo}</h1>
+          <Crumb items={[{ label: "Proyectos", onClick: guardando ? undefined : onBack }, { label: titulo }]} />
         </div>
       </div>
 
-      {/* Stepper */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
-        <div className="flex items-center">
-          {WIZARD_STEPS.map((s, i) => (
-            <div key={i} className="flex items-center flex-1 last:flex-none">
-              <button onClick={() => i + 1 < step && setStep(i + 1)} className="flex flex-col items-center gap-1 group">
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${i + 1 < step ? "bg-green-500 text-white" : i + 1 === step ? "bg-[#C2410C] text-white ring-4 ring-orange-100" : "bg-gray-100 text-gray-400"}`}>
-                  {i + 1 < step ? <Check className="w-4 h-4" /> : i + 1}
-                </span>
-                <span className={`text-[10px] font-semibold hidden sm:block whitespace-nowrap ${i + 1 === step ? "text-[#C2410C]" : i + 1 < step ? "text-green-600" : "text-gray-400"}`}>{s}</span>
-              </button>
-              {i < WIZARD_STEPS.length - 1 && (
-                <div className={`flex-1 h-px mx-2 ${i + 1 < step ? "bg-green-400" : "bg-gray-200"}`} />
-              )}
+      {cargando ? <CargandoModule mensaje="Cargando proyecto…" /> : errorCarga ? (
+        <ErrorModule mensaje={errorCarga} onRetry={() => setIntentoCarga(i => i + 1)} />
+      ) : (
+        <form ref={formularioRef} onSubmit={handleSave} noValidate className="space-y-5" aria-busy={guardando}>
+          <p className="text-sm text-gray-500">Los campos marcados con * son obligatorios. Los antecedentes se gestionan en la pestaña del detalle del proyecto.</p>
+          {editando && <p className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">Puede completar los datos contractuales faltantes de proyectos antiguos sin cambiar su código. Los campos aún no registrados son opcionales en esta edición; los datos obligatorios existentes deben conservarse.</p>}
+          {errorCatalogos && (
+            <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              {errorCatalogos} <button type="button" disabled={guardando} onClick={() => setIntentoCatalogos(i => i + 1)} className="font-semibold underline">Reintentar carga de catálogos</button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Form content */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-
-        {/* ── STEP 1: Información general ── */}
-        {step === 1 && (
-          <div>
-            <h2 className="text-base font-bold text-gray-900 mb-1">Información general</h2>
-            <p className="text-xs text-gray-400 mb-5">Complete los campos para crear el proyecto. Los campos marcados con * son obligatorios.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Código del proyecto *</label>
-                <input type="text" placeholder="PRY-2026-000" value={form.codigo} onChange={e => upd("codigo", e.target.value)} className={`${inputCls} font-mono ${errors.codigo ? "border-red-400" : ""}`} />
-                {errors.codigo && <p className="text-xs text-red-500 mt-1">{errors.codigo}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Nombre del proyecto *</label>
-                <input type="text" placeholder="Nombre completo..." value={form.nombre} onChange={e => upd("nombre", e.target.value)} className={`${inputCls} ${errors.nombre ? "border-red-400" : ""}`} />
-                {errors.nombre && <p className="text-xs text-red-500 mt-1">{errors.nombre}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Línea de investigación *</label>
-                <input type="text" placeholder="Ej. Tecnología e Innovación" value={form.linea} onChange={e => upd("linea", e.target.value)} className={`${inputCls} ${errors.linea ? "border-red-400" : ""}`} />
-                {errors.linea && <p className="text-xs text-red-500 mt-1">{errors.linea}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Estructura documental</label>
-                <select value={form.estructura} onChange={e => upd("estructura", e.target.value)} className={inputCls}>
-                  <option value="">Sin plantilla de carpetas</option>
-                  {estructuras.map(e => (
-                    <option key={e.id} value={e.id}>{e.nombre} · {e.carpetas.length} carpetas</option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-gray-400 mt-1">Define el árbol de carpetas del ZIP del proyecto.</p>
-              </div>
-              <div>
-                <label className={labelCls}>Estado *</label>
-                <select value={form.estado} onChange={e => upd("estado", e.target.value)} className={`${inputCls} ${errors.estado ? "border-red-400" : ""}`}>
-                  {(Object.keys(STATUS_CFG) as ProjectStatus[]).map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Dependencia proponente</label>
-                <input type="text" placeholder="Facultad o unidad..." value={form.dependencia} onChange={e => upd("dependencia", e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Responsable</label>
-                <input type="text" placeholder="Nombre del investigador" value={form.responsable} onChange={e => upd("responsable", e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Líder del proyecto</label>
-                <select value={form.liderId} onChange={e => upd("liderId", e.target.value)} className={inputCls}>
-                  <option value="">Sin asignar</option>
-                  {lideres.map((u) => (
-                    <option key={u.id} value={u.id}>{u.nombre}</option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[10px] text-gray-400">
-                  Podrá asignar responsables y aprobar tareas de este proyecto.
-                </p>
-              </div>
-              <div>
-                <label className={labelCls}>Gestor del proyecto</label>
-                <input type="text" placeholder="Nombre del gestor" value={form.gestionPMO} onChange={e => upd("gestionPMO", e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Fecha de gestión</label>
-                <input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Valor total del proyecto</label>
-                <input type="text" placeholder="$0" value={form.valorTotal} onChange={e => upd("valorTotal", e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Valor de supervisión</label>
-                <input type="text" placeholder="$0" value={form.valorSupervision} onChange={e => upd("valorSupervision", e.target.value)} className={inputCls} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={labelCls}>Objetivo general *</label>
-                <textarea rows={3} placeholder="Describe el propósito principal del proyecto..." value={form.objetivo} onChange={e => upd("objetivo", e.target.value)}
-                  className={`${inputCls} resize-none`} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 2: Ficha técnica FR-019 ── */}
-        {step === 2 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h2 className="text-base font-bold text-gray-900">Ficha Técnica FR-019</h2>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="font-mono text-xs font-bold text-orange-700">{form.codigo || "Sin definir"}</span>
-                  <span className="text-xs text-gray-400">{form.nombre ? form.nombre.slice(0, 30) + "..." : "Sin nombre"}</span>
+          )}
+          <fieldset disabled={guardando} className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+            <legend className="px-1 text-base font-bold text-gray-900">Datos contrato</legend>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {editando ? (
+                <div>
+                  {campo("id", "Código del proyecto", { readOnly: true })}
+                  <p className="mt-1 text-xs text-gray-500">Identificador inmutable; se conservan los códigos antiguos.</p>
                 </div>
-              </div>
-              <span className="text-right text-xs font-medium text-gray-400">
-                Complete la ficha y guárdela al finalizar el registro.
-              </span>
-            </div>
-
-            <div className="space-y-2 mt-4">
-              {fr019Sections.map(sec => (
-                <div key={sec} className="border border-gray-100 rounded-xl overflow-hidden">
-                  <button onClick={() => toggleFR(sec)} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50/70 hover:bg-gray-100 transition-colors text-left">
-                    <span className="text-sm font-semibold text-gray-800">{sec}</span>
-                    {fr019Expanded.includes(sec) ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-                  </button>
-                  {fr019Expanded.includes(sec) && (
-                    <div className="px-4 py-4">
-
-                      {sec === "Sec 05: Objetivos específicos" && (
-                        <div className="space-y-3">
-                          {objetivos.map((o, i) => (
-                            <div key={i} className="flex gap-3 items-start bg-gray-50 rounded-lg p-3">
-                              <div className="flex-1">
-                                <input type="text" placeholder="Descripción del objetivo..." value={o.desc} onChange={e => setObjetivos(prev => prev.map((x, j) => j === i ? { ...x, desc: e.target.value } : x))} className={inputCls} />
-                              </div>
-                              <div className="w-20">
-                                <input type="number" placeholder="Orden" value={o.orden} onChange={e => setObjetivos(prev => prev.map((x, j) => j === i ? { ...x, orden: +e.target.value } : x))} className={inputCls} />
-                              </div>
-                              <button onClick={() => setObjetivos(prev => prev.filter((_, j) => j !== i))} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                          <button onClick={() => setObjetivos(prev => [...prev, { desc: "", orden: prev.length + 1 }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-800 transition-colors">
-                            <Plus className="w-3.5 h-3.5" />Agregar objetivo
-                          </button>
-                        </div>
-                      )}
-
-                      {(sec === "Sec 06: Enfoque" || sec === "Sec 07: Problema" || sec === "Sec 08: Justificación") && (
-                        <textarea rows={4} placeholder={`${sec.replace(/Sec \d+: /, "")} del proyecto...`} className={`${inputCls} resize-none`} />
-                      )}
-
-                      {sec === "Sec 09: Sostenibilidad y ODS" && (
-                        <div className="space-y-4">
-                          <textarea rows={3} placeholder="Sostenibilidad del proyecto..." className={`${inputCls} resize-none`} />
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700 mb-2">Objetivos de Desarrollo Sostenible</p>
-                            <div className="flex flex-wrap gap-2">
-                              {Array.from({ length: 17 }, (_, i) => i + 1).map(n => (
-                                <button key={n} onClick={() => toggleODS(n)}
-                                  className={`w-10 h-10 rounded-lg text-xs font-bold border transition-colors ${odsSelected.includes(n) ? "bg-[#C2410C] text-white border-[#C2410C]" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
-                                  {n}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sec === "Sec 10: Riesgos" && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto rounded-lg border border-gray-100">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                  {["Riesgo", "Probabilidad", "Consecuencia", "Plan de mitigación", ""].map(h => (
-                                    <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {riesgos.map((r, i) => (
-                                  <tr key={i}>
-                                    <td className="px-2 py-2"><input value={r.riesgo} onChange={e => setRiesgos(p => p.map((x, j) => j === i ? { ...x, riesgo: e.target.value } : x))} className="w-full px-2 py-1 text-xs border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-2">
-                                      <select value={r.prob} onChange={e => setRiesgos(p => p.map((x, j) => j === i ? { ...x, prob: e.target.value } : x))} className="w-20 px-2 py-1 text-xs border border-gray-200 rounded">
-                                        {["Alta","Media","Baja"].map(v => <option key={v}>{v}</option>)}
-                                      </select>
-                                    </td>
-                                    <td className="px-2 py-2">
-                                      <select value={r.cons} onChange={e => setRiesgos(p => p.map((x, j) => j === i ? { ...x, cons: e.target.value } : x))} className="w-20 px-2 py-1 text-xs border border-gray-200 rounded">
-                                        {["Alta","Media","Baja"].map(v => <option key={v}>{v}</option>)}
-                                      </select>
-                                    </td>
-                                    <td className="px-2 py-2"><input value={r.plan} onChange={e => setRiesgos(p => p.map((x, j) => j === i ? { ...x, plan: e.target.value } : x))} className="w-full px-2 py-1 text-xs border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-2"><button onClick={() => setRiesgos(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <button onClick={() => setRiesgos(p => [...p, { riesgo: "", prob: "Media", cons: "Media", plan: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-800">
-                            <Plus className="w-3.5 h-3.5" />Agregar riesgo
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 11: Cobertura geográfica" && (
-                        <div className="space-y-3">
-                          {coberturas.map((c, i) => (
-                            <div key={i} className="flex gap-3 items-center">
-                              <input placeholder="País" value={c.pais} onChange={e => setCoberturas(p => p.map((x, j) => j === i ? { ...x, pais: e.target.value } : x))} className={`${inputCls} flex-1`} />
-                              <input placeholder="Departamento" value={c.depto} onChange={e => setCoberturas(p => p.map((x, j) => j === i ? { ...x, depto: e.target.value } : x))} className={`${inputCls} flex-1`} />
-                              <input placeholder="Municipio" value={c.municipio} onChange={e => setCoberturas(p => p.map((x, j) => j === i ? { ...x, municipio: e.target.value } : x))} className={`${inputCls} flex-1`} />
-                              <button onClick={() => setCoberturas(p => p.filter((_, j) => j !== i))} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          ))}
-                          <button onClick={() => setCoberturas(p => [...p, { pais: "Colombia", depto: "", municipio: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar cobertura
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 11: Población participante" && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto rounded-lg border border-gray-100">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                  {["Categoría", "Cantidad", ""].map(h => <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">{h}</th>)}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {poblacion.map((p, i) => (
-                                  <tr key={i}>
-                                    <td className="px-2 py-2"><input value={p.cat} onChange={e => setPoblacion(prev => prev.map((x, j) => j === i ? { ...x, cat: e.target.value } : x))} className="w-full px-2 py-1 text-xs border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-2"><input value={p.cant} onChange={e => setPoblacion(prev => prev.map((x, j) => j === i ? { ...x, cant: e.target.value } : x))} className="w-24 px-2 py-1 text-xs border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-2"><button onClick={() => setPoblacion(prev => prev.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <button onClick={() => setPoblacion(p => [...p, { cat: "", cant: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar categoría
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 12: Enfoques diferenciales" && (
-                        <div className="space-y-3">
-                          {enfoques.map((e, i) => (
-                            <div key={i} className="flex gap-3 items-start bg-gray-50 rounded-lg p-3">
-                              <select value={e.tipo} onChange={ev => setEnfoques(p => p.map((x, j) => j === i ? { ...x, tipo: ev.target.value } : x))} className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white w-28">
-                                {["Etario", "Género", "Étnico", "Inclusión", "Ambiental"].map(t => <option key={t}>{t}</option>)}
-                              </select>
-                              <input placeholder="Descripción..." value={e.desc} onChange={ev => setEnfoques(p => p.map((x, j) => j === i ? { ...x, desc: ev.target.value } : x))} className="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg" />
-                              <button onClick={() => setEnfoques(p => p.filter((_, j) => j !== i))} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          ))}
-                          <button onClick={() => setEnfoques(p => [...p, { tipo: "Género", desc: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar enfoque
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 13: Grupos de interés" && (
-                        <div className="space-y-3">
-                          {grupos.map((g, i) => (
-                            <div key={i} className="flex gap-3 items-start bg-gray-50 rounded-lg p-3">
-                              <select value={g.tipo} onChange={e => setGrupos(p => p.map((x, j) => j === i ? { ...x, tipo: e.target.value } : x))} className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white w-24">
-                                {["Directo", "Indirecto"].map(t => <option key={t}>{t}</option>)}
-                              </select>
-                              <input placeholder="Descripción del grupo..." value={g.desc} onChange={e => setGrupos(p => p.map((x, j) => j === i ? { ...x, desc: e.target.value } : x))} className="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg" />
-                              <button onClick={() => setGrupos(p => p.filter((_, j) => j !== i))} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          ))}
-                          <button onClick={() => setGrupos(p => [...p, { tipo: "Directo", desc: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar grupo
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 14–15: Componentes de metodología" && (
-                        <div className="space-y-4">
-                          {componentes.map((c, i) => (
-                            <div key={i} className="border border-gray-200 rounded-xl p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-gray-600">Componente {i + 1}</span>
-                                <button onClick={() => setComponentes(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
-                              </div>
-                              <input placeholder="Nombre del componente" value={c.nombre} onChange={e => setComponentes(p => p.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x))} className={inputCls} />
-                              <textarea placeholder="Descripción" rows={2} value={c.desc} onChange={e => setComponentes(p => p.map((x, j) => j === i ? { ...x, desc: e.target.value } : x))} className={`${inputCls} resize-none`} />
-                              <input placeholder="Resultado esperado" value={c.resultado} onChange={e => setComponentes(p => p.map((x, j) => j === i ? { ...x, resultado: e.target.value } : x))} className={inputCls} />
-                              <textarea placeholder="Actividades del componente" rows={2} value={c.actividades} onChange={e => setComponentes(p => p.map((x, j) => j === i ? { ...x, actividades: e.target.value } : x))} className={`${inputCls} resize-none`} />
-                            </div>
-                          ))}
-                          <button onClick={() => setComponentes(p => [...p, { nombre: "", desc: "", resultado: "", actividades: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar componente
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 16: Indicadores" && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto rounded-lg border border-gray-100">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                  {["Actividad", "Indicador", "Meta", "Resultado/Avance", "Tiempo", "Responsable", "Estado", ""].map(h => (
-                                    <th key={h} className="px-2 py-2 text-left font-bold text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {indicadoresFR.map((ind, i) => (
-                                  <tr key={i}>
-                                    {["actividad","indicador","meta","avance","tiempo","responsable"].map(k => (
-                                      <td key={k} className="px-2 py-1.5">
-                                        <input value={(ind as Record<string, string>)[k]} onChange={e => setIndicadoresFR(p => p.map((x, j) => j === i ? { ...x, [k]: e.target.value } : x))} className="w-full min-w-[80px] px-2 py-1 border border-gray-200 rounded" />
-                                      </td>
-                                    ))}
-                                    <td className="px-2 py-1.5">
-                                      <select value={ind.estado} onChange={e => setIndicadoresFR(p => p.map((x, j) => j === i ? { ...x, estado: e.target.value } : x))} className="px-2 py-1 border border-gray-200 rounded text-xs">
-                                        {["Pendiente","En curso","Cumplido","No cumplido"].map(v => <option key={v}>{v}</option>)}
-                                      </select>
-                                    </td>
-                                    <td className="px-2 py-1.5"><button onClick={() => setIndicadoresFR(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <button onClick={() => setIndicadoresFR(p => [...p, { actividad: "", indicador: "", meta: "", avance: "", tiempo: "", responsable: "", estado: "Pendiente" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar indicador
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 17.1: Ingresos" && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto rounded-lg border border-gray-100">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                  {["Tipo", "Concepto", "Valor total", ""].map(h => <th key={h} className="px-3 py-2 text-left font-bold text-gray-500 uppercase">{h}</th>)}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {ingresos.map((ing, i) => (
-                                  <tr key={i}>
-                                    <td className="px-2 py-1.5">
-                                      <select value={ing.tipo} onChange={e => setIngresos(p => p.map((x, j) => j === i ? { ...x, tipo: e.target.value } : x))} className="px-2 py-1 border border-gray-200 rounded text-xs">
-                                        {["Recursos propios","Aportes de terceros"].map(v => <option key={v}>{v}</option>)}
-                                      </select>
-                                    </td>
-                                    <td className="px-2 py-1.5"><input value={ing.concepto} onChange={e => setIngresos(p => p.map((x, j) => j === i ? { ...x, concepto: e.target.value } : x))} className="w-full px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input value={ing.valor} onChange={e => setIngresos(p => p.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))} className="w-32 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><button onClick={() => setIngresos(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <button onClick={() => setIngresos(p => [...p, { tipo: "Recursos propios", concepto: "", valor: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar ingreso
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Sec 17.2: Gastos" && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto rounded-lg border border-gray-100">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                  {["Categoría", "Concepto", "Unidad", "Cantidad", "Valor unit.", "Valor total", ""].map(h => (
-                                    <th key={h} className="px-2 py-2 text-left font-bold text-gray-500 uppercase whitespace-nowrap">{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {gastos.map((g, i) => (
-                                  <tr key={i}>
-                                    <td className="px-2 py-1.5"><input value={g.cat} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, cat: e.target.value } : x))} className="w-24 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input value={g.concepto} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, concepto: e.target.value } : x))} className="w-28 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input value={g.unidad} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, unidad: e.target.value } : x))} className="w-16 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input value={g.cant} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, cant: e.target.value } : x))} className="w-14 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input value={g.valorUnit} onChange={e => setGastos(p => p.map((x, j) => j === i ? { ...x, valorUnit: e.target.value } : x))} className="w-24 px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><span className="font-semibold text-orange-700">{fmt(+(g.cant || 0) * +(g.valorUnit || 0))}</span></td>
-                                    <td className="px-2 py-1.5"><button onClick={() => setGastos(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <button onClick={() => setGastos(p => [...p, { cat: "", concepto: "", unidad: "", cant: "", valorUnit: "", valorTotal: "" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar gasto
-                          </button>
-                        </div>
-                      )}
-
-                      {sec === "Aprobaciones" && (
-                        <div className="space-y-3">
-                          <div className="overflow-x-auto rounded-lg border border-gray-100">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                  {["Rol aprobador", "Nombre", "Fecha", "Estado", ""].map(h => <th key={h} className="px-3 py-2 text-left font-bold text-gray-500 uppercase">{h}</th>)}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {aprobaciones.map((a, i) => (
-                                  <tr key={i}>
-                                    <td className="px-2 py-1.5"><input value={a.rol} onChange={e => setAprobaciones(p => p.map((x, j) => j === i ? { ...x, rol: e.target.value } : x))} className="w-full px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input value={a.nombre} onChange={e => setAprobaciones(p => p.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x))} className="w-full px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5"><input type="date" value={a.fecha} onChange={e => setAprobaciones(p => p.map((x, j) => j === i ? { ...x, fecha: e.target.value } : x))} className="px-2 py-1 border border-gray-200 rounded" /></td>
-                                    <td className="px-2 py-1.5">
-                                      <select value={a.estado} onChange={e => setAprobaciones(p => p.map((x, j) => j === i ? { ...x, estado: e.target.value } : x))} className="px-2 py-1 border border-gray-200 rounded text-xs">
-                                        {["Pendiente","Firmado","Rechazado"].map(v => <option key={v}>{v}</option>)}
-                                      </select>
-                                    </td>
-                                    <td className="px-2 py-1.5"><button onClick={() => setAprobaciones(p => p.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3" /></button></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <button onClick={() => setAprobaciones(p => [...p, { rol: "", nombre: "", fecha: "", estado: "Pendiente" }])} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600">
-                            <Plus className="w-3.5 h-3.5" />Agregar aprobador
-                          </button>
-                        </div>
-                      )}
+              ) : (
+                <div>
+                  <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-2">
+                    <div>
+                      <label htmlFor="proyecto-prefijo" className={labelCls}>Prefijo *</label>
+                      <select {...atributos("prefijo")} required onChange={e => upd("prefijo", e.target.value)}>
+                        {PREFIJOS.map(prefijo => <option key={prefijo}>{prefijo}</option>)}
+                      </select>
+                      {errorCampo("prefijo")}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
-              <button className="px-4 py-2 text-xs font-semibold border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Guardar sección</button>
-              <button className="px-4 py-2 text-xs font-semibold border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Guardar borrador</button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 3: Antecedentes ── */}
-        {step === 3 && (
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-base font-bold text-gray-900 mb-1">Antecedentes del proyecto</h2>
-              <p className="text-xs text-gray-400">Buscar y asociar antecedentes existentes.</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-3">
-              <div className="flex flex-wrap gap-3">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="text" placeholder="Buscar por código, línea o palabra clave…" className={`${inputCls} pl-9`} />
-                </div>
-                {["Línea de investigación", "Año", "Tipo de documento", "Nivel de estructuración"].map(f => (
-                  <button key={f} className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-100">
-                    {f} <ChevronDown className="w-3 h-3" />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-gray-100 overflow-hidden bg-white">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/40 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-bold text-gray-800">Resultados</h3>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-orange-200 text-orange-700 rounded-lg hover:bg-orange-50">
-                  <Upload className="w-3.5 h-3.5" />Cargar nuevo antecedente
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] text-sm">
-                  <thead>
-                    <tr className="bg-gray-50/60 border-b border-gray-100">
-                      {["Código", "Nombre", "Línea", "Tipo", "Año", "Nivel", "Acciones"].map(h => (
-                        <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {antecedentes.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-xs text-gray-400">
-                          Aún no hay antecedentes cargados.
-                        </td>
-                      </tr>
-                    )}
-                    {antecedentes.map(ant => (
-                      <tr key={ant.id} className="hover:bg-gray-50/50">
-                        <td className="whitespace-nowrap px-4 py-3"><span className="font-mono text-xs font-bold text-orange-700">{ant.id}</span></td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{ant.name}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{ant.line}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{ant.tipo}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{ant.year}</td>
-                        <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs font-semibold rounded bg-orange-50 text-orange-700">{ant.nivel}</span></td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setAssocModal(ant.id)} className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-                              <Link2 className="w-3 h-3" />Asociar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 4: Seguimiento ── */}
-        {step === 4 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-base font-bold text-gray-900 mb-1">Seguimiento del proyecto</h2>
-              <p className="text-xs text-gray-400">Registre el avance inicial del proyecto.</p>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: "Avance técnico", value: "0%", color: "text-orange-700", bg: "bg-orange-50", icon: Activity },
-                { label: "Avance presupuestal", value: "0%", color: "text-emerald-700", bg: "bg-emerald-50", icon: DollarSign },
-                { label: "Indicadores", value: "0%", color: "text-slate-700", bg: "bg-slate-50", icon: Percent },
-                { label: "Actividades", value: "0", color: "text-orange-700", bg: "bg-orange-50", icon: CheckCircle },
-                { label: "Entregables", value: "0", color: "text-gray-700", bg: "bg-gray-50", icon: FileText },
-                { label: "Alertas", value: "0", color: "text-red-700", bg: "bg-red-50", icon: AlertTriangle },
-              ].map(k => (
-                <div key={k.label} className={`${k.bg} rounded-xl p-3 flex items-center gap-3`}>
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{k.label}</p>
-                    <p className={`text-2xl font-black mt-0.5 ${k.color}`}>{k.value}</p>
+                    {campo("consecutivo", "Consecutivo *", { inputMode: "numeric", placeholder: "Consecutivo asignado" })}
                   </div>
+                  <p className="mt-1 text-xs text-gray-500">Código: {form.prefijo}-{form.consecutivo.trim() || "…"}. Ingrese el consecutivo; no se genera automáticamente.</p>
                 </div>
-              ))}
+              )}
+              {campo("numeroContrato", "Número de contrato", { required: contractualObligatorio("numeroContrato") })}
+              {campo("nombre", "Nombre del proyecto", { required: true })}
+              {campo("nombreCorto", "Nombre corto (abreviatura / identificador coloquial)", { required: contractualObligatorio("nombreCorto") })}
+              {campo("entidadContratante", "Entidad contratante", { required: contractualObligatorio("entidadContratante") })}
+              {campo("entidadContratista", "Entidad contratista", { required: contractualObligatorio("entidadContratista") })}
+              <div className="sm:col-span-2">
+                <label htmlFor="proyecto-objetivo" className={labelCls}>Objeto / objetivo del proyecto</label>
+                <textarea {...atributos("objetivo")} rows={3} onChange={e => upd("objetivo", e.target.value)} />
+              </div>
             </div>
+          </fieldset>
 
-            <div className="rounded-xl border border-gray-100 p-5 bg-white space-y-4">
-              <h3 className="text-sm font-bold text-gray-800">Avance técnico</h3>
+          <fieldset disabled={guardando} className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+            <legend className="px-1 text-base font-bold text-gray-900">Organización</legend>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {campo("organizadores", "Organizadores (opcional)", { placeholder: "Texto libre" })}
+              {campo("linea", "Línea / área del proyecto", { required: true })}
+              {campo("dependencia", "Área responsable")}
+              {campo("responsable", "Responsable")}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className={labelCls + " mb-0"}>Porcentaje de avance</label>
-                  <span className="text-lg font-black text-orange-700">{avanceTecnico}%</span>
-                </div>
-                <input type="range" min={0} max={100} value={avanceTecnico} onChange={e => setAvanceTecnico(+e.target.value)}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
-                <Bar2 value={avanceTecnico} color="bg-orange-500" h="h-2" />
+                <label htmlFor="proyecto-liderId" className={labelCls}>Líder del proyecto</label>
+                <select {...atributos("liderId")} onChange={e => upd("liderId", e.target.value)}>
+                  <option value="">Sin asignar</option>
+                  {form.liderId && !lideres.some(u => u.id === form.liderId) && <option value={form.liderId}>Líder actual ({form.liderId})</option>}
+                  {lideres.map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                </select>
               </div>
               <div>
-                <label className={labelCls}>Descripción del avance técnico</label>
-                <textarea rows={3} placeholder="Describe el estado actual del proyecto..." value={avanceDesc} onChange={e => setAvanceDesc(e.target.value)} className={`${inputCls} resize-none`} />
-              </div>
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
-                  <Sliders className="w-3.5 h-3.5" />Actualizar avance
-                </button>
-                <span className="text-xs text-gray-400">Última actualización: —</span>
+                <label htmlFor="proyecto-estructura" className={labelCls}>Estructura documental</label>
+                <select {...atributos("estructura")} onChange={e => upd("estructura", e.target.value)}>
+                  <option value="">Sin plantilla de carpetas</option>
+                  {form.estructura && !estructuras.some(e => e.id === form.estructura) && <option value={form.estructura}>Estructura actual ({form.estructura})</option>}
+                  {estructuras.map(e => <option key={e.id} value={e.id}>{e.nombre} · {e.carpetas.length} carpetas</option>)}
+                </select>
               </div>
             </div>
+          </fieldset>
+
+          <fieldset disabled={guardando} className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+            <legend className="px-1 text-base font-bold text-gray-900">Fechas / valor</legend>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {campo("fechaAsignacion", "Fecha de asignación", { type: "date", required: contractualObligatorio("fechaAsignacion") })}
+              {campo("fechaInicio", "Fecha de inicio", { type: "date", required: contractualObligatorio("fechaInicio") })}
+              {campo("fechaFin", "Fecha de finalización", { type: "date", min: form.fechaInicio || undefined, required: contractualObligatorio("fechaFin") })}
+              {campo("presupuesto", "Valor del contrato (COP)", { type: "number", min: 0, step: "any", required: true })}
+              <div>
+                <label htmlFor="proyecto-estado" className={labelCls}>Estado *</label>
+                <select {...atributos("estado")} required onChange={e => upd("estado", e.target.value)}>
+                  {!Object.keys(STATUS_CFG).includes(form.estado) && <option value={form.estado}>{form.estado}</option>}
+                  {Object.keys(STATUS_CFG).map(estado => <option key={estado}>{estado}</option>)}
+                </select>
+                {errorCampo("estado")}
+              </div>
+              {campo("avance", "Avance técnico (%)", { type: "number", min: 0, max: 100, step: "any", required: true })}
+              {campo("ejecucionPct", "Ejecución presupuestal (%)", { type: "number", min: 0, max: 100, step: "any", required: true })}
+            </div>
+            {editando && original && (
+              <dl className="mt-5 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 text-sm sm:grid-cols-2">
+                <div><dt className="text-xs font-semibold text-gray-500">Creador (sólo lectura)</dt><dd className="mt-1 break-words text-gray-800">{original.creadoPor || "No registrado"}</dd></div>
+                <div><dt className="text-xs font-semibold text-gray-500">Creado el (sólo lectura)</dt><dd className="mt-1 text-gray-800">{fechaCorta(original.creadoEn)}</dd></div>
+              </dl>
+            )}
+          </fieldset>
+          {errorGuardado && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorGuardado}</div>}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onBack} disabled={guardando} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">Cancelar</button>
+            <button type="submit" disabled={guardando || !usuario} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-5 py-2 text-sm font-semibold text-white hover:bg-[#9A3412] disabled:opacity-60">
+              <Save className="h-4 w-4" />{guardando ? "Guardando…" : editando ? "Guardar cambios" : "Crear proyecto"}
+            </button>
           </div>
-        )}
-
-        {/* ── STEP 5: Revisión ── */}
-        {step === 5 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-base font-bold text-gray-900 mb-1">Revisión del proyecto</h2>
-              <p className="text-xs text-gray-400">Verifique la información antes de guardar el proyecto.</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Lista de verificación</h3>
-                <div className="space-y-2">
-                  {checklistItems.map(item => (
-                    <div key={item.label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${item.status === "ok" ? "bg-green-50 border-green-100" : item.status === "warn" ? "bg-amber-50 border-amber-100" : "bg-red-50 border-red-100"}`}>
-                      {item.status === "ok"
-                        ? <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                        : item.status === "warn"
-                        ? <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                        : <X className="w-4 h-4 text-red-500 flex-shrink-0" />
-                      }
-                      <span className={`text-sm font-semibold ${item.status === "ok" ? "text-green-800" : item.status === "warn" ? "text-amber-800" : "text-red-800"}`}>{item.label}</span>
-                      <span className={`ml-auto text-xs font-bold ${item.status === "ok" ? "text-green-600" : item.status === "warn" ? "text-amber-600" : "text-red-600"}`}>
-                        {item.status === "ok" ? "Completo" : item.status === "warn" ? "Pendiente" : "Error"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Resumen del proyecto</h3>
-                <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
-                  {[
-                    { label: "Código", value: form.codigo || "Sin definir" },
-                    { label: "Nombre", value: form.nombre || "Sin definir" },
-                    { label: "Línea", value: form.linea || "Sin definir" },
-                    { label: "Responsable", value: form.responsable || "Sin definir" },
-                    { label: "Estado", value: form.estado },
-                    { label: "Avance", value: `${avanceTecnico}%` },
-                    { label: "Presupuesto", value: form.valorTotal ? `$${form.valorTotal}` : "Sin definir" },
-                  ].map(item => (
-                    <div key={item.label} className="flex gap-4 px-4 py-2.5">
-                      <span className="w-28 text-xs font-semibold text-gray-400 flex-shrink-0">{item.label}</span>
-                      <span className="text-sm text-gray-900">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {errorGuardado && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {errorGuardado}
-        </div>
+        </form>
       )}
-
-      {/* Actions */}
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50">
-          Guardar borrador
-        </button>
-        <div className="flex flex-wrap gap-2">
-          {step > 1 && (
-            <button onClick={() => setStep(s => s - 1)} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
-              Anterior
-            </button>
-          )}
-          {step > 1 && step < 5 && (
-            <button onClick={() => setStep(s => s - 1)} className="sr-only">Anterior</button>
-          )}
-          {step === 1 && (
-            <button onClick={onBack} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-500">
-              Cancelar
-            </button>
-          )}
-          {step < 5
-            ? <button onClick={handleNext} className="rounded-lg bg-[#C2410C] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]">Continuar</button>
-            : <button onClick={() => void handleSave()} disabled={guardando} className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-700 disabled:opacity-60">
-                {guardando ? "Guardando…" : "Guardar proyecto"}
-              </button>
-          }
-        </div>
-      </div>
     </div>
   );
 }

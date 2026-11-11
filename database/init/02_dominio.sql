@@ -15,7 +15,23 @@ CREATE TABLE IF NOT EXISTS proyectos (
   linea           TEXT NOT NULL,
   responsable     TEXT NOT NULL,
   lider_id        UUID REFERENCES usuarios(id) ON DELETE SET NULL,
-  estado          TEXT NOT NULL CHECK (estado IN ('En formulación', 'En ejecución', 'Suspendido', 'Finalizado', 'Cerrado')),
+  nombre_corto        TEXT NOT NULL DEFAULT '',
+  numero_contrato     TEXT NOT NULL DEFAULT '',
+  organizadores       TEXT NOT NULL DEFAULT '',
+  entidad_contratante TEXT NOT NULL DEFAULT '',
+  entidad_contratista TEXT NOT NULL DEFAULT '',
+  fecha_asignacion    DATE,
+  creado_por          TEXT,
+  estado          TEXT NOT NULL CHECK (estado IN (
+    'En formulación',
+    'En ejecución',
+    'En ejecución, prorrogado en tiempo',
+    'En ejecución, adición presupuestal',
+    'En ejecución, modificado',
+    'Suspendido',
+    'Finalizado',
+    'Cerrado'
+  )),
   avance          INTEGER NOT NULL DEFAULT 0 CHECK (avance BETWEEN 0 AND 100),
   presupuesto     BIGINT NOT NULL DEFAULT 0 CHECK (presupuesto >= 0),
   ejecucion_pct   INTEGER NOT NULL DEFAULT 0 CHECK (ejecucion_pct BETWEEN 0 AND 100),
@@ -79,6 +95,8 @@ CREATE TABLE IF NOT EXISTS documentos (
   archivo_ruta   TEXT,
   archivo_mime   TEXT,
   archivo_tamano BIGINT,
+  fecha_documento DATE,
+  numero_documento TEXT,
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -89,7 +107,16 @@ CREATE INDEX IF NOT EXISTS ix_documentos_tipo ON documentos (tipo);
 -- Plantilla documental: estructura elegida por proyecto y carpeta de cada documento.
 -- Idempotente para bases creadas antes de esta función.
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS estructura TEXT;
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nombre_corto TEXT NOT NULL DEFAULT '';
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS numero_contrato TEXT NOT NULL DEFAULT '';
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS organizadores TEXT NOT NULL DEFAULT '';
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratante TEXT NOT NULL DEFAULT '';
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratista TEXT NOT NULL DEFAULT '';
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS fecha_asignacion DATE;
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS creado_por TEXT;
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS carpeta TEXT;
+ALTER TABLE documentos ADD COLUMN IF NOT EXISTS fecha_documento DATE;
+ALTER TABLE documentos ADD COLUMN IF NOT EXISTS numero_documento TEXT;
 
 DROP TRIGGER IF EXISTS documentos_touch ON documentos;
 CREATE TRIGGER documentos_touch

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { ah } from "../http.js";
-import { CAMPOS_INDICADOR, CAMPOS_PROYECTO } from "./proyectos.js";
+import { CAMPOS_INDICADOR, CAMPOS_PROYECTO, ESTADOS_EN_EJECUCION, ESTADOS_PROYECTO } from "./proyectos.js";
 
 export const dashboard = Router();
 
@@ -29,28 +29,29 @@ dashboard.get(
         }>(
           `SELECT
              COUNT(*)::int AS total,
-             COUNT(*) FILTER (WHERE estado = 'En ejecución')::int AS activos,
+             COUNT(*) FILTER (WHERE estado = ANY($1::text[]))::int AS activos,
              COUNT(*) FILTER (WHERE estado = 'Finalizado')::int AS finalizados,
              COUNT(*) FILTER (WHERE estado NOT IN ('Finalizado', 'Cerrado') AND dias_restantes <= 30)::int AS retrasados,
              COALESCE(ROUND(AVG(avance)), 0)::int AS "avancePromedio",
              COALESCE(ROUND(AVG(ejecucion_pct)), 0)::int AS "ejecucionPromedio",
-             COUNT(DISTINCT linea) FILTER (WHERE estado IN ('En ejecución', 'En formulación'))::int AS "lineasActivas"
+             COUNT(DISTINCT linea) FILTER (WHERE estado = ANY($1::text[]) OR estado = 'En formulación')::int AS "lineasActivas"
            FROM proyectos`,
+          [[...ESTADOS_EN_EJECUCION]],
         ),
         pool.query<{ nombre: string; total: number }>(
           `SELECT e.estado AS nombre, COALESCE(c.total, 0)::int AS total
-             FROM (VALUES
-               ('En formulación'), ('En ejecución'), ('Suspendido'), ('Finalizado'), ('Cerrado')
-             ) AS e(estado)
+             FROM unnest($1::text[]) WITH ORDINALITY AS e(estado, orden)
              LEFT JOIN (SELECT estado, COUNT(*) AS total FROM proyectos GROUP BY estado) c USING (estado)
-            ORDER BY array_position(ARRAY['En formulación','En ejecución','Suspendido','Finalizado','Cerrado']::text[], e.estado)`,
+            ORDER BY e.orden`,
+          [[...ESTADOS_PROYECTO]],
         ),
         pool.query<{ id: string; nombre: string; avance: number }>(
           `SELECT id, nombre, avance
              FROM proyectos
-            WHERE estado IN ('En ejecución', 'En formulación')
+            WHERE estado = ANY($1::text[]) OR estado = 'En formulación'
             ORDER BY dias_restantes, id
             LIMIT 6`,
+          [[...ESTADOS_EN_EJECUCION]],
         ),
         pool.query<{ nombre: string; total: number }>(
           `SELECT linea AS nombre, COUNT(*)::int AS total

@@ -69,7 +69,8 @@ La etapa existe en el formato, pero no tiene actividades diligenciadas. La prime
 ## Implementación en SEI
 
 - Cada proyecto tiene la pestaña **EDT** con las tres etapas fijas del formato.
-- El botón **Cargar plantilla EDT** crea las actividades diligenciadas de la etapa constructiva y sus subproductos; las etapas 1 y 3 se agregan según el proyecto.
+- El botón **Cargar plantilla EDT** siembra las tres etapas: las actividades base de la etapa preconstructiva, las diligenciadas en SAC-PI031 para la etapa constructiva y las de cierre (acta de liquidación, expediente, paz y salvo y lecciones aprendidas), junto con sus subproductos.
+- La siembra es idempotente: si el proyecto ya tiene parte del checklist, sólo agrega las actividades que falten y no duplica las existentes.
 - Se pueden crear, editar y eliminar actividades y subproductos, cambiar el estado en línea y ver el avance del checklist.
 - Una actividad principal no puede marcarse como completada mientras tenga subproductos pendientes.
 - Las alertas de vencimiento salen por correo; WhatsApp es un canal opcional (ver `docs/WHATSAPP.md`) que usa el teléfono y el consentimiento registrados en el perfil, no la hoja `Personal` directamente.

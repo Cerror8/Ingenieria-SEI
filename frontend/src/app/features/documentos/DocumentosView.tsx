@@ -14,7 +14,7 @@ export function DocumentosView() {
   const [mostrarSubida, setMostrarSubida] = useState(false);
   const [docEditando, setDocEditando] = useState<Document | null>(null);
 
-  const categorias = ["Todos", "Ficha técnica", "Actas", "Informes", "Antecedentes", "Evidencias", "Otros"];
+  const categorias = ["Todos", "Actas", "Informes", "Antecedentes", "Evidencias", "Documentación técnica", "Comunicaciones", "Otros"];
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -62,10 +62,10 @@ export function DocumentosView() {
       </div>
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[1100px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60">
-                {["Nombre", "Proyecto", "Tipo", "Versión", "Fecha", "Usuario", "Estado", "Acciones"].map(h => (
+                {["Nombre", "Número acta/documento", "Proyecto", "Tipo", "Versión", "Fecha documento", "Fecha subida", "Usuario", "Estado", "Acciones"].map(h => (
                   <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">{h}</th>
                 ))}
               </tr>
@@ -83,9 +83,11 @@ export function DocumentosView() {
                       </div>
                     </div>
                   </td>
+                  <td className="max-w-[200px] break-words px-4 py-2.5 font-mono text-xs text-gray-500">{doc.documentNumber ?? "—"}</td>
                   <td className="whitespace-nowrap px-4 py-2.5"><span className="font-mono text-xs font-bold text-orange-700">{doc.projectId}</span></td>
                   <td className="px-4 py-2.5 text-xs text-gray-500">{doc.type}</td>
                   <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{doc.version}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-500">{doc.documentDate}</td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-400">{doc.date}</td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-500">{doc.user}</td>
                   <td className="px-4 py-2.5">
@@ -113,7 +115,7 @@ export function DocumentosView() {
                       >
                         <Download className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" onClick={() => setDocEditando(doc)} className="rounded p-1 text-gray-300 transition-colors hover:text-amber-600" title="Nueva versión"><Clock className="h-3.5 w-3.5" /></button>
+                      <button type="button" onClick={() => setDocEditando(doc)} className="rounded p-1 text-gray-300 transition-colors hover:text-amber-600" title="Editar documento / nueva versión"><Clock className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>

@@ -7,7 +7,81 @@ export function asegurarEsquema(): Promise<void> {
   if (!preparacion) {
     preparacion = (async () => {
       await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS estructura TEXT");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nombre_corto TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS numero_contrato TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS organizadores TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratante TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratista TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS fecha_asignacion DATE");
+      await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS creado_por TEXT");
+      await pool.query(
+        "ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS presupuesto_negociacion BIGINT NOT NULL DEFAULT 0",
+      );
+      await pool.query(
+        "ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS presupuesto_ejecucion BIGINT NOT NULL DEFAULT 0",
+      );
+      await pool.query(
+        "ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS presupuesto_alerta BIGINT NOT NULL DEFAULT 0",
+      );
       await pool.query("ALTER TABLE documentos ADD COLUMN IF NOT EXISTS carpeta TEXT");
+      await pool.query("ALTER TABLE documentos ADD COLUMN IF NOT EXISTS fecha_documento DATE");
+      await pool.query("ALTER TABLE documentos ADD COLUMN IF NOT EXISTS numero_documento TEXT");
+
+      // El CHECK original sólo admitía cinco estados; se reemplaza sin perder filas.
+      await pool.query(`
+        DO $$
+        DECLARE restriccion record;
+        BEGIN
+          FOR restriccion IN
+            SELECT conname FROM pg_constraint
+             WHERE conrelid = 'proyectos'::regclass
+               AND contype = 'c'
+               AND pg_get_constraintdef(oid) LIKE '%estado%'
+          LOOP
+            EXECUTE format('ALTER TABLE proyectos DROP CONSTRAINT %I', restriccion.conname);
+          END LOOP;
+        END $$;
+      `);
+      await pool.query(`
+        ALTER TABLE proyectos ADD CONSTRAINT proyectos_estado_check
+          CHECK (estado IN (
+            'En formulación',
+            'En ejecución',
+            'En ejecución, prorrogado en tiempo',
+            'En ejecución, adición presupuestal',
+            'En ejecución, modificado',
+            'Suspendido',
+            'Finalizado',
+            'Cerrado'
+          ))
+      `);
+
+      // Reordenó «Control de obra»: anticipo salió del presupuesto y las fases se renumeraron.
+      // Sólo cambia metadatos; los archivos físicos y los blobs conservan su ruta.
+      const prefijo = "'2.Control de obra/";
+      await pool.query(`
+        UPDATE documentos d SET carpeta = '2.Control de obra/1.Anticipo'
+          FROM proyectos p
+         WHERE d.proyecto_id = p.id AND p.estructura = 'construccion'
+           AND (d.carpeta = ${prefijo}1.Cronograma y presupuesto/1.Ppto ejecucion/0.Anticipo'
+                OR d.carpeta LIKE ${prefijo}1.Cronograma y presupuesto/1.Ppto ejecucion/0.Anticipo/%')
+      `);
+      for (const cambio of [
+        ["1.Cronograma y presupuesto", "2.Cronograma y presupuesto"],
+        ["2.Registro fotografico", "3.Registro fotografico"],
+        ["3.Modificaciones al proyecto", "5.Modificaciones al proyecto"],
+      ]) {
+        const [viejo, nuevo] = cambio;
+        await pool.query(
+          `UPDATE documentos d
+              SET carpeta = $1 || substr(d.carpeta, $2::int)
+             FROM proyectos p
+            WHERE d.proyecto_id = p.id AND p.estructura = 'construccion'
+              AND (d.carpeta = $3 OR d.carpeta LIKE $3 || '/%')`,
+          [`2.Control de obra/${nuevo}`, `2.Control de obra/${viejo}`.length + 1, `2.Control de obra/${viejo}`],
+        );
+      }
+
       await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono TEXT");
       await pool.query(
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS whatsapp_opt_in BOOLEAN NOT NULL DEFAULT false",
@@ -30,6 +104,37 @@ export function asegurarEsquema(): Promise<void> {
       `);
       await pool.query(
         "CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden)",
+      );
+
+      // Informes: el semanal es el registro base; mensual y trimestral son consolidaciones.
+      await pool.query("ALTER TABLE informes ADD COLUMN IF NOT EXISTS periodo_inicio DATE");
+      await pool.query("ALTER TABLE informes ADD COLUMN IF NOT EXISTS periodo_fin DATE");
+      await pool.query(
+        "ALTER TABLE informes ADD COLUMN IF NOT EXISTS contenido TEXT NOT NULL DEFAULT ''",
+      );
+      await pool.query(
+        "ALTER TABLE informes ADD COLUMN IF NOT EXISTS consolidado BOOLEAN NOT NULL DEFAULT false",
+      );
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS ix_informes_periodo
+           ON informes (proyecto, tipo, periodo_inicio, periodo_fin)`,
+      );
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS desembolsos (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+          fecha DATE NOT NULL,
+          concepto TEXT NOT NULL,
+          valor BIGINT NOT NULL CHECK (valor >= 0),
+          clase TEXT NOT NULL DEFAULT 'Desembolso'
+            CHECK (clase IN ('Desembolso', 'Acta parcial')),
+          numero_acta TEXT,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_desembolsos_proyecto ON desembolsos (proyecto_id, fecha)",
       );
       // Sin default al agregarla: así las filas existentes no quedan marcadas como "actualizadas" hoy.
       await pool.query("ALTER TABLE valores_referencia ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ");

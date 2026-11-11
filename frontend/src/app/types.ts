@@ -24,13 +24,22 @@ export type UsuarioAdmin = Usuario & {
   tareasCompletadas: number;
 };
 
-export type ProjectStatus = "En formulación" | "En ejecución" | "Suspendido" | "Finalizado" | "Cerrado";
+export type ProjectStatus =
+  | "En formulación"
+  | "En ejecución"
+  | "En ejecución, prorrogado en tiempo"
+  | "En ejecución, adición presupuestal"
+  | "En ejecución, modificado"
+  | "Suspendido"
+  | "Finalizado"
+  | "Cerrado";
 export type IndicatorStatus = "Cumplido" | "En riesgo" | "No cumplido" | "Pendiente";
 export type DocStatus = "Aprobado" | "En revisión" | "Borrador" | "Rechazado";
 export type ViewType =
   | "dashboard"
   | "projects"
   | "create-project"
+  | "edit-project"
   | "project-detail"
   | "antecedentes"
   | "informes"
@@ -46,14 +55,29 @@ export type ViewType =
 export interface Project {
   id: string;
   name: string;
+  nombreCorto: string;
+  numeroContrato: string;
+  organizadores: string;
+  entidadContratante: string;
+  entidadContratista: string;
+  fechaAsignacion: string;
+  creadoPor: string | null;
+  creadoEn: string;
+  liderId: string | null;
+  estructura: string | null;
   line: string;
   responsible: string;
   status: ProjectStatus;
   progress: number;
   budget: number;
+  budgetNegotiation: number;
+  budgetExecution: number;
+  budgetAlert: number;
   budgetExecuted: number;
   startDate: string;
   endDate: string;
+  startIso: string;
+  endIso: string;
   daysLeft: number;
   dependency: string;
   objective: string;
@@ -77,6 +101,8 @@ export interface Document {
   type: string;
   version: string;
   date: string;
+  documentDate: string;
+  documentNumber: string | null;
   user: string;
   status: DocStatus;
   projectId: string;
@@ -103,6 +129,20 @@ export interface Report {
   project: string;
   generatedBy: string;
   format: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  content: string;
+  consolidated: boolean;
+}
+
+export interface Desembolso {
+  id: string;
+  fecha: string;
+  concepto: string;
+  valor: number;
+  clase: "Desembolso" | "Acta parcial";
+  numeroActa: string | null;
+  projectId: string;
 }
 
 export interface GanttActivity {

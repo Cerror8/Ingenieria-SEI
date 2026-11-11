@@ -30,7 +30,7 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
   if (cargando) return <CargandoModule mensaje="Cargando seguimiento de proyectos…" />;
   if (error) return <ErrorModule mensaje={error} onRetry={() => void cargar()} />;
 
-  const active = proyectos.filter(p => p.status === "En ejecución" || p.status === "En formulación");
+  const active = proyectos.filter(p => p.status.startsWith("En ejecución") || p.status === "En formulación");
 
   return (
     <div className="space-y-5">

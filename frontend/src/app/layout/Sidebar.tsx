@@ -26,7 +26,7 @@ export function Sidebar({
       entrada.type === "group" &&
       (entrada.children.some((hijo) => hijo.id === currentView) ||
         (entrada.id === "projects" &&
-          (currentView === "project-detail" || currentView === "create-project"))),
+          (currentView === "project-detail" || currentView === "create-project" || currentView === "edit-project"))),
   );
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export function Sidebar({
             const activo =
               hijoActivo ||
               (entrada.id === "projects" &&
-                (currentView === "project-detail" || currentView === "create-project"));
+                (currentView === "project-detail" || currentView === "create-project" || currentView === "edit-project"));
 
             return (
               <div key={entrada.id}>

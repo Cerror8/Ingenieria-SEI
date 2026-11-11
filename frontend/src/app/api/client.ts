@@ -4,6 +4,7 @@ import type {
   AuditEntry,
   CalendarioDatos,
   ComentarioTarea,
+  Desembolso,
   Document,
   EventoCalendario,
   GanttActivity,
@@ -148,6 +149,14 @@ export type EstructuraApi = {
 export type ProyectoApi = {
   id: string;
   nombre: string;
+  nombreCorto: string;
+  numeroContrato: string;
+  organizadores: string;
+  entidadContratante: string;
+  entidadContratista: string;
+  fechaAsignacion: string | null;
+  creadoPor: string | null;
+  creadoEn: string;
   linea: string;
   estructura: string | null;
   responsable: string;
@@ -155,6 +164,9 @@ export type ProyectoApi = {
   estado: ProjectStatus;
   avance: number;
   presupuesto: number;
+  presupuestoNegociacion: number;
+  presupuestoEjecucion: number;
+  presupuestoAlerta: number;
   ejecucionPct: number;
   fechaInicio: string;
   fechaFin: string;
@@ -182,6 +194,8 @@ export type DocumentoApi = {
   carpeta: string | null;
   version: string;
   fecha: string;
+  fechaDocumento: string | null;
+  numeroDocumento: string | null;
   usuario: string;
   estado: Document["status"];
   proyectoId: string;
@@ -230,6 +244,10 @@ export type InformeApi = {
   proyecto: string;
   generadoPor: string;
   formato: "PDF" | "Word";
+  periodoInicio: string | null;
+  periodoFin: string | null;
+  contenido: string;
+  consolidado: boolean;
 };
 
 export type AuditoriaApi = {
@@ -273,11 +291,40 @@ export type DashboardApi = {
   presupuestos: { id: string; nombre: string; presupuesto: number; ejecucionPct: number }[];
 };
 
+export type DesembolsoApi = {
+  id: string;
+  fecha: string;
+  concepto: string;
+  valor: number;
+  clase: "Desembolso" | "Acta parcial";
+  numeroActa: string | null;
+  proyectoId: string;
+};
+
+export type NuevaActividad = {
+  nombre: string;
+  responsable?: string;
+  mesInicio: number;
+  mesFin: number;
+  avance?: number;
+  estado?: GanttActivity["status"];
+  hito?: boolean;
+};
+
+export type NuevoDesembolso = {
+  fecha: string;
+  concepto: string;
+  valor: number;
+  clase?: DesembolsoApi["clase"];
+  numeroActa?: string | null;
+};
+
 export type DetalleProyectoApi = {
   proyecto: ProyectoApi;
   indicadores: IndicadorApi[];
   documentos: DocumentoApi[];
   actividades: ActividadApi[];
+  desembolsos: DesembolsoApi[];
 };
 
 export type ValorReferenciaApi = {
@@ -380,6 +427,12 @@ export type NuevaTareaPersonal = {
 export type NuevoProyecto = {
   id: string;
   nombre: string;
+  nombreCorto: string;
+  numeroContrato: string;
+  organizadores: string;
+  entidadContratante: string;
+  entidadContratista: string;
+  fechaAsignacion: string;
   linea: string;
   estructura?: string | null;
   responsable: string;
@@ -388,21 +441,46 @@ export type NuevoProyecto = {
   dependencia: string;
   objetivo: string;
   presupuesto: number;
+  presupuestoNegociacion?: number;
+  presupuestoEjecucion?: number;
+  presupuestoAlerta?: number;
   fechaInicio?: string;
+  fechaFin?: string;
   avance?: number;
+  ejecucionPct?: number;
+};
+
+export type EliminacionProyectoApi = {
+  relacionados: { documentos: number; indicadores: number; actividades: number; edt: number; tareas: number; informes: number };
+  puedeEliminar: boolean;
 };
 
 export const mapProyecto = (p: ProyectoApi): Project => ({
   id: p.id,
   name: p.nombre,
+  nombreCorto: p.nombreCorto,
+  numeroContrato: p.numeroContrato,
+  organizadores: p.organizadores,
+  entidadContratante: p.entidadContratante,
+  entidadContratista: p.entidadContratista,
+  fechaAsignacion: fechaCorta(p.fechaAsignacion),
+  creadoPor: p.creadoPor,
+  creadoEn: fechaCorta(p.creadoEn),
+  liderId: p.liderId,
+  estructura: p.estructura,
   line: p.linea,
   responsible: p.responsable,
   status: p.estado,
   progress: p.avance,
   budget: p.presupuesto,
+  budgetNegotiation: p.presupuestoNegociacion,
+  budgetExecution: p.presupuestoEjecucion,
+  budgetAlert: p.presupuestoAlerta,
   budgetExecuted: p.ejecucionPct,
   startDate: fechaCorta(p.fechaInicio),
   endDate: fechaCorta(p.fechaFin),
+  startIso: p.fechaInicio,
+  endIso: p.fechaFin,
   daysLeft: p.diasRestantes,
   dependency: p.dependencia,
   objective: p.objetivo,
@@ -426,6 +504,8 @@ export const mapDocumento = (d: DocumentoApi): Document => ({
   type: d.tipo,
   version: d.version,
   date: fechaCorta(d.fecha),
+  documentDate: fechaCorta(d.fechaDocumento),
+  documentNumber: d.numeroDocumento,
   user: d.usuario,
   status: d.estado,
   projectId: d.proyectoId,
@@ -442,6 +522,10 @@ export const mapInforme = (r: InformeApi): Report => ({
   project: r.proyecto,
   generatedBy: r.generadoPor,
   format: r.formato,
+  periodStart: r.periodoInicio,
+  periodEnd: r.periodoFin,
+  content: r.contenido,
+  consolidated: r.consolidado,
 });
 
 export const mapAuditoria = (a: AuditoriaApi): AuditEntry => ({
@@ -452,6 +536,16 @@ export const mapAuditoria = (a: AuditoriaApi): AuditEntry => ({
   record: a.registro,
   prevValue: a.previo,
   newValue: a.nuevo,
+});
+
+export const mapDesembolso = (d: DesembolsoApi): Desembolso => ({
+  id: d.id,
+  fecha: d.fecha,
+  concepto: d.concepto,
+  valor: d.valor,
+  clase: d.clase,
+  numeroActa: d.numeroActa,
+  projectId: d.proyectoId,
 });
 
 export const mapActividad = (a: ActividadApi): GanttActivity => ({
@@ -491,8 +585,43 @@ export const api = {
 
   proyectos: () => request<{ proyectos: ProyectoApi[] }>("/proyectos"),
   proyecto: (id: string) => request<DetalleProyectoApi>(`/proyectos/${encodeURIComponent(id)}`),
+  crearProyectoEjemplo: () =>
+    request<{ proyecto: ProyectoApi; creado: boolean }>("/proyectos/ejemplo", { method: "POST" }),
   crearProyecto: (datos: NuevoProyecto) =>
     request<{ proyecto: ProyectoApi }>("/proyectos", { method: "POST", body: datos }),
+  actualizarProyecto: (id: string, datos: Partial<Omit<NuevoProyecto, "id">>) =>
+    request<{ proyecto: ProyectoApi }>(`/proyectos/${encodeURIComponent(id)}`, { method: "PATCH", body: datos }),
+  prepararEliminacionProyecto: (id: string) =>
+    request<EliminacionProyectoApi>(`/proyectos/${encodeURIComponent(id)}/eliminacion`),
+  eliminarProyecto: (id: string, confirmacion: string) =>
+    request<{ ok: boolean }>(`/proyectos/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirmacion } }),
+
+  crearActividad: (proyectoId: string, datos: NuevaActividad) =>
+    request<{ actividad: ActividadApi }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/actividades`,
+      { method: "POST", body: datos },
+    ),
+  actualizarActividad: (proyectoId: string, actividadId: string, datos: Partial<NuevaActividad>) =>
+    request<{ actividad: ActividadApi }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/actividades/${encodeURIComponent(actividadId)}`,
+      { method: "PATCH", body: datos },
+    ),
+  eliminarActividad: (proyectoId: string, actividadId: string) =>
+    request<{ ok: boolean }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/actividades/${encodeURIComponent(actividadId)}`,
+      { method: "DELETE" },
+    ),
+
+  crearDesembolso: (proyectoId: string, datos: NuevoDesembolso) =>
+    request<{ desembolso: DesembolsoApi }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/desembolsos`,
+      { method: "POST", body: datos },
+    ),
+  eliminarDesembolso: (proyectoId: string, desembolsoId: string) =>
+    request<{ ok: boolean }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/desembolsos/${encodeURIComponent(desembolsoId)}`,
+      { method: "DELETE" },
+    ),
 
   estructuras: () => request<{ estructuras: EstructuraApi[] }>("/estructuras"),
   estructura: (id: string) =>
@@ -507,6 +636,8 @@ export const api = {
     datos: {
       proyectoId: string;
       tipo: string;
+      fechaDocumento: string;
+      numeroDocumento?: string | null;
       carpeta?: string | null;
       estado: string;
       version?: string;
@@ -524,6 +655,8 @@ export const api = {
     const formulario = new FormData();
     formulario.append("proyectoId", datos.proyectoId);
     formulario.append("tipo", datos.tipo);
+    formulario.append("fechaDocumento", datos.fechaDocumento);
+    if (datos.numeroDocumento) formulario.append("numeroDocumento", datos.numeroDocumento);
     if (datos.carpeta) formulario.append("carpeta", datos.carpeta);
     formulario.append("estado", datos.estado);
     formulario.append("version", datos.version ?? "v1.0");
@@ -535,6 +668,8 @@ export const api = {
     id: string,
     datos: {
       tipo?: string;
+      fechaDocumento?: string | null;
+      numeroDocumento?: string | null;
       carpeta?: string | null;
       estado?: string;
       version?: string;
@@ -557,6 +692,12 @@ export const api = {
       if (datos.carpeta !== undefined) formulario.append("carpeta", datos.carpeta ?? "");
       if (datos.estado) formulario.append("estado", datos.estado);
       if (datos.version) formulario.append("version", datos.version);
+      if (datos.fechaDocumento !== undefined) {
+        formulario.append("fechaDocumento", datos.fechaDocumento ?? "");
+      }
+      if (datos.numeroDocumento !== undefined) {
+        formulario.append("numeroDocumento", datos.numeroDocumento ?? "");
+      }
       formulario.append("archivo", archivo);
       return subirArchivo<{ documento: DocumentoApi }>(
         `/documentos/${encodeURIComponent(id)}`,
@@ -606,14 +747,29 @@ export const api = {
   eliminarEdtActividad: (id: string) =>
     request<{ ok: boolean }>(`/edt/actividades/${encodeURIComponent(id)}`, { method: "DELETE" }),
   cargarPlantillaEdt: (proyectoId: string) =>
-    request<{ actividades: EdtActividadApi[] }>(
+    request<{ actividades: EdtActividadApi[]; creados: number }>(
       `/edt/${encodeURIComponent(proyectoId)}/plantilla`,
       { method: "POST" },
     ),
 
-  informes: () => request<{ informes: InformeApi[] }>("/informes"),
-  crearInforme: (datos: { tipo: string; periodo: string; proyecto?: string; formato?: "PDF" | "Word" }) =>
-    request<{ informe: InformeApi }>("/informes", { method: "POST", body: datos }),
+  informes: (proyecto?: string) =>
+    request<{ informes: InformeApi[] }>(`/informes${query({ proyecto })}`),
+  crearInforme: (datos: {
+    tipo: "Semanal";
+    proyecto: string;
+    periodoInicio: string;
+    periodoFin: string;
+    contenido: string;
+  }) => request<{ informe: InformeApi }>("/informes", { method: "POST", body: datos }),
+  consolidarInforme: (
+    datos:
+      | { tipo: "Mensual"; proyecto: string; anio: number; mes: number }
+      | { tipo: "Trimestral"; proyecto: string; anio: number; trimestre: number },
+  ) =>
+    request<{ informe: InformeApi; orígenes: number }>("/informes/consolidar", {
+      method: "POST",
+      body: datos,
+    }),
   auditoria: (registro?: string) =>
     request<{ auditoria: AuditoriaApi[] }>(`/auditoria${query({ registro })}`),
 

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Upload, X } from "lucide-react";
 import { api, ApiError, type ProyectoApi } from "../../api/client";
 
-const TIPOS = ["Ficha técnica", "Actas", "Informes", "Antecedentes", "Evidencias", "Otros"];
+const TIPOS = ["Actas", "Informes", "Antecedentes", "Evidencias", "Documentación técnica", "Comunicaciones", "Otros"];
 const ESTADOS = ["En revisión", "Aprobado", "Borrador", "Rechazado"] as const;
 const ACEPTADOS = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt";
 
@@ -25,6 +25,8 @@ export function SubirDocumentoModal({
   const [carpetas, setCarpetas] = useState<string[]>([]);
   const [carpeta, setCarpeta] = useState("");
   const [nombre, setNombre] = useState("");
+  const [fechaDocumento, setFechaDocumento] = useState("");
+  const [numeroDocumento, setNumeroDocumento] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,8 @@ export function SubirDocumentoModal({
     setEstado("En revisión");
     setCarpeta("");
     setNombre("");
+    setFechaDocumento("");
+    setNumeroDocumento("");
     setArchivo(null);
     setError(null);
     if (!proyectoId) {
@@ -76,7 +80,9 @@ export function SubirDocumentoModal({
 
   const enviar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (enviando) return;
     if (!proyectoSel) return setError("Selecciona el proyecto.");
+    if (!fechaDocumento) return setError("Indica la fecha del documento.");
     if (!archivo) return setError("Selecciona un archivo.");
 
     setEnviando(true);
@@ -90,6 +96,8 @@ export function SubirDocumentoModal({
         estado,
         version: "v1.0",
         nombre: nombre.trim() || undefined,
+        fechaDocumento,
+        numeroDocumento: numeroDocumento.trim() || null,
       });
       onSubido();
       onCerrar();
@@ -189,6 +197,41 @@ export function SubirDocumentoModal({
               placeholder="Si lo dejas vacío se usa el nombre del archivo"
               className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
             />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="fecha-documento" className="text-xs font-semibold text-slate-700">
+                Fecha del documento <span className="font-normal text-slate-400">(obligatoria)</span>
+              </label>
+              <input
+                id="fecha-documento"
+                type="date"
+                required
+                disabled={enviando}
+                value={fechaDocumento}
+                onChange={(e) => setFechaDocumento(e.target.value)}
+                aria-describedby="fecha-documento-ayuda"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+              />
+              <p id="fecha-documento-ayuda" className="text-[11px] text-slate-400">
+                Fecha interna del documento, independiente de la fecha de subida.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="numero-documento" className="text-xs font-semibold text-slate-700">
+                Número acta/documento <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+              <input
+                id="numero-documento"
+                type="text"
+                maxLength={80}
+                disabled={enviando}
+                value={numeroDocumento}
+                onChange={(e) => setNumeroDocumento(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">
