@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
   Circle,
   Clock,
+  LayoutGrid,
   MessageSquare,
   Paperclip,
   Plus,
@@ -21,6 +22,7 @@ import type {
   UsuarioAsignable,
 } from "../../types";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { calcularUrgencia, fechaCorta, type NivelUrgencia } from "../../lib/urgencia";
 import { TableroProgreso } from "./TableroProgreso";
 import { TareaDetalle } from "./TareaDetalle";
 
@@ -36,156 +38,30 @@ const COLUMNAS: {
   { id: "completado", titulo: "Completado", dot: "bg-green-500", barra: "bg-green-500" },
 ];
 
-type Urgencia = "vencida" | "critica" | "proxima" | "lejana" | "sin-fecha";
-
-type EstiloTarea = {
-  badge: string;
-  borde: string;
-  punto: string;
-  tarjeta: string;
-  fechaChip: string;
+const PRIORIDAD_BADGE: Record<PrioridadTablero, string> = {
+  Alta: "bg-red-50 text-red-700 border-red-200",
+  Media: "bg-amber-50 text-amber-700 border-amber-200",
+  Baja: "bg-sky-50 text-sky-700 border-sky-200",
 };
 
-const PRIORIDAD_CFG: Record<PrioridadTablero, Record<Urgencia, EstiloTarea>> = {
-  Alta: {
-    vencida: {
-      badge: "bg-red-600 text-white border-red-700",
-      borde: "border-l-red-700",
-      punto: "bg-red-700",
-      tarjeta: "border-red-200 bg-red-50",
-      fechaChip: "bg-red-600 text-white",
-    },
-    critica: {
-      badge: "bg-red-500 text-white border-red-600",
-      borde: "border-l-red-600",
-      punto: "bg-red-600",
-      tarjeta: "border-red-200 bg-red-50/70",
-      fechaChip: "bg-red-100 text-red-700",
-    },
-    proxima: {
-      badge: "bg-red-100 text-red-700 border-red-300",
-      borde: "border-l-red-500",
-      punto: "bg-red-500",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-red-50 text-red-600",
-    },
-    lejana: {
-      badge: "bg-red-50 text-red-600 border-red-200",
-      borde: "border-l-red-300",
-      punto: "bg-red-300",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-slate-50 text-slate-500",
-    },
-    "sin-fecha": {
-      badge: "bg-red-50 text-red-500 border-red-100",
-      borde: "border-l-red-200",
-      punto: "bg-red-200",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-slate-50 text-slate-400",
-    },
-  },
-  Media: {
-    vencida: {
-      badge: "bg-amber-500 text-amber-950 border-amber-600",
-      borde: "border-l-amber-600",
-      punto: "bg-amber-600",
-      tarjeta: "border-amber-200 bg-amber-50",
-      fechaChip: "bg-amber-500 text-amber-950",
-    },
-    critica: {
-      badge: "bg-amber-400 text-amber-950 border-amber-500",
-      borde: "border-l-amber-500",
-      punto: "bg-amber-500",
-      tarjeta: "border-amber-200 bg-amber-50/70",
-      fechaChip: "bg-amber-100 text-amber-800",
-    },
-    proxima: {
-      badge: "bg-amber-100 text-amber-800 border-amber-300",
-      borde: "border-l-amber-500",
-      punto: "bg-amber-500",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-amber-50 text-amber-700",
-    },
-    lejana: {
-      badge: "bg-amber-50 text-amber-700 border-amber-200",
-      borde: "border-l-amber-300",
-      punto: "bg-amber-300",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-slate-50 text-slate-500",
-    },
-    "sin-fecha": {
-      badge: "bg-amber-50 text-amber-600 border-amber-100",
-      borde: "border-l-amber-200",
-      punto: "bg-amber-200",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-slate-50 text-slate-400",
-    },
-  },
-  Baja: {
-    vencida: {
-      badge: "bg-sky-600 text-white border-sky-700",
-      borde: "border-l-sky-700",
-      punto: "bg-sky-700",
-      tarjeta: "border-sky-200 bg-sky-50",
-      fechaChip: "bg-sky-600 text-white",
-    },
-    critica: {
-      badge: "bg-sky-500 text-white border-sky-600",
-      borde: "border-l-sky-600",
-      punto: "bg-sky-600",
-      tarjeta: "border-sky-200 bg-sky-50/70",
-      fechaChip: "bg-sky-100 text-sky-700",
-    },
-    proxima: {
-      badge: "bg-sky-100 text-sky-700 border-sky-300",
-      borde: "border-l-sky-500",
-      punto: "bg-sky-500",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-sky-50 text-sky-700",
-    },
-    lejana: {
-      badge: "bg-sky-50 text-sky-600 border-sky-200",
-      borde: "border-l-sky-300",
-      punto: "bg-sky-300",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-slate-50 text-slate-500",
-    },
-    "sin-fecha": {
-      badge: "bg-sky-50 text-sky-500 border-sky-100",
-      borde: "border-l-sky-200",
-      punto: "bg-sky-200",
-      tarjeta: "border-slate-200 bg-white",
-      fechaChip: "bg-slate-50 text-slate-400",
-    },
-  },
+const BORDE_URGENCIA: Record<NivelUrgencia, string> = {
+  verde: "border-l-emerald-400",
+  azul: "border-l-sky-400",
+  amarillo: "border-l-amber-400",
+  naranja: "border-l-orange-500",
+  rojo: "border-l-rose-500",
+  morado: "border-l-purple-600",
+  "sin-fecha": "border-l-slate-200",
 };
 
-function diasParaVencer(fechaLimite: string | null | undefined) {
-  if (!fechaLimite) return null;
-  const [anio, mes, dia] = fechaLimite.slice(0, 10).split("-").map(Number);
-  if (!anio || !mes || !dia) return null;
-  const limite = Date.UTC(anio, mes - 1, dia);
-  const ahora = new Date();
-  const hoy = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-  return Math.round((limite - hoy) / 86_400_000);
-}
-
-function urgenciaDe(fechaLimite: string | null | undefined): Urgencia {
-  const dias = diasParaVencer(fechaLimite);
-  if (dias === null) return "sin-fecha";
-  if (dias < 0) return "vencida";
-  if (dias <= 2) return "critica";
-  if (dias <= 7) return "proxima";
-  return "lejana";
-}
-
-function textoUrgencia(dias: number | null) {
-  if (dias === null) return "Sin fecha";
-  if (dias < 0) return `Vencida hace ${Math.abs(dias)} d`;
-  if (dias === 0) return "Vence hoy";
-  if (dias === 1) return "Vence mañana";
-  return `Vence en ${dias} días`;
-}
+const LEYENDA_URGENCIA: { nivel: NivelUrgencia; titulo: string; punto: string }[] = [
+  { nivel: "verde", titulo: "A tiempo", punto: "bg-emerald-500" },
+  { nivel: "azul", titulo: "Programada", punto: "bg-sky-500" },
+  { nivel: "amarillo", titulo: "Próxima", punto: "bg-amber-400" },
+  { nivel: "naranja", titulo: "Esta semana", punto: "bg-orange-500" },
+  { nivel: "rojo", titulo: "Urgente", punto: "bg-rose-500" },
+  { nivel: "morado", titulo: "Vencida", punto: "bg-purple-600" },
+];
 
 function iniciales(nombre: string) {
   return nombre
@@ -218,13 +94,6 @@ function AvatarResponsable({ nombre, fotoUrl }: { nombre: string; fotoUrl: strin
   );
 }
 
-function fechaCorta(valor: string) {
-  if (!valor) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short" }).format(
-    new Date(`${valor}T12:00:00`),
-  );
-}
-
 function esGestorDe(tarea: TareaTablero, usuarioId: string, rol: string) {
   return (
     rol === "admin" ||
@@ -239,9 +108,12 @@ const campoCls =
 
 export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }) {
   const { usuario } = useAuth();
+  const [vista, setVista] = useState<"general" | "tablero">("general");
   const [tableroId, setTableroId] = useState<string | null>(null);
   const [tablero, setTablero] = useState<TableroApi | null>(null);
   const [tareas, setTareas] = useState<TareaTablero[]>([]);
+  const [tableros, setTableros] = useState<TableroApi[]>([]);
+  const [proyectosGeneral, setProyectosGeneral] = useState<{ id: string; nombre: string }[]>([]);
   const [usuariosAsignables, setUsuariosAsignables] = useState<UsuarioAsignable[]>([]);
   const [proyectos, setProyectos] = useState<ProyectoApi[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -252,6 +124,8 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   const [busqueda, setBusqueda] = useState("");
   const [prioridad, setPrioridad] = useState<PrioridadTablero | "Todas">("Todas");
   const [asignacion, setAsignacion] = useState("todas");
+  const [filtroProyecto, setFiltroProyecto] = useState("");
+  const [filtroFase, setFiltroFase] = useState("");
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -267,28 +141,36 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   });
   const [edtActividades, setEdtActividades] = useState<EdtActividadApi[]>([]);
   const [cargandoEdt, setCargandoEdt] = useState(false);
+  const primeraCarga = useRef(true);
+
+  const cargarGeneral = useCallback(async () => {
+    const datos = await api.tableroGeneral(filtroProyecto || undefined, filtroFase || undefined);
+    setTareas(datos.tareas);
+    setTableros(datos.tableros);
+    setProyectosGeneral(datos.proyectos);
+  }, [filtroProyecto, filtroFase]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
-      const [{ tableros }, { usuarios }, { proyectos: listaProyectos }] = await Promise.all([
-        api.tableros(),
-        api.usuariosAsignables(),
-        api.proyectos(),
-      ]);
+      const [{ tableros: lista }, { usuarios }, { proyectos: listaProyectos }, general] =
+        await Promise.all([
+          api.tableros(),
+          api.usuariosAsignables(),
+          api.proyectos(),
+          api.tableroGeneral(),
+        ]);
+      setTableros(lista);
       setUsuariosAsignables(usuarios);
       setProyectos(listaProyectos);
-      if (!tableros.length) {
+      setProyectosGeneral(general.proyectos);
+      setTareas(general.tareas);
+      if (!lista.length) {
+        setVista("general");
         setTableroId(null);
         setTablero(null);
-        setTareas([]);
-        return;
       }
-      const detalle = await api.tablero(tableros[0].id);
-      setTableroId(detalle.tablero.id);
-      setTablero(detalle.tablero);
-      setTareas(detalle.tareas);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar el tablero.");
     } finally {
@@ -299,6 +181,36 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    if (vista !== "general") return;
+    if (primeraCarga.current) {
+      primeraCarga.current = false;
+      return;
+    }
+    let cancelado = false;
+    void cargarGeneral()
+      .catch(() => {
+        if (!cancelado) setAviso("No se pudo actualizar el tablero general.");
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [cargarGeneral, vista]);
+
+  useEffect(() => {
+    if (!filtroProyecto) {
+      setFiltroFase("");
+      return;
+    }
+    setFiltroFase((actual) => {
+      if (!actual) return actual;
+      const sigueExistiendo = tableros.some(
+        (t) => t.faseId === actual && t.proyectoId === filtroProyecto,
+      );
+      return sigueExistiendo ? actual : "";
+    });
+  }, [filtroProyecto, tableros]);
 
   useEffect(() => {
     if (!mostrarFormulario || !nueva.proyectoId) {
@@ -323,6 +235,27 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     };
   }, [mostrarFormulario, nueva.proyectoId]);
 
+  const fasesDisponibles = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const item of tableros) {
+      if (!item.faseId || !item.faseNombre) continue;
+      if (filtroProyecto && item.proyectoId !== filtroProyecto) continue;
+      mapa.set(item.faseId, item.faseNombre);
+    }
+    return [...mapa.entries()].map(([id, nombre]) => ({ id, nombre }));
+  }, [tableros, filtroProyecto]);
+
+  const tablerosPorProyecto = useMemo(() => {
+    const mapa = new Map<string, TableroApi[]>();
+    for (const item of tableros) {
+      const clave = item.proyectoId ?? "sin-proyecto";
+      const lista = mapa.get(clave) ?? [];
+      lista.push(item);
+      mapa.set(clave, lista);
+    }
+    return [...mapa.values()];
+  }, [tableros]);
+
   const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     return tareas.filter((tarea) => {
@@ -335,6 +268,8 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           tarea.descripcion,
           tarea.proyectoNombre ?? "",
           tarea.proyectoId ?? "",
+          tarea.faseNombre ?? "",
+          tarea.edtActividadNombre ?? "",
         ]
           .join(" ")
           .toLowerCase()
@@ -354,12 +289,47 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     setTareas((prev) => prev.map((tarea) => (tarea.id === actualizada.id ? actualizada : tarea)));
   }, []);
 
-  async function eliminarTarea(id: string) {
-    if (!tableroId) return;
-    const anteriores = tareas;
-    setTareas((prev) => prev.filter((tarea) => tarea.id !== id));
+  async function abrirTablero(id: string) {
+    if (!id) {
+      if (vista === "general") {
+        setCargando(true);
+        try {
+          await cargarGeneral();
+        } catch (e) {
+          setAviso(e instanceof Error ? e.message : "No se pudo cargar el tablero general.");
+        } finally {
+          setCargando(false);
+        }
+      } else {
+        setVista("general");
+      }
+      setTableroId(null);
+      setTablero(null);
+      return;
+    }
+
+    setCargando(true);
+    setAviso(null);
     try {
-      await api.eliminarTarea(tableroId, id);
+      const detalle = await api.tablero(id);
+      setTableroId(detalle.tablero.id);
+      setTablero(detalle.tablero);
+      setTareas(detalle.tareas);
+      setVista("tablero");
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "No se pudo abrir el tablero.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function eliminarTarea(id: string) {
+    const tarea = tareas.find((item) => item.id === id);
+    if (!tarea) return;
+    const anteriores = tareas;
+    setTareas((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await api.eliminarTarea(tarea.tableroId, id);
     } catch (e) {
       setTareas(anteriores);
       setAviso(e instanceof Error ? e.message : "No se pudo eliminar la tarea.");
@@ -382,6 +352,21 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     : null;
   const puedeEliminar = usuario?.rol === "admin";
 
+  function tableroDe(tarea: TareaTablero): TableroApi {
+    return {
+      id: tarea.tableroId,
+      nombre: tarea.tableroNombre ?? "Tablero",
+      descripcion: "",
+      proyectoId: tarea.tableroProyectoId,
+      proyectoNombre: tarea.proyectoNombre,
+      faseId: tarea.tableroFaseId,
+      faseNombre: tarea.faseNombre,
+      tipo: tarea.tableroTipo ?? "Manual",
+      creadoPor: tarea.tableroCreadoPor,
+      creadoPorNombre: tarea.tableroCreadoPorNombre,
+    };
+  }
+
   async function crearTablero(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!nuevoTablero.nombre.trim()) return;
@@ -393,14 +378,26 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         descripcion: nuevoTablero.descripcion.trim(),
       });
       setNuevoTablero({ nombre: "", descripcion: "" });
+      setTableros((prev) => [...prev, creado]);
       setTableroId(creado.id);
       setTablero(creado);
       setTareas([]);
+      setVista("tablero");
     } catch (e) {
       setAviso(e instanceof Error ? e.message : "No se pudo crear el tablero.");
     } finally {
       setCreandoTablero(false);
     }
+  }
+
+  function abrirNuevaTarea() {
+    if (!tablero) return;
+    setNueva((prev) => ({
+      ...prev,
+      proyectoId: tablero.proyectoId ?? prev.proyectoId,
+      etiqueta: tablero.faseNombre ?? prev.etiqueta,
+    }));
+    setMostrarFormulario(true);
   }
 
   async function crearTarea(event: FormEvent<HTMLFormElement>) {
@@ -423,12 +420,12 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
       setNueva({
         titulo: "",
         descripcion: "",
-        proyectoId: "",
+        proyectoId: tablero?.proyectoId ?? "",
         responsableId: "",
         edtActividadId: "",
         prioridad: "Media",
         fechaLimite: "",
-        etiqueta: "General",
+        etiqueta: tablero?.faseNombre ?? "General",
       });
       setMostrarFormulario(false);
     } catch (e) {
@@ -441,7 +438,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   if (cargando) return <CargandoModule mensaje="Cargando tablero de trabajo…" />;
   if (error) return <ErrorModule mensaje={error} onRetry={() => void cargar()} />;
 
-  if (!tableroId) {
+  if (!tableros.length) {
     return (
       <div className="space-y-5">
         <div>
@@ -512,28 +509,53 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     );
   }
 
+  const enGeneral = vista === "general";
+  const contexto = enGeneral
+    ? filtroProyecto
+      ? proyectosGeneral.find((p) => p.id === filtroProyecto)?.nombre ?? filtroProyecto
+      : "Todos los proyectos"
+    : tablero?.faseNombre ?? tablero?.proyectoNombre ?? tablero?.nombre ?? "Tablero";
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Tablero de asignación de trabajo</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {enGeneral ? "Tablero general de proyectos" : "Tablero de fase"}
+          </h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {tablero?.nombre} · Cada tarea está ligada a un proyecto y avanza con aprobación
+            {enGeneral
+              ? `${contexto} · Actividades y tareas de todas las fases y tableros`
+              : `${tablero?.proyectoNombre ?? "Proyecto"} · ${contexto} · Las tareas avanzan con aprobación`}
           </p>
-          {tablero?.creadoPorNombre && (
+          {!enGeneral && tablero?.creadoPorNombre && (
             <p className="mt-1 text-[11px] text-slate-400">
               Líder del tablero: {tablero.creadoPorNombre}
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setMostrarFormulario(true)}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
-        >
-          <Plus className="h-4 w-4" />
-          Nueva tarea
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {!enGeneral && (
+            <button
+              type="button"
+              onClick={() => void abrirTablero("")}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Ver general
+            </button>
+          )}
+          {!enGeneral && (
+            <button
+              type="button"
+              onClick={abrirNuevaTarea}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva tarea
+            </button>
+          )}
+        </div>
       </div>
 
       {aviso && (
@@ -545,16 +567,116 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         </div>
       )}
 
+      <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+        <label htmlFor="selector-tablero" className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+          Tablero guía
+        </label>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void abrirTablero("")}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+              enGeneral
+                ? "border-[#C2410C] bg-orange-50 text-[#9A3412]"
+                : "border-slate-200 bg-white text-slate-600 hover:border-orange-300 hover:text-[#C2410C]"
+            }`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            General
+            <span className="rounded-full bg-white/70 px-1.5 text-[10px]">{tareas.length}</span>
+          </button>
+          {tablerosPorProyecto.map((grupo) => (
+            <div key={grupo[0]?.proyectoId ?? "sin"} className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {grupo[0]?.proyectoId ?? "Sin proyecto"}
+              </span>
+              {grupo.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => void abrirTablero(item.id)}
+                  title={`${item.proyectoNombre ?? "Proyecto"} · ${item.nombre}`}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                    !enGeneral && tableroId === item.id
+                      ? "border-[#C2410C] bg-orange-50 text-[#9A3412]"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-orange-300 hover:text-[#C2410C]"
+                  }`}
+                >
+                  {item.faseNombre ?? item.nombre}
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">
+                    {item.totalTareas ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+        <label htmlFor="selector-tablero" className="sr-only">
+          Seleccionar tablero
+        </label>
+        <select
+          id="selector-tablero"
+          value={enGeneral ? "" : tableroId ?? ""}
+          onChange={(e) => void abrirTablero(e.target.value)}
+          className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-[#EA580C] sm:max-w-md"
+        >
+          <option value="">Tablero general (todos los proyectos)</option>
+          {tablerosPorProyecto.map((grupo) => (
+            <optgroup
+              key={grupo[0]?.proyectoId ?? "sin"}
+              label={grupo[0]?.proyectoNombre ?? grupo[0]?.proyectoId ?? "Sin proyecto"}
+            >
+              {grupo.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.faseNombre ? `Fase · ${item.faseNombre}` : item.nombre} ({item.totalTareas ?? 0})
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+
       <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar tarea, proyecto, responsable o etiqueta…"
+            placeholder="Buscar tarea, proyecto, fase o responsable…"
             className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
           />
         </div>
+        {enGeneral && (
+          <>
+            <select
+              value={filtroProyecto}
+              onChange={(e) => setFiltroProyecto(e.target.value)}
+              aria-label="Filtrar por proyecto"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+            >
+              <option value="">Todos los proyectos</option>
+              {proyectosGeneral.map((proyecto) => (
+                <option key={proyecto.id} value={proyecto.id}>
+                  {proyecto.id} · {proyecto.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filtroFase}
+              onChange={(e) => setFiltroFase(e.target.value)}
+              aria-label="Filtrar por fase"
+              disabled={fasesDisponibles.length === 0}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50"
+            >
+              <option value="">Todas las fases</option>
+              {fasesDisponibles.map((fase) => (
+                <option key={fase.id} value={fase.id}>
+                  {fase.nombre}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <select
           value={prioridad}
           onChange={(e) => setPrioridad(e.target.value as PrioridadTablero | "Todas")}
@@ -582,21 +704,21 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             ))}
           </optgroup>
         </select>
-        <div className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:ml-auto">
-          <div className="flex items-center gap-3">
-            {(["Baja", "Media", "Alta"] as PrioridadTablero[]).map((p) => (
-              <span key={p} className="inline-flex items-center gap-1.5">
-                <span className={`h-2 w-2 rounded-full ${PRIORIDAD_CFG[p].proxima.punto}`} />
-                {p}
-              </span>
-            ))}
-          </div>
-          <span className="text-[10px] font-normal text-gray-400">
-            El color se intensifica al acercarse la fecha límite
-          </span>
-        </div>
-        <span className="text-xs font-medium text-gray-400">
+        <span className="text-xs font-medium text-gray-400 sm:ml-auto">
           {filtradas.length} de {tareas.length} tareas
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-slate-100 bg-white px-4 py-2.5 text-[11px] font-medium text-slate-500">
+        <span className="font-bold uppercase tracking-wide text-slate-400">Urgencia por fecha</span>
+        {LEYENDA_URGENCIA.map((nivel) => (
+          <span key={nivel.nivel} className="inline-flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${nivel.punto}`} />
+            {nivel.titulo}
+          </span>
+        ))}
+        <span className="text-[10px] font-normal text-slate-400">
+          El color se intensifica al acercarse la fecha límite.
         </span>
       </div>
 
@@ -624,13 +746,8 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
 
               <div className="flex-1 space-y-3 p-3">
                 {tareasColumna.map((tarea) => {
-                  const dias = diasParaVencer(tarea.fechaLimite);
-                  const urgencia =
-                    tarea.columna === "completado" ? "lejana" : urgenciaDe(tarea.fechaLimite);
-                  const cfg = PRIORIDAD_CFG[tarea.prioridad][urgencia];
-                  const mostrarAlerta = tarea.columna !== "completado" && dias !== null && dias <= 2;
-                  const tituloFecha =
-                    tarea.columna === "completado" ? "Tarea completada" : textoUrgencia(dias);
+                  const completada = tarea.columna === "completado";
+                  const urgencia = calcularUrgencia(tarea.fechaLimite);
                   const esAsignado = Boolean(usuario && tarea.responsableId === usuario.id);
                   const esGestor = Boolean(
                     usuario && esGestorDe(tarea, usuario.id, usuario.rol),
@@ -639,12 +756,21 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                   return (
                     <article
                       key={tarea.id}
-                      className={`group rounded-lg border border-l-4 p-3 shadow-sm transition hover:shadow-md ${cfg.tarjeta} ${cfg.borde}`}
+                      className={`group rounded-lg border border-l-4 bg-white p-3 shadow-sm transition hover:shadow-md ${
+                        completada ? "border-l-emerald-400 opacity-90" : BORDE_URGENCIA[urgencia.nivel]
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A3412]">
-                          {tarea.etiqueta}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A3412]">
+                            {tarea.etiqueta}
+                          </span>
+                          {tarea.faseNombre && (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                              {tarea.faseNombre}
+                            </span>
+                          )}
+                        </div>
                         {puedeEliminar && (
                           <button
                             type="button"
@@ -662,7 +788,11 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                         onClick={() => setDetalleAbierto(tarea.id)}
                         className="mt-2 block w-full rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-[#EA580C]/40"
                       >
-                        <h3 className="text-sm font-semibold leading-snug text-slate-800">
+                        <h3
+                          className={`text-sm font-semibold leading-snug ${
+                            completada ? "text-slate-500 line-through" : "text-slate-800"
+                          }`}
+                        >
                           {tarea.titulo}
                         </h3>
                         {tarea.descripcion && (
@@ -678,27 +808,31 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                         {tarea.edtActividadNombre && (
                           <p
                             className="mt-1 truncate text-[10px] font-semibold text-orange-600"
-                            title={`Actividad EDT de la etapa ${tarea.edtEtapa}: ${tarea.edtActividadNombre}`}
+                            title={`Actividad EDT: ${tarea.edtActividadNombre}`}
                           >
-                            EDT E{tarea.edtEtapa} · {tarea.edtActividadNombre}
+                            EDT · {tarea.edtActividadNombre}
                           </p>
                         )}
                       </button>
 
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                         <span
-                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${cfg.badge}`}
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${PRIORIDAD_BADGE[tarea.prioridad]}`}
                         >
                           {tarea.prioridad}
                         </span>
                         <span
-                          title={tituloFecha}
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.fechaChip}`}
+                          title={completada ? "Tarea completada" : `${urgencia.etiqueta} · ${urgencia.restante}`}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                            completada
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : urgencia.badge
+                          }`}
                         >
                           <CalendarDays className="h-3 w-3 shrink-0" />
                           <span className="truncate">
-                            {fechaCorta(tarea.fechaLimite ?? "")}
-                            {mostrarAlerta ? ` · ${textoUrgencia(dias)}` : ""}
+                            {fechaCorta(tarea.fechaLimite)}
+                            {!completada && tarea.fechaLimite ? ` · ${urgencia.restante}` : ""}
                           </span>
                         </span>
                       </div>
@@ -722,7 +856,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                           <Paperclip className="ml-1 h-3.5 w-3.5" />
                           {tarea.adjuntos}
                         </button>
-                        {tarea.columna === "completado" ? (
+                        {completada ? (
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
                         ) : tarea.columna === "en-curso" ? (
                           <Clock className="h-4 w-4 text-blue-500" />
@@ -787,15 +921,24 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
       </div>
 
       <p className="text-[11px] text-slate-400">
-        El flujo es condicional: la persona asignada confirma el inicio, entrega con comentario y
-        evidencia, y quien creó la tarea o lidera el proyecto aprueba o devuelve.
+        El tablero general reúne todas las fases y tableros. La persona asignada confirma el
+        inicio, entrega con comentario y evidencia, y quien creó la tarea o lidera el proyecto
+        aprueba o devuelve. Los documentos y requisitos del EDT bloquean la aprobación hasta
+        cumplirse.
       </p>
 
       {mostrarFormulario && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center">
           <div className="my-auto w-full max-w-lg rounded-xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 className="text-base font-bold text-slate-800">Nueva tarea</h2>
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Nueva tarea</h2>
+                <p className="text-xs text-slate-500">
+                  {tablero?.faseNombre
+                    ? `Se agregará al tablero de la fase ${tablero.faseNombre}.`
+                    : `Se agregará al tablero ${tablero?.nombre ?? ""}.`}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setMostrarFormulario(false)}
@@ -837,6 +980,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                   id="proyecto-tarea"
                   required
                   value={nueva.proyectoId}
+                  disabled={Boolean(tablero?.proyectoId)}
                   onChange={(e) =>
                     setNueva((prev) => ({
                       ...prev,
@@ -844,7 +988,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                       edtActividadId: "",
                     }))
                   }
-                  className={campoCls}
+                  className={`${campoCls} disabled:opacity-70`}
                 >
                   <option value="">Selecciona un proyecto</option>
                   {proyectos.map((proyecto) => (
@@ -853,6 +997,11 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                     </option>
                   ))}
                 </select>
+                {tablero?.proyectoId && (
+                  <p className="text-[11px] text-slate-400">
+                    El tablero de fase está fijado al proyecto {tablero.proyectoId}.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -876,6 +1025,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                         : "Sin vincular al EDT"}
                   </option>
                   {[...edtActividades]
+                    .filter((actividad) => !tablero?.faseId || actividad.faseId === tablero.faseId)
                     .sort((a, b) => a.etapa - b.etapa || a.orden - b.orden)
                     .map((actividad) => (
                       <option key={actividad.id} value={actividad.id}>
@@ -991,7 +1141,8 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
 
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
                 La tarea inicia en “Por hacer”. La persona asignada deberá confirmar con
-                “Entendido” antes de pasar a “En curso”.
+                “Entendido” antes de pasar a “En curso”. El color de la tarjeta cambiará según la
+                cercanía de la fecha límite.
               </p>
 
               <div className="flex flex-col-reverse justify-end gap-2 pt-1 sm:flex-row">
@@ -1015,10 +1166,10 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         </div>
       )}
 
-      {tareaDetalle && tableroId && tablero && usuario && (
+      {tareaDetalle && usuario && (
         <TareaDetalle
-          tableroId={tableroId}
-          tablero={tablero}
+          tableroId={tareaDetalle.tableroId}
+          tablero={tableroDe(tareaDetalle)}
           tarea={tareaDetalle}
           usuario={usuario}
           usuariosAsignables={usuariosAsignables}

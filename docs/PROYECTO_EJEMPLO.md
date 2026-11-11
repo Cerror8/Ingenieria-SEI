@@ -257,7 +257,8 @@ Aclaraciones de alcance:
 
 ## 10. Documentos relacionados
 
-- `docs/CHECKLIST_EDT.md`: alcance y estado del checklist EDT SAC-PI031.
+- `docs/CHECKLIST_EDT.md`: alcance y estado de los checklists EDT por tipo de contrato.
+- `docs/TABLEROS_EDT.md`: fases como tableros, tablero general, Mi tablero, sincronización y urgencias.
 - `docs/BASE_DE_DATOS.md`: esquema y tablas del sistema.
 - `docs/AUTENTICACION.md`: sesión, roles y permisos.
 - `docs/WHATSAPP.md`: canal opcional de notificaciones (no implementado).

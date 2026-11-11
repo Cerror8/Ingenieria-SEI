@@ -66,6 +66,7 @@ export interface Project {
   liderId: string | null;
   estructura: string | null;
   line: string;
+  tipoContrato: "Obra" | "Interventoría";
   responsible: string;
   status: ProjectStatus;
   progress: number;
@@ -110,6 +111,7 @@ export interface Document {
   fileName: string | null;
   fileSize: number | null;
   folder: string | null;
+  edtActividadId: string | null;
 }
 
 export interface AuditEntry {
@@ -165,6 +167,11 @@ export interface TareaTablero {
   id: string;
   tableroId: string;
   tableroNombre: string | null;
+  tableroProyectoId: string | null;
+  tableroFaseId: string | null;
+  tableroTipo: "Manual" | "Fase" | null;
+  faseNombre: string | null;
+  faseOrden: number | null;
   proyectoId: string | null;
   proyectoNombre: string | null;
   proyectoLiderId: string | null;
@@ -181,6 +188,8 @@ export interface TareaTablero {
   edtActividadNombre: string | null;
   edtEtapa: number | null;
   edtEstado: string | null;
+  edtTipo: "Actividad" | "Documento" | "Acta" | null;
+  edtRequiereDocumento: boolean | null;
   creadoPor: string | null;
   creadoPorNombre: string | null;
   prioridad: PrioridadTablero;
@@ -198,6 +207,8 @@ export interface TareaPersonal {
   id: string;
   titulo: string;
   descripcion: string;
+  proyectoId: string | null;
+  proyectoNombre: string | null;
   columna: ColumnaPersonal;
   prioridad: PrioridadTablero;
   fechaLimite: string | null;

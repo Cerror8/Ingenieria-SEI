@@ -27,6 +27,7 @@ import type {
   UsuarioAsignable,
 } from "../../types";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { calcularUrgencia, fechaCorta, type NivelUrgencia } from "../../lib/urgencia";
 import { TareaDetalle } from "../tableros/TareaDetalle";
 
 const COLUMNAS_PROYECTO: { id: ColumnaTablero; titulo: string; dot: string; barra: string }[] = [
@@ -48,58 +49,15 @@ const PRIORIDAD_BADGE: Record<PrioridadTablero, string> = {
   Baja: "bg-sky-50 text-sky-700 border-sky-200",
 };
 
-type Urgencia = "vencida" | "critica" | "proxima" | "lejana" | "sin-fecha";
-
-const URGENCIA_BORDE: Record<Urgencia, string> = {
-  vencida: "border-l-red-600",
-  critica: "border-l-red-500",
-  proxima: "border-l-amber-400",
-  lejana: "border-l-slate-300",
+const BORDE_URGENCIA: Record<NivelUrgencia, string> = {
+  verde: "border-l-emerald-400",
+  azul: "border-l-sky-400",
+  amarillo: "border-l-amber-400",
+  naranja: "border-l-orange-500",
+  rojo: "border-l-rose-500",
+  morado: "border-l-purple-600",
   "sin-fecha": "border-l-slate-200",
 };
-
-const URGENCIA_CHIP: Record<Urgencia, string> = {
-  vencida: "bg-red-600 text-white",
-  critica: "bg-red-50 text-red-700",
-  proxima: "bg-amber-50 text-amber-700",
-  lejana: "bg-slate-50 text-slate-500",
-  "sin-fecha": "bg-slate-50 text-slate-400",
-};
-
-function diasParaVencer(fechaLimite: string | null | undefined) {
-  if (!fechaLimite) return null;
-  const [anio, mes, dia] = fechaLimite.slice(0, 10).split("-").map(Number);
-  if (!anio || !mes || !dia) return null;
-  const limite = Date.UTC(anio, mes - 1, dia);
-  const ahora = new Date();
-  const hoy = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-  return Math.round((limite - hoy) / 86_400_000);
-}
-
-function urgenciaDe(fechaLimite: string | null | undefined): Urgencia {
-  const dias = diasParaVencer(fechaLimite);
-  if (dias === null) return "sin-fecha";
-  if (dias < 0) return "vencida";
-  if (dias <= 2) return "critica";
-  if (dias <= 7) return "proxima";
-  return "lejana";
-}
-
-function textoUrgencia(fechaLimite: string | null | undefined) {
-  const dias = diasParaVencer(fechaLimite);
-  if (dias === null) return "Sin fecha";
-  if (dias < 0) return `Vencida hace ${Math.abs(dias)} d`;
-  if (dias === 0) return "Vence hoy";
-  if (dias === 1) return "Vence mañana";
-  return `Vence en ${dias} días`;
-}
-
-function fechaCorta(valor: string | null) {
-  if (!valor) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short" }).format(
-    new Date(`${valor.slice(0, 10)}T12:00:00`),
-  );
-}
 
 const campoCls =
   "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10";
@@ -108,6 +66,7 @@ type Formulario = {
   id: string | null;
   titulo: string;
   descripcion: string;
+  proyectoId: string;
   prioridad: PrioridadTablero;
   fechaLimite: string;
   etiqueta: string;
@@ -118,6 +77,7 @@ const formularioVacio = (): Formulario => ({
   id: null,
   titulo: "",
   descripcion: "",
+  proyectoId: "",
   prioridad: "Media",
   fechaLimite: "",
   etiqueta: "Personal",
@@ -157,7 +117,9 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
   const { usuario } = useAuth();
   const [tareasProyecto, setTareasProyecto] = useState<TareaTablero[]>([]);
   const [tareasPersonales, setTareasPersonales] = useState<TareaPersonal[]>([]);
+  const [proyectos, setProyectos] = useState<{ id: string; nombre: string }[]>([]);
   const [usuariosAsignables, setUsuariosAsignables] = useState<UsuarioAsignable[]>([]);
+  const [filtroProyecto, setFiltroProyecto] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -176,6 +138,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
       ]);
       setTareasProyecto(miTablero.tareasProyecto);
       setTareasPersonales(miTablero.tareasPersonales);
+      setProyectos(miTablero.proyectos);
       setUsuariosAsignables(usuarios);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar tu tablero.");
@@ -200,7 +163,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
       (t) => t.columna === "completado",
     ).length;
     const vencidas = [...tareasProyecto, ...tareasPersonales].filter(
-      (t) => t.columna !== "completado" && (diasParaVencer(t.fechaLimite) ?? 0) < 0,
+      (t) => t.columna !== "completado" && calcularUrgencia(t.fechaLimite).nivel === "morado",
     ).length;
     return {
       proyectoTotal: tareasProyecto.length,
@@ -212,6 +175,22 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
       vencidas,
     };
   }, [tareasProyecto, tareasPersonales]);
+
+  const tareasProyectoFiltradas = useMemo(
+    () =>
+      filtroProyecto
+        ? tareasProyecto.filter((tarea) => tarea.proyectoId === filtroProyecto)
+        : tareasProyecto,
+    [tareasProyecto, filtroProyecto],
+  );
+
+  const tareasPersonalesFiltradas = useMemo(
+    () =>
+      filtroProyecto
+        ? tareasPersonales.filter((tarea) => tarea.proyectoId === filtroProyecto)
+        : tareasPersonales,
+    [tareasPersonales, filtroProyecto],
+  );
 
   const tareaDetalle = detalleId
     ? (tareasProyecto.find((tarea) => tarea.id === detalleId) ?? null)
@@ -249,6 +228,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
       id: tarea.id,
       titulo: tarea.titulo,
       descripcion: tarea.descripcion,
+      proyectoId: tarea.proyectoId ?? "",
       prioridad: tarea.prioridad,
       fechaLimite: tarea.fechaLimite ? tarea.fechaLimite.slice(0, 10) : "",
       etiqueta: tarea.etiqueta,
@@ -266,6 +246,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
       const cuerpo = {
         titulo: formulario.titulo.trim(),
         descripcion: formulario.descripcion.trim(),
+        proyectoId: formulario.proyectoId || null,
         prioridad: formulario.prioridad,
         fechaLimite: formulario.fechaLimite || null,
         etiqueta: formulario.etiqueta.trim() || "Personal",
@@ -394,6 +375,30 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
         />
       </div>
 
+      <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center">
+        <div>
+          <p className="text-xs font-bold text-slate-700">Filtrar por proyecto</p>
+          <p className="text-[11px] text-slate-400">
+            {filtroProyecto
+              ? `${tareasProyectoFiltradas.length + tareasPersonalesFiltradas.length} tareas en el proyecto seleccionado`
+              : `Mostrando todos los proyectos · ${tareasProyecto.length + tareasPersonales.length} tareas`}
+          </p>
+        </div>
+        <select
+          value={filtroProyecto}
+          onChange={(e) => setFiltroProyecto(e.target.value)}
+          aria-label="Filtrar tareas por proyecto"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] sm:ml-auto sm:w-auto sm:min-w-[280px]"
+        >
+          <option value="">Todos los proyectos</option>
+          {proyectos.map((proyecto) => (
+            <option key={proyecto.id} value={proyecto.id}>
+              {proyecto.id} · {proyecto.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <section className="space-y-3">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -415,7 +420,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
           </button>
         </div>
 
-        {tareasProyecto.length === 0 ? (
+        {tareasProyectoFiltradas.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
             <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
             <p className="mt-2 text-sm font-semibold text-slate-600">
@@ -428,7 +433,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {COLUMNAS_PROYECTO.map((columna) => {
-              const tareasColumna = tareasProyecto.filter(
+              const tareasColumna = tareasProyectoFiltradas.filter(
                 (tarea) => tarea.columna === columna.id,
               );
 
@@ -450,14 +455,11 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
 
                   <div className="flex-1 space-y-2.5 p-2.5">
                     {tareasColumna.map((tarea) => {
-                      const urgencia =
-                        tarea.columna === "completado"
-                          ? "lejana"
-                          : urgenciaDe(tarea.fechaLimite);
-                      const borde =
-                        tarea.columna === "completado"
-                          ? "border-l-green-400"
-                          : URGENCIA_BORDE[urgencia];
+                      const completada = tarea.columna === "completado";
+                      const urgencia = calcularUrgencia(tarea.fechaLimite);
+                      const borde = completada
+                        ? "border-l-emerald-400"
+                        : BORDE_URGENCIA[urgencia.nivel];
 
                       return (
                         <article
@@ -486,10 +488,10 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
 
                           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                tarea.columna === "completado"
-                                  ? "bg-green-50 text-green-700"
-                                  : URGENCIA_CHIP[urgencia]
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                completada
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : urgencia.badge
                               }`}
                             >
                               <CalendarDays className="h-3 w-3" />
@@ -503,9 +505,9 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
                             </span>
                           </div>
 
-                          {tarea.columna !== "completado" && (
+                          {!completada && tarea.fechaLimite && (
                             <p className="mt-2 text-[10px] font-medium text-slate-400">
-                              {textoUrgencia(tarea.fechaLimite)}
+                              {urgencia.etiqueta} · {urgencia.restante}
                             </p>
                           )}
 
@@ -553,7 +555,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
           </button>
         </div>
 
-        {tareasPersonales.length === 0 ? (
+        {tareasPersonalesFiltradas.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
             <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
             <p className="mt-2 text-sm font-semibold text-slate-600">
@@ -574,7 +576,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {COLUMNAS_PERSONAL.map((columna) => {
-              const tareasColumna = tareasPersonales.filter(
+              const tareasColumna = tareasPersonalesFiltradas.filter(
                 (tarea) => tarea.columna === columna.id,
               );
 
@@ -597,15 +599,15 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
                   <div className="flex-1 space-y-2.5 p-2.5">
                     {tareasColumna.map((tarea) => {
                       const completada = tarea.columna === "completado";
-                      const urgencia = completada ? "lejana" : urgenciaDe(tarea.fechaLimite);
+                      const urgencia = calcularUrgencia(tarea.fechaLimite);
 
                       return (
                         <article
                           key={tarea.id}
                           className={`group rounded-lg border border-l-4 bg-white p-3 shadow-sm transition hover:shadow-md ${
                             completada
-                              ? "border-l-green-400 opacity-80"
-                              : URGENCIA_BORDE[urgencia]
+                              ? "border-l-emerald-400 opacity-80"
+                              : BORDE_URGENCIA[urgencia.nivel]
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -652,6 +654,11 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
                                 {tarea.descripcion}
                               </p>
                             )}
+                            {tarea.proyectoId && (
+                              <p className="mt-1 truncate text-[10px] font-semibold text-slate-400">
+                                {tarea.proyectoId} · {tarea.proyectoNombre ?? "Proyecto"}
+                              </p>
+                            )}
                           </button>
 
                           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -661,14 +668,22 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
                               {tarea.prioridad}
                             </span>
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                completada ? "bg-green-50 text-green-700" : URGENCIA_CHIP[urgencia]
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                completada
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : urgencia.badge
                               }`}
                             >
                               <CalendarDays className="h-3 w-3" />
                               {fechaCorta(tarea.fechaLimite)}
                             </span>
                           </div>
+
+                          {!completada && tarea.fechaLimite && (
+                            <p className="mt-1.5 text-[10px] font-medium text-slate-400">
+                              {urgencia.etiqueta} · {urgencia.restante}
+                            </p>
+                          )}
 
                           <div className="mt-2.5 border-t border-slate-100 pt-2">
                             {tarea.columna === "por-hacer" && (
@@ -807,6 +822,35 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
                   placeholder="Detalle o recordatorio"
                   className={`${campoCls} resize-none`}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="personal-proyecto"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Proyecto (opcional)
+                </label>
+                <select
+                  id="personal-proyecto"
+                  value={formulario.proyectoId}
+                  onChange={(e) =>
+                    setFormulario((actual) =>
+                      actual ? { ...actual, proyectoId: e.target.value } : actual,
+                    )
+                  }
+                  className={campoCls}
+                >
+                  <option value="">Sin proyecto</option>
+                  {proyectos.map((proyecto) => (
+                    <option key={proyecto.id} value={proyecto.id}>
+                      {proyecto.id} · {proyecto.nombre}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Úsalo para agrupar esta tarea personal con un proyecto en los filtros.
+                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

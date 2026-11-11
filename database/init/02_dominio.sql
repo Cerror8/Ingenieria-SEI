@@ -117,9 +117,22 @@ ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratista TEXT NOT NULL
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS fecha_asignacion DATE;
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS creado_por TEXT;
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS avance_origen TEXT NOT NULL DEFAULT 'Manual';
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS tipo_contrato TEXT NOT NULL DEFAULT 'Interventoría';
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS carpeta TEXT;
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS fecha_documento DATE;
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS numero_documento TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'proyectos'::regclass
+       AND conname = 'proyectos_tipo_contrato_check'
+  ) THEN
+    ALTER TABLE proyectos ADD CONSTRAINT proyectos_tipo_contrato_check
+      CHECK (tipo_contrato IN ('Obra', 'Interventoría'));
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS documentos_touch ON documentos;
 CREATE TRIGGER documentos_touch
@@ -127,15 +140,47 @@ BEFORE UPDATE ON documentos
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 
 -- ---------------------------------------------------------------------
--- Checklist EDT (SAC-PI031): tres etapas fijas por proyecto con
--- actividades y subproductos predecesores.
+-- EDT por fases: las tres etapas principales son tableros editables y se
+-- pueden agregar fases conectadas a una fase anterior. Cada actividad es
+-- una tarjeta del tablero de su fase y puede exigir documentos.
 -- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS edt_fases (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proyecto_id        TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  nombre             TEXT NOT NULL,
+  descripcion        TEXT NOT NULL DEFAULT '',
+  clave              TEXT,
+  orden              INTEGER NOT NULL DEFAULT 1,
+  es_principal       BOOLEAN NOT NULL DEFAULT false,
+  depende_de_fase_id UUID REFERENCES edt_fases(id) ON DELETE SET NULL,
+  creado_en          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_edt_fases_proyecto ON edt_fases (proyecto_id, orden);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_fases_clave
+  ON edt_fases (proyecto_id, clave) WHERE clave IS NOT NULL;
+
+DROP TRIGGER IF EXISTS edt_fases_touch ON edt_fases;
+CREATE TRIGGER edt_fases_touch
+BEFORE UPDATE ON edt_fases
+FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
 CREATE TABLE IF NOT EXISTS edt_actividades (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   proyecto_id        TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
-  etapa              SMALLINT NOT NULL CHECK (etapa BETWEEN 1 AND 3),
+  fase_id            UUID REFERENCES edt_fases(id) ON DELETE CASCADE,
+  etapa              SMALLINT NOT NULL DEFAULT 1 CHECK (etapa BETWEEN 1 AND 3),
   padre_id           UUID REFERENCES edt_actividades(id) ON DELETE CASCADE,
   actividad          TEXT NOT NULL DEFAULT '',
+  descripcion        TEXT NOT NULL DEFAULT '',
+  tipo               TEXT NOT NULL DEFAULT 'Actividad'
+                     CHECK (tipo IN ('Actividad', 'Documento', 'Acta')),
+  plantilla_clave    TEXT,
+  prioridad          TEXT NOT NULL DEFAULT 'Alta'
+                     CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
+  requiere_documento BOOLEAN NOT NULL DEFAULT false,
+  carpeta            TEXT,
   responsable        TEXT,
   responsable_id     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   fecha_cumplimiento DATE,
@@ -147,12 +192,57 @@ CREATE TABLE IF NOT EXISTS edt_actividades (
 );
 
 CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden);
+CREATE INDEX IF NOT EXISTS ix_edt_fase ON edt_actividades (fase_id, orden);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_actividad_clave
+  ON edt_actividades (proyecto_id, plantilla_clave) WHERE plantilla_clave IS NOT NULL;
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE;
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Actividad';
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS plantilla_clave TEXT;
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS prioridad TEXT NOT NULL DEFAULT 'Alta';
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS requiere_documento BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS carpeta TEXT;
+ALTER TABLE edt_actividades ALTER COLUMN etapa SET DEFAULT 1;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'edt_actividades'::regclass
+       AND conname = 'edt_actividades_tipo_check'
+  ) THEN
+    ALTER TABLE edt_actividades ADD CONSTRAINT edt_actividades_tipo_check
+      CHECK (tipo IN ('Actividad', 'Documento', 'Acta'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'edt_actividades'::regclass
+       AND conname = 'edt_actividades_prioridad_check'
+  ) THEN
+    ALTER TABLE edt_actividades ADD CONSTRAINT edt_actividades_prioridad_check
+      CHECK (prioridad IN ('Alta', 'Media', 'Baja'));
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS edt_actividades_touch ON edt_actividades;
 CREATE TRIGGER edt_actividades_touch
 BEFORE UPDATE ON edt_actividades
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- Un documento del checklist puede exigir que otro esté completo y cargado
+-- antes de poder completarse (por ejemplo, el acta de inicio necesita el
+-- contrato, las pólizas y el RP).
+CREATE TABLE IF NOT EXISTS edt_requisitos (
+  actividad_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+  requisito_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+  PRIMARY KEY (actividad_id, requisito_id),
+  CHECK (actividad_id <> requisito_id)
+);
+
+ALTER TABLE documentos ADD COLUMN IF NOT EXISTS edt_actividad_id UUID
+  REFERENCES edt_actividades(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_documentos_edt ON documentos (edt_actividad_id);
 
 -- ---------------------------------------------------------------------
 -- Informes generados
@@ -219,10 +309,16 @@ CREATE TABLE IF NOT EXISTS tableros (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre         TEXT NOT NULL,
   descripcion    TEXT NOT NULL DEFAULT '',
+  proyecto_id    TEXT REFERENCES proyectos(id) ON DELETE CASCADE,
+  fase_id        UUID REFERENCES edt_fases(id) ON DELETE CASCADE,
+  tipo           TEXT NOT NULL DEFAULT 'Manual'
+                 CHECK (tipo IN ('Manual', 'Fase')),
   creado_por     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS ix_tableros_proyecto ON tableros (proyecto_id, fase_id);
 
 DROP TRIGGER IF EXISTS tableros_touch ON tableros;
 CREATE TRIGGER tableros_touch
@@ -258,6 +354,9 @@ CREATE INDEX IF NOT EXISTS ix_tareas_tablero_proyecto ON tareas_tablero (proyect
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
 ALTER TABLE tareas_tablero ADD COLUMN IF NOT EXISTS edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_edt ON tareas_tablero (edt_actividad_id);
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES proyectos(id) ON DELETE CASCADE;
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE;
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Manual';
 
 DROP TRIGGER IF EXISTS tareas_tablero_touch ON tareas_tablero;
 CREATE TRIGGER tareas_tablero_touch
@@ -270,6 +369,7 @@ FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 CREATE TABLE IF NOT EXISTS tareas_personales (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id     UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  proyecto_id    TEXT REFERENCES proyectos(id) ON DELETE SET NULL,
   titulo         TEXT NOT NULL,
   descripcion    TEXT NOT NULL DEFAULT '',
   columna        TEXT NOT NULL DEFAULT 'por-hacer'
@@ -285,6 +385,8 @@ CREATE TABLE IF NOT EXISTS tareas_personales (
 
 CREATE INDEX IF NOT EXISTS ix_tareas_personales_usuario
   ON tareas_personales (usuario_id, columna, fecha_limite);
+ALTER TABLE tareas_personales ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES proyectos(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_tareas_personales_proyecto ON tareas_personales (proyecto_id);
 
 DROP TRIGGER IF EXISTS tareas_personales_touch ON tareas_personales;
 CREATE TRIGGER tareas_personales_touch

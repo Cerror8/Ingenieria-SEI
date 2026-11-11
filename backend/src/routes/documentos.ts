@@ -201,6 +201,19 @@ function estadoValido(valor: string | undefined): EstadoDocumento | null {
   return valor && (ESTADOS as string[]).includes(valor) ? (valor as EstadoDocumento) : null;
 }
 
+async function validarActividadEdt(
+  proyectoId: string,
+  actividadId: string | null | undefined,
+): Promise<string | null> {
+  if (!actividadId) return null;
+  const { rows } = await pool.query<{ id: string }>(
+    "SELECT id FROM edt_actividades WHERE id = $1 AND proyecto_id = $2",
+    [actividadId, proyectoId],
+  );
+  if (!rows[0]) throw new HttpError(400, "La actividad EDT no pertenece al proyecto.");
+  return actividadId;
+}
+
 function siguienteVersion(version: string): string {  const resultado = /^v?(\d+)\.(\d+)$/i.exec(version.trim());
   return resultado ? `v${resultado[1]}.${Number(resultado[2]) + 1}` : version;
 }
@@ -280,6 +293,7 @@ const documentoSchema = z.object({
   estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional().default("En revisión"),
   fechaDocumento: fechaDocumentoSchema,
   numeroDocumento: numeroDocumentoSchema.optional(),
+  edtActividadId: z.string().uuid("Actividad EDT inválida").nullable().optional(),
 });
 
 const documentoActualizacionSchema = z.object({
@@ -290,6 +304,7 @@ const documentoActualizacionSchema = z.object({
   estado: z.enum(["Aprobado", "En revisión", "Borrador", "Rechazado"]).optional(),
   fechaDocumento: fechaDocumentoActualizacionSchema.optional(),
   numeroDocumento: numeroDocumentoSchema.optional(),
+  edtActividadId: z.string().uuid("Actividad EDT inválida").nullable().optional(),
 });
 
 export const documentos = Router();
@@ -299,6 +314,8 @@ documentos.get(
   ah(async (req, res) => {
     const proyectoId = typeof req.query.proyectoId === "string" ? req.query.proyectoId : null;
     const tipo = typeof req.query.tipo === "string" ? req.query.tipo : null;
+    const edtActividadId =
+      typeof req.query.edtActividadId === "string" ? req.query.edtActividadId : null;
 
     const filtros: string[] = [];
     const valores: string[] = [];
@@ -309,6 +326,10 @@ documentos.get(
     if (tipo) {
       valores.push(tipo);
       filtros.push(`tipo = $${valores.length}`);
+    }
+    if (edtActividadId) {
+      valores.push(edtActividadId);
+      filtros.push(`edt_actividad_id = $${valores.length}`);
     }
 
     const donde = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
@@ -339,6 +360,7 @@ documentos.post(
       );
       if (!proyectoRows[0]) throw new HttpError(404, "Proyecto no encontrado");
       const carpeta = carpetaDeCarga(datos.carpeta, estructuraPorId(proyectoRows[0].estructura));
+      const edtActividadId = await validarActividadEdt(datos.proyectoId, datos.edtActividadId);
 
       const meta = directo
         ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
@@ -352,9 +374,10 @@ documentos.post(
       const { rows } = await pool.query(
         `INSERT INTO documentos
            (id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id,
-            archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano, fecha_documento, numero_documento)
+            archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano, fecha_documento,
+            numero_documento, edt_actividad_id)
          VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'America/Bogota')::date,
-                 $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                 $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING ${CAMPOS_DOCUMENTO}`,
         [
           crypto.randomUUID(),
@@ -371,6 +394,7 @@ documentos.post(
           info?.tamano ?? archivo?.size ?? 0,
           datos.fechaDocumento,
           datos.numeroDocumento ?? null,
+          edtActividadId,
         ],
       );
       // La auditoría no debe provocar la eliminación de un archivo ya referenciado.
@@ -440,6 +464,10 @@ documentos.patch(
           ? archivoDirectoSchema.parse((req.body as { archivo?: unknown }).archivo)
           : null;
       const info = meta ? await verificarSubidaDirecta(meta.ruta, "documentos") : null;
+      const tieneEdtActividad = Object.prototype.hasOwnProperty.call(req.body, "edtActividadId");
+      const edtActividadId = tieneEdtActividad
+        ? await validarActividadEdt(actual.proyectoId, datos.edtActividadId)
+        : null;
 
       let archivoNombre: string | null = null;
       let mime: string | null = null;
@@ -474,7 +502,8 @@ documentos.patch(
                 archivo_mime = COALESCE($11, archivo_mime),
                 archivo_tamano = COALESCE($12, archivo_tamano),
                 fecha_documento = CASE WHEN $14 THEN $15::date ELSE fecha_documento END,
-                numero_documento = CASE WHEN $16 THEN $17::text ELSE numero_documento END
+                numero_documento = CASE WHEN $16 THEN $17::text ELSE numero_documento END,
+                edt_actividad_id = CASE WHEN $18 THEN $19::uuid ELSE edt_actividad_id END
           WHERE id = $1 AND proyecto_id = $13
           RETURNING ${CAMPOS_DOCUMENTO}`,
         [
@@ -495,6 +524,8 @@ documentos.patch(
           datos.fechaDocumento ?? null,
           datos.numeroDocumento !== undefined,
           datos.numeroDocumento ?? null,
+          tieneEdtActividad,
+          edtActividadId,
         ],
       );
 

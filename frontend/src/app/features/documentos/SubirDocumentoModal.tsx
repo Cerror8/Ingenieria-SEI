@@ -10,11 +10,19 @@ const ACEPTADOS = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt";
 export function SubirDocumentoModal({
   abierto,
   proyectoId,
+  edtActividadId,
+  carpetaInicial,
+  tipoInicial,
+  nombreInicial,
   onCerrar,
   onSubido,
 }: {
   abierto: boolean;
   proyectoId?: string;
+  edtActividadId?: string | null;
+  carpetaInicial?: string | null;
+  tipoInicial?: string;
+  nombreInicial?: string;
   onCerrar: () => void;
   onSubido: () => void;
 }) {
@@ -34,10 +42,10 @@ export function SubirDocumentoModal({
   useEffect(() => {
     if (!abierto) return;
     setProyectoSel(proyectoId ?? "");
-    setTipo(TIPOS[0]);
+    setTipo(tipoInicial ?? TIPOS[0]);
     setEstado("En revisión");
-    setCarpeta("");
-    setNombre("");
+    setCarpeta(carpetaInicial ?? "");
+    setNombre(nombreInicial ?? "");
     setFechaDocumento("");
     setNumeroDocumento("");
     setArchivo(null);
@@ -48,7 +56,7 @@ export function SubirDocumentoModal({
         .then((r) => setProyectos(r.proyectos))
         .catch(() => setError("No se pudieron cargar los proyectos."));
     }
-  }, [abierto, proyectoId]);
+  }, [abierto, proyectoId, carpetaInicial, tipoInicial, nombreInicial]);
 
   useEffect(() => {
     if (!abierto || !proyectoSel) {
@@ -57,7 +65,7 @@ export function SubirDocumentoModal({
     }
 
     let vigente = true;
-    setCarpeta("");
+    setCarpeta((actual) => actual || carpetaInicial || "");
 
     api
       .proyecto(proyectoSel)
@@ -98,6 +106,7 @@ export function SubirDocumentoModal({
         nombre: nombre.trim() || undefined,
         fechaDocumento,
         numeroDocumento: numeroDocumento.trim() || null,
+        edtActividadId: edtActividadId ?? null,
       });
       onSubido();
       onCerrar();

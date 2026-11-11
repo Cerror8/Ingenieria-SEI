@@ -6,6 +6,7 @@ import { pool, withTx, type Db } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import { estructuraPorId } from "../lib/estructura.js";
 import { recalcularAvanceProyecto } from "../lib/avance.js";
+import { sembrarChecklist } from "../lib/edtFases.js";
 import { requireAdmin, type UsuarioSesion } from "../auth/session.js";
 
 export const ESTADOS_EN_EJECUCION = [
@@ -20,7 +21,7 @@ export const ESTADOS_PROYECTO = [
 
 export const CAMPOS_PROYECTO = `
   id, nombre, linea, estructura, responsable, lider_id AS "liderId", estado, avance,
-  avance_origen AS "avanceOrigen", presupuesto,
+  tipo_contrato AS "tipoContrato", avance_origen AS "avanceOrigen", presupuesto,
   presupuesto_negociacion AS "presupuestoNegociacion",
   presupuesto_ejecucion AS "presupuestoEjecucion",
   presupuesto_alerta AS "presupuestoAlerta",
@@ -39,6 +40,7 @@ export const CAMPOS_INDICADOR = `
 export const CAMPOS_DOCUMENTO = `
   id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id AS "proyectoId",
   fecha_documento AS "fechaDocumento", numero_documento AS "numeroDocumento",
+  edt_actividad_id AS "edtActividadId",
   archivo_nombre AS "archivoNombre", archivo_mime AS "archivoMime",
   archivo_tamano AS "archivoTamano"
 `;
@@ -87,6 +89,7 @@ const camposEditablesSchema = z.object({
   entidadContratista: z.string().trim().max(200),
   fechaAsignacion: fechaSchema.nullable(),
   linea: z.string().trim().min(1, "La línea es obligatoria").max(120),
+  tipoContrato: z.enum(["Obra", "Interventoría"]),
   estructura: z.string().trim().max(60).nullable().transform((valor) => valor || null),
   responsable: z.string().trim().max(120),
   liderId: z.string().uuid("Líder inválido").nullable(),
@@ -113,6 +116,7 @@ const proyectoSchema = camposEditablesSchema.extend({
   entidadContratante: camposEditablesSchema.shape.entidadContratante.min(1, "La entidad contratante es obligatoria"),
   entidadContratista: camposEditablesSchema.shape.entidadContratista.min(1, "La entidad contratista es obligatoria"),
   fechaAsignacion: fechaSchema,
+  tipoContrato: camposEditablesSchema.shape.tipoContrato.optional().default("Interventoría"),
   estructura: camposEditablesSchema.shape.estructura.optional(),
   responsable: camposEditablesSchema.shape.responsable.optional().default("Sin asignar"),
   liderId: camposEditablesSchema.shape.liderId.optional(),
@@ -172,7 +176,8 @@ const COLUMNAS_EDITABLES: Record<keyof z.infer<typeof camposEditablesSchema>, st
   nombre: "nombre", nombreCorto: "nombre_corto", numeroContrato: "numero_contrato",
   organizadores: "organizadores", entidadContratante: "entidad_contratante",
   entidadContratista: "entidad_contratista", fechaAsignacion: "fecha_asignacion",
-  linea: "linea", estructura: "estructura", responsable: "responsable", liderId: "lider_id",
+  linea: "linea", tipoContrato: "tipo_contrato", estructura: "estructura",
+  responsable: "responsable", liderId: "lider_id",
   estado: "estado", dependencia: "dependencia", objetivo: "objetivo", presupuesto: "presupuesto",
   presupuestoNegociacion: "presupuesto_negociacion",
   presupuestoEjecucion: "presupuesto_ejecucion",
@@ -279,44 +284,51 @@ proyectos.post(
     );
     const periodo = periodoSchema.parse(fechas[0]);
     const usuario = res.locals.usuario as UsuarioSesion;
-    const { rows } = await pool.query(
-      `INSERT INTO proyectos
-         (id, nombre, linea, responsable, estado, avance, presupuesto, ejecucion_pct,
-          fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, lider_id, estructura,
-          nombre_corto, numero_contrato, organizadores, entidad_contratante, entidad_contratista,
-          fecha_asignacion, creado_por, presupuesto_negociacion, presupuesto_ejecucion,
-          presupuesto_alerta)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date,
-         GREATEST(0, $10::date - (now() AT TIME ZONE 'America/Bogota')::date),
-         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::date, $21, $22, $23, $24)
-       RETURNING ${CAMPOS_PROYECTO}`,
-      [
-        id,
-        datos.nombre,
-        datos.linea,
-        datos.responsable || "Sin asignar",
-        datos.estado,
-        datos.avance,
-        datos.presupuesto,
-        datos.ejecucionPct,
-        periodo.fechaInicio,
-        periodo.fechaFin,
-        datos.dependencia || "Sin definir",
-        datos.objetivo,
-        liderId,
-        estructura?.id ?? null,
-        datos.nombreCorto,
-        datos.numeroContrato,
-        datos.organizadores,
-        datos.entidadContratante,
-        datos.entidadContratista,
-        datos.fechaAsignacion,
-        usuario.nombre,
-        datos.presupuestoNegociacion,
-        datos.presupuestoEjecucion,
-        datos.presupuestoAlerta,
-      ],
-    );
+    const proyecto = await withTx(async (db) => {
+      const { rows } = await db.query(
+        `INSERT INTO proyectos
+           (id, nombre, linea, responsable, estado, avance, presupuesto, ejecucion_pct,
+            fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, lider_id, estructura,
+            tipo_contrato, nombre_corto, numero_contrato, organizadores, entidad_contratante,
+            entidad_contratista, fecha_asignacion, creado_por, presupuesto_negociacion,
+            presupuesto_ejecucion, presupuesto_alerta)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date,
+           GREATEST(0, $10::date - (now() AT TIME ZONE 'America/Bogota')::date),
+           $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21::date, $22, $23, $24, $25)
+         RETURNING ${CAMPOS_PROYECTO}`,
+        [
+          id,
+          datos.nombre,
+          datos.linea,
+          datos.responsable || "Sin asignar",
+          datos.estado,
+          datos.avance,
+          datos.presupuesto,
+          datos.ejecucionPct,
+          periodo.fechaInicio,
+          periodo.fechaFin,
+          datos.dependencia || "Sin definir",
+          datos.objetivo,
+          liderId,
+          estructura?.id ?? null,
+          datos.tipoContrato,
+          datos.nombreCorto,
+          datos.numeroContrato,
+          datos.organizadores,
+          datos.entidadContratante,
+          datos.entidadContratista,
+          datos.fechaAsignacion,
+          usuario.nombre,
+          datos.presupuestoNegociacion,
+          datos.presupuestoEjecucion,
+          datos.presupuestoAlerta,
+        ],
+      );
+      // El checklist de fases, actividades y tableros se crea junto con el proyecto:
+      // si falla el sembrado, no queda un proyecto a medio configurar.
+      await sembrarChecklist(db, id, datos.tipoContrato);
+      return rows[0];
+    });
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -326,7 +338,7 @@ proyectos.post(
       nuevo: datos.nombre,
     });
 
-    res.status(201).json({ proyecto: rows[0] });
+    res.status(201).json({ proyecto });
   }),
 );
 
@@ -344,6 +356,7 @@ const PROYECTO_EJEMPLO = {
   objetivo:
     "Ejemplo guía: registro completo de un contrato de interventoría con entidades, fechas, presupuestos y checklist EDT por etapas.",
   estructura: "interventoria-consultoria",
+  tipoContrato: "Interventoría" as const,
 };
 
 proyectos.post(
@@ -356,6 +369,8 @@ proyectos.post(
       [PROYECTO_EJEMPLO.id],
     );
     if (existentes[0]) {
+      const tipoContrato = (existentes[0].tipoContrato as "Obra" | "Interventoría") ?? "Interventoría";
+      await withTx((db) => sembrarChecklist(db, PROYECTO_EJEMPLO.id, tipoContrato));
       if (existentes[0].liderId) {
         res.json({ proyecto: existentes[0], creado: false });
         return;
@@ -372,15 +387,15 @@ proyectos.post(
       `INSERT INTO proyectos
          (id, nombre, linea, responsable, estado, avance, presupuesto, ejecucion_pct,
           fecha_inicio, fecha_fin, dias_restantes, dependencia, objetivo, estructura,
-          nombre_corto, numero_contrato, organizadores, entidad_contratante, entidad_contratista,
-          fecha_asignacion, creado_por, lider_id, presupuesto_negociacion, presupuesto_ejecucion,
-          presupuesto_alerta)
+          tipo_contrato, nombre_corto, numero_contrato, organizadores, entidad_contratante,
+          entidad_contratista, fecha_asignacion, creado_por, lider_id, presupuesto_negociacion,
+          presupuesto_ejecucion, presupuesto_alerta)
        VALUES ($1, $2, $3, $4, 'En ejecución', 38, 480000000, 32,
          (now() AT TIME ZONE 'America/Bogota')::date - 120,
          (now() AT TIME ZONE 'America/Bogota')::date + 245,
-         245, $5, $6, $7, $8, $9, $10, $11, $12,
+         245, $5, $6, $7, $8, $9, $10, $11, $12, $13,
          (now() AT TIME ZONE 'America/Bogota')::date - 130,
-         $13, $14, 500000000, 460000000, 440000000)
+         $14, $15, 500000000, 460000000, 440000000)
        RETURNING ${CAMPOS_PROYECTO}`,
       [
         PROYECTO_EJEMPLO.id,
@@ -390,6 +405,7 @@ proyectos.post(
         PROYECTO_EJEMPLO.dependencia,
         PROYECTO_EJEMPLO.objetivo,
         PROYECTO_EJEMPLO.estructura,
+        PROYECTO_EJEMPLO.tipoContrato,
         PROYECTO_EJEMPLO.nombreCorto,
         PROYECTO_EJEMPLO.numeroContrato,
         PROYECTO_EJEMPLO.organizadores,
@@ -398,6 +414,10 @@ proyectos.post(
         usuario.nombre,
         usuario.id,
       ],
+    );
+
+    await withTx((db) =>
+      sembrarChecklist(db, PROYECTO_EJEMPLO.id, PROYECTO_EJEMPLO.tipoContrato),
     );
 
     await registrarAuditoria({

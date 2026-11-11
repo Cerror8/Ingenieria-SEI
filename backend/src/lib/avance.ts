@@ -119,6 +119,39 @@ async function estadoDesdeTareas(db: Consulta, actividadId: string): Promise<str
   return null;
 }
 
+// Una actividad con documento obligatorio o con requisitos previos pendientes
+// no puede quedar completada sólo porque sus tareas se aprobaron.
+export async function bloqueoParaCompletar(
+  db: Consulta,
+  actividadId: string,
+): Promise<string | null> {
+  const { rows } = await db.query<{
+    requiere: boolean;
+    documentos: number;
+    requisitos: number;
+  }>(
+    `SELECT a.requiere_documento AS requiere,
+            (SELECT COUNT(*)::int FROM documentos d WHERE d.edt_actividad_id = a.id) AS documentos,
+            (SELECT COUNT(*)::int
+               FROM edt_requisitos q
+               JOIN edt_actividades r ON r.id = q.requisito_id
+              WHERE q.actividad_id = a.id
+                AND (r.estado <> 'Completado'
+                     OR (r.requiere_documento
+                         AND NOT EXISTS (SELECT 1 FROM documentos d2 WHERE d2.edt_actividad_id = r.id)))
+            ) AS requisitos
+       FROM edt_actividades a WHERE a.id = $1`,
+    [actividadId],
+  );
+  const fila = rows[0];
+  if (!fila) return null;
+  if (fila.requiere && fila.documentos === 0) {
+    return "La actividad exige un documento cargado.";
+  }
+  if (fila.requisitos > 0) return "Hay requisitos previos pendientes.";
+  return null;
+}
+
 // Al mover, aprobar, devolver o eliminar una tarea vinculada, el estado sube
 // hacia la actividad EDT y su padre. Nunca se rebaja a "No realizado" de forma
 // automática: una actividad completada permanece así hasta que se reabra a mano.
@@ -141,8 +174,12 @@ export async function sincronizarEdtDesdeTareas(
   const actividad = rows[0];
   if (!actividad) return;
 
-  const nuevo =
+  let nuevo =
     (await estadoDesdeHijos(db, actividad.id)) ?? (await estadoDesdeTareas(db, actividad.id));
+  if (nuevo === "Completado") {
+    const bloqueo = await bloqueoParaCompletar(db, actividad.id);
+    if (bloqueo && actividad.estado !== "Completado") nuevo = "En ejecución";
+  }
   if (nuevo && nuevo !== actividad.estado) {
     await db.query(`UPDATE edt_actividades SET estado = $2 WHERE id = $1`, [actividad.id, nuevo]);
   }
@@ -150,10 +187,14 @@ export async function sincronizarEdtDesdeTareas(
   if (actividad.padreId) {
     const padreNuevo = await estadoDesdeHijos(db, actividad.padreId);
     if (padreNuevo) {
-      await db.query(
-        `UPDATE edt_actividades SET estado = $2 WHERE id = $1 AND estado <> $2`,
-        [actividad.padreId, padreNuevo],
-      );
+      const bloqueo =
+        padreNuevo === "Completado" ? await bloqueoParaCompletar(db, actividad.padreId) : null;
+      if (!bloqueo) {
+        await db.query(
+          `UPDATE edt_actividades SET estado = $2 WHERE id = $1 AND estado <> $2`,
+          [actividad.padreId, padreNuevo],
+        );
+      }
     }
   }
 

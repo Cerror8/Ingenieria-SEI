@@ -187,6 +187,13 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-mono text-sm font-black text-orange-700">{project.id}</span>
                 <StatusBadge status={project.status} />
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  project.tipoContrato === "Obra"
+                    ? "border-orange-200 bg-orange-50 text-orange-700"
+                    : "border-sky-200 bg-sky-50 text-sky-700"
+                }`}>
+                  {project.tipoContrato}
+                </span>
                 <span className="text-sm text-gray-400">Avance: <strong className="text-gray-900">{project.progress}%</strong></span>
               </div>
               <h1 className="text-lg font-bold text-gray-900 mt-1 leading-tight">{project.name}</h1>
@@ -246,6 +253,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                       { label: "Organizadores", value: project.organizadores || "—" },
                       { label: "Responsable", value: project.responsible },
                       { label: "Línea / área", value: project.line },
+                      { label: "Tipo de contrato", value: project.tipoContrato },
                       { label: "Área responsable", value: project.dependency },
                       { label: "Fecha de asignación", value: project.fechaAsignacion },
                       { label: "Valor total", value: fmt(project.budget) },
@@ -637,6 +645,15 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                           </div>
                           {doc.folder && (
                             <p className="mt-0.5 pl-[22px] text-[10px] text-gray-400">{doc.folder}</p>
+                          )}
+                          {doc.edtActividadId && (
+                            <button
+                              type="button"
+                              onClick={() => setTab("edt")}
+                              className="ml-[22px] mt-1 inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-700 transition hover:bg-sky-100"
+                            >
+                              Vinculado al EDT
+                            </button>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-xs text-gray-500">{doc.documentNumber ?? "—"}</td>

@@ -158,6 +158,7 @@ export type ProyectoApi = {
   creadoPor: string | null;
   creadoEn: string;
   linea: string;
+  tipoContrato: "Obra" | "Interventoría";
   estructura: string | null;
   responsable: string;
   liderId: string | null;
@@ -200,34 +201,82 @@ export type DocumentoApi = {
   usuario: string;
   estado: Document["status"];
   proyectoId: string;
+  edtActividadId: string | null;
   archivoNombre: string | null;
   archivoMime: string | null;
   archivoTamano: number | null;
 };
 
 export type EdtEstado = "Completado" | "En ejecución" | "No realizado";
+export type EdtTipoActividad = "Actividad" | "Documento" | "Acta";
+export type TipoContrato = "Obra" | "Interventoría";
+
+export type EdtFaseApi = {
+  id: string;
+  proyectoId: string;
+  nombre: string;
+  descripcion: string;
+  clave: string | null;
+  orden: number;
+  esPrincipal: boolean;
+  dependeDeFaseId: string | null;
+};
+
+export type EdtRequisitoApi = {
+  id: string;
+  nombre: string;
+  estado: EdtEstado;
+  tipo: EdtTipoActividad;
+  tieneDocumento: boolean;
+};
 
 export type EdtActividadApi = {
   id: string;
   proyectoId: string;
+  faseId: string | null;
   etapa: number;
   padreId: string | null;
   nombre: string;
+  descripcion: string;
+  tipo: EdtTipoActividad;
+  plantillaClave: string | null;
+  prioridad: "Alta" | "Media" | "Baja";
+  requiereDocumento: boolean;
+  carpeta: string | null;
   responsable: string | null;
   responsableId: string | null;
   fechaCumplimiento: string | null;
   estado: EdtEstado;
   orden: number;
+  documentos: number;
+  tareas: number;
+  requisitos: EdtRequisitoApi[];
+};
+
+export type EdtApi = {
+  proyecto: {
+    id: string;
+    nombre: string;
+    tipoContrato: TipoContrato;
+    estructura: string | null;
+  };
+  fases: EdtFaseApi[];
+  actividades: EdtActividadApi[];
 };
 
 export type NuevaEdtActividad = {
-  etapa: number;
-  padreId?: string | null;
-  nombre: string;
+  faseId: string;
+  nombre?: string;
+  descripcion?: string;
+  tipo?: EdtTipoActividad;
+  prioridad?: "Alta" | "Media" | "Baja";
+  requiereDocumento?: boolean;
+  carpeta?: string | null;
   responsable?: string | null;
   responsableId?: string | null;
   fechaCumplimiento?: string | null;
   estado?: EdtEstado;
+  requisitoIds?: string[];
 };
 
 export type ResumenZipApi = {
@@ -443,8 +492,21 @@ export type TableroApi = {
   id: string;
   nombre: string;
   descripcion: string;
+  proyectoId?: string | null;
+  proyectoNombre?: string | null;
+  faseId?: string | null;
+  faseNombre?: string | null;
+  faseOrden?: number | null;
+  tipo?: "Manual" | "Fase";
+  totalTareas?: number;
   creadoPor?: string | null;
   creadoPorNombre?: string | null;
+};
+
+export type TableroGeneralApi = {
+  tareas: TareaTablero[];
+  tableros: TableroApi[];
+  proyectos: Array<{ id: string; nombre: string }>;
 };
 
 export type NuevaTarea = {
@@ -461,6 +523,7 @@ export type NuevaTarea = {
 export type NuevaTareaPersonal = {
   titulo: string;
   descripcion: string;
+  proyectoId?: string | null;
   prioridad: TareaPersonal["prioridad"];
   fechaLimite: string | null;
   etiqueta: string;
@@ -477,6 +540,7 @@ export type NuevoProyecto = {
   entidadContratista: string;
   fechaAsignacion: string;
   linea: string;
+  tipoContrato?: TipoContrato;
   estructura?: string | null;
   responsable: string;
   liderId?: string | null;
@@ -512,6 +576,7 @@ export const mapProyecto = (p: ProyectoApi): Project => ({
   liderId: p.liderId,
   estructura: p.estructura,
   line: p.linea,
+  tipoContrato: p.tipoContrato,
   responsible: p.responsable,
   status: p.estado,
   progress: p.avance,
@@ -556,6 +621,7 @@ export const mapDocumento = (d: DocumentoApi): Document => ({
   fileName: d.archivoNombre,
   fileSize: d.archivoTamano,
   folder: d.carpeta,
+  edtActividadId: d.edtActividadId,
 });
 
 export const mapInforme = (r: InformeApi): Report => ({
@@ -700,8 +766,10 @@ export const api = {
 
   indicadores: (proyectoId?: string) =>
     request<{ indicadores: IndicadorApi[] }>(`/indicadores${query({ proyectoId })}`),
-  documentos: (proyectoId?: string, tipo?: string) =>
-    request<{ documentos: DocumentoApi[] }>(`/documentos${query({ proyectoId, tipo })}`),
+  documentos: (proyectoId?: string, tipo?: string, edtActividadId?: string) =>
+    request<{ documentos: DocumentoApi[] }>(
+      `/documentos${query({ proyectoId, tipo, edtActividadId })}`,
+    ),
   subirDocumento: async (
     archivo: File,
     datos: {
@@ -713,6 +781,7 @@ export const api = {
       estado: string;
       version?: string;
       nombre?: string;
+      edtActividadId?: string | null;
     },
   ) => {
     const meta = await subirEnBlob(archivo, "documentos");
@@ -729,6 +798,7 @@ export const api = {
     formulario.append("fechaDocumento", datos.fechaDocumento);
     if (datos.numeroDocumento) formulario.append("numeroDocumento", datos.numeroDocumento);
     if (datos.carpeta) formulario.append("carpeta", datos.carpeta);
+    if (datos.edtActividadId) formulario.append("edtActividadId", datos.edtActividadId);
     formulario.append("estado", datos.estado);
     formulario.append("version", datos.version ?? "v1.0");
     if (datos.nombre?.trim()) formulario.append("nombre", datos.nombre.trim());
@@ -745,6 +815,7 @@ export const api = {
       estado?: string;
       version?: string;
       nombre?: string;
+      edtActividadId?: string | null;
     },
     archivo?: File,
   ) => {
@@ -768,6 +839,9 @@ export const api = {
       }
       if (datos.numeroDocumento !== undefined) {
         formulario.append("numeroDocumento", datos.numeroDocumento ?? "");
+      }
+      if (datos.edtActividadId !== undefined) {
+        formulario.append("edtActividadId", datos.edtActividadId ?? "");
       }
       formulario.append("archivo", archivo);
       return subirArchivo<{ documento: DocumentoApi }>(
@@ -801,7 +875,25 @@ export const api = {
     return subirArchivo<ResumenZipApi>("/documentos/zip", formulario);
   },
   edt: (proyectoId: string) =>
-    request<{ actividades: EdtActividadApi[] }>(`/edt/${encodeURIComponent(proyectoId)}`),
+    request<EdtApi>(`/edt/${encodeURIComponent(proyectoId)}`),
+  crearFaseEdt: (
+    proyectoId: string,
+    datos: { nombre: string; descripcion?: string; dependeDeFaseId?: string | null },
+  ) =>
+    request<{ fase: EdtFaseApi }>(`/edt/${encodeURIComponent(proyectoId)}/fases`, {
+      method: "POST",
+      body: datos,
+    }),
+  actualizarFaseEdt: (
+    id: string,
+    datos: { nombre?: string; descripcion?: string; dependeDeFaseId?: string | null },
+  ) =>
+    request<{ fase: EdtFaseApi }>(`/edt/fases/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
+  eliminarFaseEdt: (id: string) =>
+    request<{ ok: boolean }>(`/edt/fases/${encodeURIComponent(id)}`, { method: "DELETE" }),
   crearEdtActividad: (proyectoId: string, datos: NuevaEdtActividad) =>
     request<{ actividad: EdtActividadApi }>(`/edt/${encodeURIComponent(proyectoId)}`, {
       method: "POST",
@@ -809,7 +901,7 @@ export const api = {
     }),
   actualizarEdtActividad: (
     id: string,
-    datos: Partial<NuevaEdtActividad>,
+    datos: Partial<NuevaEdtActividad> & { padreId?: string | null },
   ) =>
     request<{ actividad: EdtActividadApi }>(`/edt/actividades/${encodeURIComponent(id)}`, {
       method: "PATCH",
@@ -818,10 +910,15 @@ export const api = {
   eliminarEdtActividad: (id: string) =>
     request<{ ok: boolean }>(`/edt/actividades/${encodeURIComponent(id)}`, { method: "DELETE" }),
   cargarPlantillaEdt: (proyectoId: string) =>
-    request<{ actividades: EdtActividadApi[]; creados: number }>(
-      `/edt/${encodeURIComponent(proyectoId)}/plantilla`,
-      { method: "POST" },
-    ),
+    request<
+      EdtApi & {
+        plantilla: TipoContrato;
+        fasesPlantilla: number;
+        creados: number;
+        tablerosCreados: number;
+        tareasCreadas: number;
+      }
+    >(`/edt/${encodeURIComponent(proyectoId)}/plantilla`, { method: "POST" }),
 
   informes: (proyecto?: string) =>
     request<{ informes: InformeApi[] }>(`/informes${query({ proyecto })}`),
@@ -940,8 +1037,14 @@ export const api = {
       body: datos,
     }),
   tablero: (id: string) => request<{ tablero: TableroApi; tareas: TareaTablero[] }>(`/tableros/${id}`),
+  tableroGeneral: (proyectoId?: string, faseId?: string) =>
+    request<TableroGeneralApi>(`/tableros/general${query({ proyectoId, faseId })}`),
   miTablero: () =>
-    request<{ tareasProyecto: TareaTablero[]; tareasPersonales: TareaPersonal[] }>("/mi-tablero"),
+    request<{
+      tareasProyecto: TareaTablero[];
+      tareasPersonales: TareaPersonal[];
+      proyectos: Array<{ id: string; nombre: string }>;
+    }>("/mi-tablero"),
   crearTareaPersonal: (datos: NuevaTareaPersonal) =>
     request<{ tarea: TareaPersonal }>("/mi-tablero/personales", { method: "POST", body: datos }),
   actualizarTareaPersonal: (id: string, datos: Partial<NuevaTareaPersonal>) =>

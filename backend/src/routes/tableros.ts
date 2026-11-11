@@ -4,7 +4,7 @@ import { registrarAuditoria } from "../audit.js";
 import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import { avisarAsignacion, avisarFlujo } from "../lib/correo.js";
-import { sincronizarEdtDesdeTareas } from "../lib/avance.js";
+import { bloqueoParaCompletar, sincronizarEdtDesdeTareas } from "../lib/avance.js";
 import type { UsuarioSesion } from "../auth/session.js";
 
 const PRIORIDADES = ["Alta", "Media", "Baja"] as const;
@@ -58,11 +58,14 @@ export const JOINS_TAREA = `
   LEFT JOIN tableros b ON b.id = t.tablero_id
   LEFT JOIN usuarios bc ON bc.id = b.creado_por
   LEFT JOIN edt_actividades e ON e.id = t.edt_actividad_id
+  LEFT JOIN edt_fases ef ON ef.id = e.fase_id
 `;
 
 export const CAMPOS_TAREA = `
   t.id, t.tablero_id AS "tableroId",
   b.nombre AS "tableroNombre",
+  b.proyecto_id AS "tableroProyectoId", b.fase_id AS "tableroFaseId",
+  b.tipo AS "tableroTipo", ef.nombre AS "faseNombre", ef.orden AS "faseOrden",
   t.proyecto_id AS "proyectoId", p.nombre AS "proyectoNombre",
   p.lider_id AS "proyectoLiderId", pl.nombre AS "proyectoLiderNombre",
   b.creado_por AS "tableroCreadoPor",
@@ -72,6 +75,7 @@ export const CAMPOS_TAREA = `
   u.foto_url AS "responsableFoto",
   t.edt_actividad_id AS "edtActividadId",
   e.actividad AS "edtActividadNombre", e.etapa AS "edtEtapa", e.estado AS "edtEstado",
+  e.tipo AS "edtTipo", e.requiere_documento AS "edtRequiereDocumento",
   t.creado_por AS "creadoPor", c.nombre AS "creadoPorNombre",
   t.prioridad, t.fecha_limite AS "fechaLimite", t.etiqueta, t.orden,
   t.completado_en AS "completadoEn",
@@ -85,6 +89,11 @@ export type Tarea = {
   id: string;
   tableroId: string;
   tableroNombre: string | null;
+  tableroProyectoId: string | null;
+  tableroFaseId: string | null;
+  tableroTipo: string | null;
+  faseNombre: string | null;
+  faseOrden: number | null;
   proyectoId: string | null;
   proyectoNombre: string | null;
   proyectoLiderId: string | null;
@@ -101,6 +110,8 @@ export type Tarea = {
   edtActividadNombre: string | null;
   edtEtapa: number | null;
   edtEstado: string | null;
+  edtTipo: string | null;
+  edtRequiereDocumento: boolean | null;
   creadoPor: string | null;
   creadoPorNombre: string | null;
   prioridad: string;
@@ -188,20 +199,92 @@ async function responderTarea(tableroId: string, tareaId: string) {
   return cargarTarea(tableroId, tareaId);
 }
 
+const CAMPOS_TABLERO = `
+  t.id, t.nombre, t.descripcion,
+  t.proyecto_id AS "proyectoId", p.nombre AS "proyectoNombre",
+  t.fase_id AS "faseId", f.nombre AS "faseNombre", f.orden AS "faseOrden",
+  t.tipo,
+  COUNT(ta.id)::int AS "totalTareas"
+`;
+
+const JOINS_TABLERO = `
+  LEFT JOIN proyectos p ON p.id = t.proyecto_id
+  LEFT JOIN edt_fases f ON f.id = t.fase_id
+  LEFT JOIN tareas_tablero ta ON ta.tablero_id = t.id
+`;
+
+async function listarTableros() {
+  const { rows } = await pool.query(
+    `SELECT ${CAMPOS_TABLERO}
+       FROM tableros t
+       ${JOINS_TABLERO}
+      GROUP BY t.id, p.nombre, f.nombre, f.orden
+      ORDER BY p.nombre NULLS FIRST, f.orden NULLS FIRST, t.creado_en`,
+  );
+  return rows;
+}
+
+async function actualizarResponsableEdt(
+  actividadId: string | null,
+  responsableId: string | null,
+  responsable: string | null,
+) {
+  if (!actividadId) return;
+  await pool.query(
+    `UPDATE edt_actividades
+        SET responsable = COALESCE($2, responsable),
+            responsable_id = $3
+      WHERE id = $1`,
+    [actividadId, responsable, responsableId],
+  );
+}
+
 export const tableros = Router();
 
 tableros.get(
   "/",
   ah(async (_req, res) => {
-    const { rows } = await pool.query(
-      `SELECT t.id, t.nombre, t.descripcion,
-              COUNT(ta.id)::int AS "totalTareas"
-         FROM tableros t
-         LEFT JOIN tareas_tablero ta ON ta.tablero_id = t.id
-        GROUP BY t.id
-        ORDER BY t.creado_en`,
+    res.json({ tableros: await listarTableros() });
+  }),
+);
+
+tableros.get(
+  "/general",
+  ah(async (req, res) => {
+    const proyectoId = typeof req.query.proyectoId === "string" ? req.query.proyectoId : null;
+    const faseId = typeof req.query.faseId === "string" ? req.query.faseId : null;
+
+    const filtros: string[] = [];
+    const valores: string[] = [];
+    if (proyectoId) {
+      valores.push(proyectoId);
+      filtros.push(`t.proyecto_id = $${valores.length}`);
+    }
+    if (faseId) {
+      valores.push(faseId);
+      filtros.push(`b.fase_id = $${valores.length}`);
+    }
+    const donde = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
+
+    const { rows: tareas } = await pool.query<Tarea>(
+      `SELECT ${CAMPOS_TAREA}
+         FROM tareas_tablero t
+         ${JOINS_TAREA}
+         ${donde}
+        ORDER BY p.nombre NULLS LAST, ef.orden NULLS LAST,
+                 array_position(ARRAY['por-hacer','en-curso','en-revision','completado']::text[], t.columna),
+                 t.orden, t.creado_en`,
+      valores,
     );
-    res.json({ tableros: rows });
+
+    const { rows: proyectos } = await pool.query<{ id: string; nombre: string }>(
+      `SELECT DISTINCT p.id, p.nombre
+         FROM tareas_tablero t
+         JOIN proyectos p ON p.id = t.proyecto_id
+        ORDER BY p.nombre`,
+    );
+
+    res.json({ tareas, tableros: await listarTableros(), proyectos });
   }),
 );
 
@@ -239,12 +322,23 @@ tableros.get(
       id: string;
       nombre: string;
       descripcion: string;
+      proyectoId: string | null;
+      proyectoNombre: string | null;
+      faseId: string | null;
+      faseNombre: string | null;
+      faseOrden: number | null;
+      tipo: string;
       creadoPor: string | null;
       creadoPorNombre: string | null;
     }>(
       `SELECT t.id, t.nombre, t.descripcion,
+              t.proyecto_id AS "proyectoId", p.nombre AS "proyectoNombre",
+              t.fase_id AS "faseId", f.nombre AS "faseNombre", f.orden AS "faseOrden",
+              t.tipo,
               t.creado_por AS "creadoPor", u.nombre AS "creadoPorNombre"
          FROM tableros t
+         LEFT JOIN proyectos p ON p.id = t.proyecto_id
+         LEFT JOIN edt_fases f ON f.id = t.fase_id
          LEFT JOIN usuarios u ON u.id = t.creado_por
         WHERE t.id = $1`,
       [tableroId],
@@ -272,8 +366,14 @@ tableros.post(
     const datos = tareaSchema.parse(req.body);
     const usuario = res.locals.usuario as UsuarioSesion;
 
-    const { rows: existe } = await pool.query("SELECT 1 FROM tableros WHERE id = $1", [tableroId]);
+    const { rows: existe } = await pool.query<{ proyectoId: string | null }>(
+      `SELECT proyecto_id AS "proyectoId" FROM tableros WHERE id = $1`,
+      [tableroId],
+    );
     if (!existe[0]) throw new HttpError(404, "Tablero no encontrado");
+    if (existe[0].proyectoId && existe[0].proyectoId !== datos.proyectoId) {
+      throw new HttpError(400, "Este tablero pertenece a otro proyecto.");
+    }
 
     const { rows: proyecto } = await pool.query<{ id: string; nombre: string }>(
       "SELECT id, nombre FROM proyectos WHERE id = $1",
@@ -310,6 +410,9 @@ tableros.post(
     );
 
     await sincronizarEdtDesdeTareas(pool, edtActividadId);
+    if (edtActividadId && asignado.id) {
+      await actualizarResponsableEdt(edtActividadId, asignado.id, asignado.nombre);
+    }
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -400,6 +503,9 @@ tableros.patch(
     if (cambiaEdt) {
       await sincronizarEdtDesdeTareas(pool, actual.edtActividadId);
       await sincronizarEdtDesdeTareas(pool, edtActividadId);
+    }
+    if (cambiaResponsable && edtActividadId) {
+      await actualizarResponsableEdt(edtActividadId, asignado.id, asignado.nombre);
     }
 
     if (cambiaResponsable) {
@@ -539,6 +645,18 @@ tableros.post(
       throw new HttpError(400, "Solo una tarea en revisión puede aprobarse.");
     }
     exigirGestor(usuario, actual);
+
+    // La actividad EDT no puede quedar completada si le falta su documento
+    // obligatorio o si aún tiene requisitos previos pendientes.
+    if (actual.edtActividadId) {
+      const bloqueo = await bloqueoParaCompletar(pool, actual.edtActividadId);
+      if (bloqueo) {
+        throw new HttpError(
+          400,
+          `No se puede aprobar todavía: ${bloqueo} Carga el documento o completa los requisitos en la pestaña EDT.`,
+        );
+      }
+    }
 
     await pool.query(
       `UPDATE tareas_tablero

@@ -21,6 +21,7 @@ const fechaActualizacion = z
 const tareaSchema = z.object({
   titulo: z.string().trim().min(1, "El título es obligatorio").max(200),
   descripcion: z.string().trim().max(1000).optional().default(""),
+  proyectoId: z.string().trim().max(40).nullable().optional(),
   prioridad: z.enum(PRIORIDADES).optional().default("Media"),
   fechaLimite: fechaCreacion,
   etiqueta: z.string().trim().max(60).optional().default("Personal"),
@@ -31,6 +32,7 @@ const actualizacionSchema = z
   .object({
     titulo: z.string().trim().min(1, "El título es obligatorio").max(200).optional(),
     descripcion: z.string().trim().max(1000).optional(),
+    proyectoId: z.string().trim().max(40).nullable().optional(),
     prioridad: z.enum(PRIORIDADES).optional(),
     fechaLimite: fechaActualizacion,
     etiqueta: z.string().trim().max(60).optional(),
@@ -40,10 +42,19 @@ const actualizacionSchema = z
 
 const CAMPOS_PERSONAL = `
   id, titulo, descripcion, columna, prioridad,
+  proyecto_id AS "proyectoId",
+  (SELECT p.nombre FROM proyectos p WHERE p.id = proyecto_id) AS "proyectoNombre",
   fecha_limite AS "fechaLimite", etiqueta, orden,
   completado_en AS "completadoEn",
   creado_en AS "creadoEn", actualizado_en AS "actualizadoEn"
 `;
+
+async function validarProyecto(proyectoId: string | null | undefined): Promise<string | null> {
+  if (!proyectoId) return null;
+  const { rows } = await pool.query("SELECT 1 FROM proyectos WHERE id = $1", [proyectoId]);
+  if (!rows[0]) throw new HttpError(400, "El proyecto seleccionado no existe.");
+  return proyectoId;
+}
 
 export const miTablero = Router();
 
@@ -52,7 +63,7 @@ miTablero.get(
   ah(async (_req, res) => {
     const usuario = res.locals.usuario as UsuarioSesion;
 
-    const [proyecto, personales] = await Promise.all([
+    const [proyecto, personales, proyectos] = await Promise.all([
       pool.query<Tarea>(
         `SELECT ${CAMPOS_TAREA}
            FROM tareas_tablero t
@@ -70,9 +81,26 @@ miTablero.get(
                    fecha_limite NULLS LAST, orden, creado_en`,
         [usuario.id],
       ),
+      pool.query<{ id: string; nombre: string }>(
+        `SELECT DISTINCT p.id, p.nombre
+           FROM proyectos p
+          WHERE p.id IN (
+            SELECT proyecto_id FROM tareas_personales
+             WHERE usuario_id = $1 AND proyecto_id IS NOT NULL
+            UNION
+            SELECT proyecto_id FROM tareas_tablero
+             WHERE responsable_id = $1 AND proyecto_id IS NOT NULL
+          )
+          ORDER BY p.nombre`,
+        [usuario.id],
+      ),
     ]);
 
-    res.json({ tareasProyecto: proyecto.rows, tareasPersonales: personales.rows });
+    res.json({
+      tareasProyecto: proyecto.rows,
+      tareasPersonales: personales.rows,
+      proyectos: proyectos.rows,
+    });
   }),
 );
 
@@ -81,17 +109,20 @@ miTablero.post(
   ah(async (req, res) => {
     const usuario = res.locals.usuario as UsuarioSesion;
     const datos = tareaSchema.parse(req.body);
+    const proyectoId = await validarProyecto(datos.proyectoId);
     const completadaEn = datos.columna === "completado" ? new Date() : null;
 
     const { rows } = await pool.query(
       `INSERT INTO tareas_personales
-         (usuario_id, titulo, descripcion, columna, prioridad, fecha_limite, etiqueta, orden, completado_en)
-       VALUES ($1, $2, $3, $4, $5, $6, $7,
-               COALESCE((SELECT MAX(orden) + 1 FROM tareas_personales WHERE usuario_id = $1 AND columna = $4), 1),
-               $8)
+         (usuario_id, proyecto_id, titulo, descripcion, columna, prioridad, fecha_limite,
+          etiqueta, orden, completado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+               COALESCE((SELECT MAX(orden) + 1 FROM tareas_personales WHERE usuario_id = $1 AND columna = $5), 1),
+               $9)
        RETURNING ${CAMPOS_PERSONAL}`,
       [
         usuario.id,
+        proyectoId,
         datos.titulo,
         datos.descripcion,
         datos.columna,
@@ -131,6 +162,8 @@ miTablero.patch(
     if (!actual) throw new HttpError(404, "Tarea personal no encontrada");
 
     const cambiaFecha = datos.fechaLimite !== undefined;
+    const cambiaProyecto = datos.proyectoId !== undefined;
+    const proyectoId = cambiaProyecto ? await validarProyecto(datos.proyectoId) : null;
 
     const { rows } = await pool.query(
       `UPDATE tareas_personales
@@ -140,6 +173,7 @@ miTablero.patch(
               etiqueta = COALESCE($6, etiqueta),
               fecha_limite = CASE WHEN $7 THEN $8::date ELSE fecha_limite END,
               columna = COALESCE($9, columna),
+              proyecto_id = CASE WHEN $10 THEN $11 ELSE proyecto_id END,
               completado_en = CASE
                 WHEN $9 = 'completado' THEN COALESCE(completado_en, now())
                 WHEN $9 IS NOT NULL THEN NULL
@@ -157,6 +191,8 @@ miTablero.patch(
         cambiaFecha,
         datos.fechaLimite || null,
         datos.columna ?? null,
+        cambiaProyecto,
+        proyectoId,
       ],
     );
 

@@ -122,6 +122,15 @@ ALTER TABLE app.usuarios
 
 Clave `TEXT` (código `PRY-XXXX-XXX`). Almacena `nombre`, `linea`, `responsable`, `dependencia`, `objetivo`, `estado` (`En formulación`, `En ejecución`, `Suspendido`, `Finalizado`, `Cerrado`), `avance` y `ejecucion_pct` (0–100), `presupuesto`, `fecha_inicio`/`fecha_fin`, `dias_restantes` y marcas de tiempo. Índices por `estado` y `linea`.
 
+`tipo_contrato` (`Obra` o `Interventoría`, por defecto `Interventoría`) define qué checklist EDT se siembra y cómo se interpretan los entregables. Los proyectos existentes con estructura `construccion` se migraron a `Obra`:
+
+```sql
+ALTER TABLE app.proyectos
+  ADD COLUMN IF NOT EXISTS tipo_contrato TEXT NOT NULL DEFAULT 'Interventoría'
+  CHECK (tipo_contrato IN ('Obra', 'Interventoría'));
+UPDATE app.proyectos SET tipo_contrato = 'Obra' WHERE estructura = 'construccion';
+```
+
 `lider_id` (FK a `usuarios`, `ON DELETE SET NULL`) identifica al líder del proyecto. Esa persona, además del creador de la tarea y los administradores, puede asignar responsables y aprobar o devolver entregas de las tareas del proyecto. Se añadió con:
 
 ```sql
@@ -157,6 +166,15 @@ ALTER TABLE app.documentos
   ADD COLUMN IF NOT EXISTS archivo_tamano BIGINT;
 ```
 
+`edt_actividad_id` vincula el documento con una actividad del checklist EDT. Un documento cargado desde el EDT o desde **Documentos** con ese vínculo aparece en ambos lugares, cuenta para el bloqueo de documento obligatorio y conserva la carpeta de la estructura del proyecto:
+
+```sql
+ALTER TABLE app.documentos
+  ADD COLUMN IF NOT EXISTS edt_actividad_id UUID
+  REFERENCES app.edt_actividades(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_documentos_edt ON app.documentos (edt_actividad_id);
+```
+
 Al respaldar, ten en cuenta que `db:backup` solo cubre PostgreSQL: copia también `backend/uploads/` si necesitas conservar los archivos.
 
 #### `app.informes`
@@ -177,9 +195,22 @@ Bitácora: `fecha`, `usuario`, `accion`, `entidad`, `registro`, `valor_previo` y
 
 `id` UUID, `nombre`, `descripcion`, `creado_por` (FK a `usuarios`, `SET NULL`) y marcas de tiempo.
 
+`proyecto_id` (FK a `proyectos`, `ON DELETE CASCADE`), `fase_id` (FK a `edt_fases`, `ON DELETE CASCADE`) y `tipo` (`Manual` o `Fase`) permiten que cada fase del EDT tenga su propio tablero automático. El tablero general no se almacena: se consulta agregando las tareas de todos los tableros con filtros por proyecto y fase.
+
+```sql
+ALTER TABLE app.tableros
+  ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES app.proyectos(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES app.edt_fases(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Manual'
+  CHECK (tipo IN ('Manual', 'Fase'));
+CREATE INDEX IF NOT EXISTS ix_tableros_proyecto ON app.tableros (proyecto_id, fase_id);
+```
+
 #### `app.tareas_tablero`
 
-`id` UUID, `tablero_id` (FK con `ON DELETE CASCADE`), `proyecto_id` (FK a `proyectos`, `ON DELETE SET NULL`), `creado_por` (FK a `usuarios`, `SET NULL`), `titulo`, `descripcion`, `columna` (`por-hacer`, `en-curso`, `en-revision`, `completado`), `responsable` (nombre visible), `responsable_id` (FK a `usuarios`, `ON DELETE SET NULL`), `prioridad` (`Alta`, `Media`, `Baja`), `fecha_limite`, `etiqueta`, `orden`, `completado_en` y `ultima_devolucion_en`. Índice compuesto `(tablero_id, columna, orden)` e índices sobre `proyecto_id`, `responsable_id`, `completado_en` y `creado_por`.
+`id` UUID, `tablero_id` (FK con `ON DELETE CASCADE`), `proyecto_id` (FK a `proyectos`, `ON DELETE SET NULL`), `creado_por` (FK a `usuarios`, `SET NULL`), `titulo`, `descripcion`, `columna` (`por-hacer`, `en-curso`, `en-revision`, `completado`), `responsable` (nombre visible), `responsable_id` (FK a `usuarios`, `ON DELETE SET NULL`), `edt_actividad_id` (FK a `edt_actividades`, `ON DELETE SET NULL`), `prioridad` (`Alta`, `Media`, `Baja`), `fecha_limite`, `etiqueta`, `orden`, `completado_en` y `ultima_devolucion_en`. Índice compuesto `(tablero_id, columna, orden)` e índices sobre `proyecto_id`, `responsable_id`, `completado_en`, `creado_por` y `edt_actividad_id`.
+
+`edt_actividad_id` convierte la tarea en la tarjeta de una actividad EDT. La tarea se crea al sembrar o crear la actividad y se sincroniza en ambos sentidos: editar la actividad actualiza la tarea y mover o aprobar la tarea actualiza el estado de la actividad. Al eliminar la actividad se eliminan sus tareas vinculadas. La consulta del tablero general usa ese vínculo para exponer `faseNombre`, `faseOrden`, `edtEstado`, `edtTipo` y `edtRequiereDocumento`.
 
 Reglas del flujo condicional:
 
@@ -209,6 +240,99 @@ UPDATE app.tareas_tablero
 
 Las tareas anteriores a esta migración pueden quedar con `proyecto_id` y `creado_por` en `NULL`; la API y la interfaz las muestran como **Sin proyecto** y solo los administradores pueden gestionarlas.
 
+#### Fases y actividades EDT
+
+El checklist EDT se organiza por fases y cada actividad puede convertirse en una tarjeta de tablero.
+
+`app.edt_fases` guarda las fases de cada proyecto:
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | `UUID` | PK |
+| `proyecto_id` | `TEXT` | FK a `proyectos`, `ON DELETE CASCADE` |
+| `nombre` / `descripcion` | `TEXT` | Nombre visible y propósito de la fase |
+| `clave` | `TEXT` | `fase-1`, `fase-2` o `fase-3` en las principales |
+| `orden` | `INTEGER` | Orden del tablero |
+| `es_principal` | `BOOLEAN` | Las tres fases base no se pueden eliminar |
+| `depende_de_fase_id` | `UUID` | Fase anterior a la que se conecta una fase adicional |
+
+Índice `ix_edt_fases_proyecto` sobre `(proyecto_id, orden)` y único parcial `ux_edt_fases_clave` sobre `(proyecto_id, clave)` cuando la clave no es nula.
+
+`app.edt_actividades` guarda las tarjetas del checklist:
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | `UUID` | PK |
+| `proyecto_id` / `fase_id` | `TEXT` / `UUID` | Proyecto y fase; `fase_id` con `ON DELETE CASCADE` |
+| `etapa` | `SMALLINT` | 1–3, se mantiene por compatibilidad con el formato SAC-PI031 |
+| `padre_id` | `UUID` | Subproducto de otra actividad |
+| `actividad` / `descripcion` | `TEXT` | Nombre y detalle |
+| `tipo` | `TEXT` | `Actividad`, `Documento` o `Acta` |
+| `plantilla_clave` | `TEXT` | Clave idempotente de la plantilla (`obra-f1-contrato`, etc.) |
+| `prioridad` | `TEXT` | `Alta`, `Media` o `Baja` |
+| `requiere_documento` | `BOOLEAN` | Bloquea el completado sin archivo |
+| `carpeta` | `TEXT` | Carpeta sugerida de la estructura del proyecto |
+| `responsable` / `responsable_id` | `TEXT` / `UUID` | Nombre visible y cuenta real |
+| `fecha_cumplimiento` | `DATE` | Fecha límite de la tarjeta |
+| `estado` | `TEXT` | `Completado`, `En ejecución` o `No realizado` |
+| `orden` | `INTEGER` | Orden dentro de la fase |
+
+Índices `ix_edt_proyecto` sobre `(proyecto_id, etapa, orden)`, `ix_edt_fase` sobre `(fase_id, orden)` y único parcial `ux_edt_actividad_clave` sobre `(proyecto_id, plantilla_clave)` cuando la clave no es nula. Restricciones `CHECK` para `tipo` y `prioridad`.
+
+`app.edt_requisitos` relaciona una actividad con sus requisitos previos:
+
+```sql
+CREATE TABLE IF NOT EXISTS app.edt_requisitos (
+  actividad_id UUID NOT NULL REFERENCES app.edt_actividades(id) ON DELETE CASCADE,
+  requisito_id UUID NOT NULL REFERENCES app.edt_actividades(id) ON DELETE CASCADE,
+  PRIMARY KEY (actividad_id, requisito_id),
+  CHECK (actividad_id <> requisito_id)
+);
+```
+
+Reglas asociadas:
+
+- Completar una actividad exige que sus subproductos estén completos.
+- Completar una actividad exige que sus requisitos estén completos y, si exigen documento, con archivo cargado.
+- Una actividad con `requiere_documento` no se completa sin al menos un documento vinculado.
+- Aprobar una tarea vinculada aplica las mismas reglas (`bloqueoParaCompletar`).
+- El avance del proyecto se recalcula desde el EDT; un padre con subproductos vale el promedio de sus hijos.
+
+```sql
+CREATE TABLE IF NOT EXISTS app.edt_fases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proyecto_id TEXT NOT NULL REFERENCES app.proyectos(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  descripcion TEXT NOT NULL DEFAULT '',
+  clave TEXT,
+  orden INTEGER NOT NULL DEFAULT 1,
+  es_principal BOOLEAN NOT NULL DEFAULT false,
+  depende_de_fase_id UUID REFERENCES app.edt_fases(id) ON DELETE SET NULL,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_edt_fases_proyecto ON app.edt_fases (proyecto_id, orden);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_fases_clave
+  ON app.edt_fases (proyecto_id, clave) WHERE clave IS NOT NULL;
+
+ALTER TABLE app.edt_actividades
+  ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES app.edt_fases(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Actividad',
+  ADD COLUMN IF NOT EXISTS plantilla_clave TEXT,
+  ADD COLUMN IF NOT EXISTS prioridad TEXT NOT NULL DEFAULT 'Alta',
+  ADD COLUMN IF NOT EXISTS requiere_documento BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS carpeta TEXT;
+CREATE INDEX IF NOT EXISTS ix_edt_fase ON app.edt_actividades (fase_id, orden);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_actividad_clave
+  ON app.edt_actividades (proyecto_id, plantilla_clave) WHERE plantilla_clave IS NOT NULL;
+
+ALTER TABLE app.tareas_tablero
+  ADD COLUMN IF NOT EXISTS edt_actividad_id UUID
+  REFERENCES app.edt_actividades(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_edt ON app.tareas_tablero (edt_actividad_id);
+```
+
 #### `app.comentarios_tarea`
 
 Comentarios de cada tarea: `tarea_id` (FK con `ON DELETE CASCADE`), `usuario_id` (FK a `usuarios`, `SET NULL`), `autor` (nombre al momento de comentar), `contenido` (máximo 2000 caracteres en la API) y `creado_en`. Índice `ix_comentarios_tarea` sobre `(tarea_id, creado_en)`.
@@ -227,12 +351,15 @@ No requiere tablas nuevas: el módulo **Usuarios** opera sobre `app.usuarios` (`
 
 El tablero personal no duplica las tareas de proyecto: las consulta desde `app.tareas_tablero` filtrando por `responsable_id = usuario de la sesión`. Las tareas propias y privadas viven en una tabla aparte.
 
+La vista **Mi tablero** muestra primero todos los proyectos juntos y luego permite filtrar por proyecto. El selector solo lista proyectos donde el usuario tiene tareas de tablero o tareas personales con `proyecto_id`. `GET /api/mi-tablero` devuelve `tareasProyecto`, `tareasPersonales` y `proyectos`.
+
 #### `app.tareas_personales`
 
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | `id` | `UUID` | PK, `gen_random_uuid()` |
 | `usuario_id` | `UUID` | FK a `usuarios`, `ON DELETE CASCADE`; solo el dueño ve y edita la tarea |
+| `proyecto_id` | `TEXT` | FK opcional a `proyectos`, `ON DELETE SET NULL`; alimenta el filtro por proyecto |
 | `titulo` | `TEXT` | Obligatorio |
 | `descripcion` | `TEXT` | Texto libre, por defecto vacío |
 | `columna` | `TEXT` | `por-hacer`, `en-curso` o `completado` |
@@ -251,6 +378,7 @@ DDL para aplicar sobre un volumen existente:
 CREATE TABLE IF NOT EXISTS app.tareas_personales (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id     UUID NOT NULL REFERENCES app.usuarios(id) ON DELETE CASCADE,
+  proyecto_id    TEXT REFERENCES app.proyectos(id) ON DELETE SET NULL,
   titulo         TEXT NOT NULL,
   descripcion    TEXT NOT NULL DEFAULT '',
   columna        TEXT NOT NULL DEFAULT 'por-hacer'
@@ -265,6 +393,8 @@ CREATE TABLE IF NOT EXISTS app.tareas_personales (
 );
 CREATE INDEX IF NOT EXISTS ix_tareas_personales_usuario
   ON app.tareas_personales (usuario_id, columna, fecha_limite);
+CREATE INDEX IF NOT EXISTS ix_tareas_personales_proyecto
+  ON app.tareas_personales (proyecto_id);
 DROP TRIGGER IF EXISTS tareas_personales_touch ON app.tareas_personales;
 CREATE TRIGGER tareas_personales_touch
 BEFORE UPDATE ON app.tareas_personales

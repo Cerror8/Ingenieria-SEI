@@ -1,61 +1,74 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
+  CalendarClock,
+  Check,
   CheckCircle2,
   CircleDashed,
   Clock,
-  CornerDownRight,
-  ListChecks,
+  FileText,
+  FileUp,
+  Layers,
+  Link2,
   Pencil,
+  Play,
   Plus,
+  RefreshCw,
+  RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
 import {
   api,
-  fechaCorta,
+  ApiError,
+  type DocumentoApi,
   type EdtActividadApi,
+  type EdtApi,
   type EdtEstado,
+  type EdtFaseApi,
+  type EdtTipoActividad,
   type NuevaEdtActividad,
 } from "../../api/client";
+import { calcularUrgencia, fechaCorta, type Urgencia } from "../../lib/urgencia";
 import type { UsuarioAsignable } from "../../types";
+import { SubirDocumentoModal } from "../documentos/SubirDocumentoModal";
 
-const ETAPAS = [
-  {
-    numero: 1,
-    nombre: "Preconstructiva o información básica",
-    descripcion: "Actividades previas al inicio de la obra o contrato.",
-  },
-  {
-    numero: 2,
-    nombre: "Constructiva o ejecución",
-    descripcion: "Informes, actas y entregables de la ejecución.",
-  },
-  {
-    numero: 3,
-    nombre: "De cierre o retroalimentación",
-    descripcion: "Liquidación, informe final y lecciones aprendidas.",
-  },
-];
+const TIPOS: EdtTipoActividad[] = ["Actividad", "Documento", "Acta"];
 
-const ESTADOS: EdtEstado[] = ["Completado", "En ejecución", "No realizado"];
+const campoCls =
+  "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60";
 
 const ESTADO_CFG: Record<EdtEstado, { clases: string; icono: typeof CheckCircle2 }> = {
-  Completado: {
-    clases: "border-green-200 bg-green-50 text-green-700",
-    icono: CheckCircle2,
-  },
-  "En ejecución": {
-    clases: "border-orange-200 bg-orange-50 text-orange-700",
-    icono: Clock,
-  },
-  "No realizado": {
-    clases: "border-gray-200 bg-gray-100 text-gray-600",
-    icono: CircleDashed,
-  },
+  Completado: { clases: "border-emerald-200 bg-emerald-50 text-emerald-700", icono: CheckCircle2 },
+  "En ejecución": { clases: "border-orange-200 bg-orange-50 text-orange-700", icono: Clock },
+  "No realizado": { clases: "border-slate-200 bg-slate-50 text-slate-500", icono: CircleDashed },
 };
 
-type EditorState = { etapa: number; actividad: EdtActividadApi | null };
+const TIPO_CFG: Record<EdtTipoActividad, string> = {
+  Actividad: "border-slate-200 bg-slate-50 text-slate-600",
+  Documento: "border-sky-200 bg-sky-50 text-sky-700",
+  Acta: "border-violet-200 bg-violet-50 text-violet-700",
+};
+
+const AVANCE_BARRA: Record<Urgencia["nivel"], number> = {
+  verde: 18,
+  azul: 34,
+  amarillo: 52,
+  naranja: 70,
+  rojo: 88,
+  morado: 100,
+  "sin-fecha": 0,
+};
+
+function porcentajeCumplido(actividades: EdtActividadApi[]): number {
+  if (!actividades.length) return 0;
+  const valor = actividades.reduce(
+    (total, actividad) =>
+      total + (actividad.estado === "Completado" ? 1 : actividad.estado === "En ejecución" ? 0.5 : 0),
+    0,
+  );
+  return Math.round((valor / actividades.length) * 100);
+}
 
 export function EdtTab({
   proyectoId,
@@ -66,28 +79,52 @@ export function EdtTab({
   onChanged?: () => void;
   onShowToast: (mensaje: string) => void;
 }) {
-  const [actividades, setActividades] = useState<EdtActividadApi[]>([]);
+  const [edt, setEdt] = useState<EdtApi | null>(null);
+  const [documentos, setDocumentos] = useState<DocumentoApi[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioAsignable[]>([]);
+  const [carpetas, setCarpetas] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
-  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [editorActividad, setEditorActividad] = useState<{
+    actividad: EdtActividadApi | null;
+    faseId: string;
+  } | null>(null);
+  const [editorFase, setEditorFase] = useState<EdtFaseApi | null | "nueva">(null);
+  const [subida, setSubida] = useState<EdtActividadApi | null>(null);
+  const [cargandoPlantilla, setCargandoPlantilla] = useState(false);
 
-  useEffect(() => {
-    void api
-      .usuariosAsignables()
-      .then(({ usuarios: filas }) => setUsuarios(filas))
-      .catch(() => setUsuarios([]));
-  }, []);
+  const cargarDocumentos = useCallback(async () => {
+    try {
+      const { documentos: filas } = await api.documentos(proyectoId);
+      setDocumentos(filas);
+    } catch {
+      setDocumentos([]);
+    }
+  }, [proyectoId]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
-      const { actividades: filas } = await api.edt(proyectoId);
-      setActividades(filas);
+      const [respuesta, docs] = await Promise.all([
+        api.edt(proyectoId),
+        api.documentos(proyectoId),
+      ]);
+      setEdt(respuesta);
+      setDocumentos(docs.documentos);
+      if (respuesta.proyecto.estructura) {
+        try {
+          const { estructura } = await api.estructura(respuesta.proyecto.estructura);
+          setCarpetas(estructura.carpetas);
+        } catch {
+          setCarpetas([]);
+        }
+      } else {
+        setCarpetas([]);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cargar el checklist EDT.");
+      setError(e instanceof ApiError ? e.message : "No se pudo cargar el EDT.");
     } finally {
       setCargando(false);
     }
@@ -95,506 +132,847 @@ export function EdtTab({
 
   useEffect(() => {
     void cargar();
+    void api
+      .usuariosAsignables()
+      .then(({ usuarios: filas }) => setUsuarios(filas))
+      .catch(() => setUsuarios([]));
   }, [cargar]);
 
-  const raices = useCallback(
-    (etapa: number) =>
-      actividades
-        .filter((a) => a.etapa === etapa && !a.padreId)
-        .sort((a, b) => a.orden - b.orden),
-    [actividades],
-  );
+  const documentosPorActividad = useMemo(() => {
+    const mapa = new Map<string, DocumentoApi[]>();
+    for (const documento of documentos) {
+      if (!documento.edtActividadId) continue;
+      const lista = mapa.get(documento.edtActividadId) ?? [];
+      lista.push(documento);
+      mapa.set(documento.edtActividadId, lista);
+    }
+    return mapa;
+  }, [documentos]);
 
-  const hijos = useCallback(
-    (padreId: string) =>
-      actividades
-        .filter((a) => a.padreId === padreId)
-        .sort((a, b) => a.orden - b.orden),
-    [actividades],
-  );
+  const actividades = edt?.actividades ?? [];
+  const fases = edt?.fases ?? [];
 
-  const hoy = new Date().toISOString().slice(0, 10);
   const resumen = useMemo(() => {
     const total = actividades.length;
-    const completadas = actividades.filter((a) => a.estado === "Completado").length;
-    return { total, completadas, pct: total ? Math.round((completadas / total) * 100) : 0 };
+    const completadas = actividades.filter((actividad) => actividad.estado === "Completado").length;
+    const sinDocumento = actividades.filter(
+      (actividad) => actividad.requiereDocumento && actividad.documentos === 0,
+    ).length;
+    const vencidas = actividades.filter(
+      (actividad) =>
+        actividad.estado !== "Completado" &&
+        calcularUrgencia(actividad.fechaCumplimiento).nivel === "morado",
+    ).length;
+    return { total, completadas, sinDocumento, vencidas };
   }, [actividades]);
 
-  const resumenEtapa = useCallback(
-    (etapa: number) => {
-      const filas = actividades.filter((a) => a.etapa === etapa);
-      const completadas = filas.filter((a) => a.estado === "Completado").length;
-      const vencidas = filas.filter(
-        (a) =>
-          a.estado !== "Completado" &&
-          a.fechaCumplimiento !== null &&
-          a.fechaCumplimiento < hoy,
-      ).length;
-      return {
-        total: filas.length,
-        completadas,
-        vencidas,
-        pct: filas.length ? Math.round((completadas / filas.length) * 100) : 0,
-      };
-    },
-    [actividades, hoy],
-  );
-
-  const cambiarEstado = async (actividad: EdtActividadApi, estado: EdtEstado) => {
-    setError(null);
-    setOcupado(actividad.id);
+  async function ejecutar(id: string, accion: () => Promise<unknown>, exito: string) {
+    setOcupado(id);
     try {
-      const { actividad: actualizada } = await api.actualizarEdtActividad(actividad.id, { estado });
-      setActividades((prev) => prev.map((a) => (a.id === actualizada.id ? actualizada : a)));
-      onShowToast(
-        estado === "Completado"
-          ? "Actividad completada."
-          : `Estado actualizado a "${estado}".`,
-      );
+      await accion();
+      onShowToast(exito);
+      await cargar();
       onChanged?.();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar el estado.");
+      onShowToast(e instanceof ApiError ? e.message : "No se pudo completar la acción.");
     } finally {
       setOcupado(null);
     }
-  };
-
-  const eliminar = async (actividad: EdtActividadApi) => {
-    const nombre = actividad.nombre || "esta actividad sin nombre";
-    const tieneHijos = hijos(actividad.id).length > 0;
-    const mensaje = tieneHijos
-      ? `¿Eliminar "${nombre}"? También se eliminarán sus subproductos.`
-      : `¿Eliminar "${nombre}"?`;
-    if (!window.confirm(mensaje)) return;
-
-    setError(null);
-    setOcupado(actividad.id);
-    try {
-      await api.eliminarEdtActividad(actividad.id);
-      setActividades((prev) =>
-        prev.filter((a) => a.id !== actividad.id && a.padreId !== actividad.id),
-      );
-      onShowToast("Actividad eliminada.");
-      onChanged?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo eliminar la actividad.");
-    } finally {
-      setOcupado(null);
-    }
-  };
-
-  const cargarPlantilla = async () => {
-    setError(null);
-    setOcupado("plantilla");
-    try {
-      const { actividades: filas, creados } = await api.cargarPlantillaEdt(proyectoId);
-      setActividades(filas);
-      onShowToast(
-        creados > 0
-          ? `Plantilla EDT actualizada: ${creados} actividad(es) nueva(s).`
-          : "La plantilla EDT ya estaba completa.",
-      );
-      onChanged?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cargar la plantilla EDT.");
-    } finally {
-      setOcupado(null);
-    }
-  };
-
-  const guardado = (actividad: EdtActividadApi) => {
-    setActividades((prev) =>
-      prev.some((a) => a.id === actividad.id)
-        ? prev.map((a) => (a.id === actividad.id ? actividad : a))
-        : [...prev, actividad],
-    );
-    setEditor(null);
-    onShowToast("Actividad del EDT guardada.");
-    onChanged?.();
-  };
-
-  const fila = (actividad: EdtActividadApi, numero: string, esHijo: boolean) => {
-    const cfg = ESTADO_CFG[actividad.estado];
-    const Icono = cfg.icono;
-    const vencida =
-      actividad.estado !== "Completado" &&
-      actividad.fechaCumplimiento !== null &&
-      actividad.fechaCumplimiento < new Date().toISOString().slice(0, 10);
-
-    return (
-      <tr key={actividad.id} className={esHijo ? "bg-orange-50/20" : "bg-white"}>
-        <td className="px-3 py-2.5 font-mono text-[11px] text-gray-400 align-top">{numero}</td>
-        <td className="px-3 py-2.5 align-top">
-          <div className={`flex items-start gap-2 ${esHijo ? "pl-4" : ""}`}>
-            {esHijo && (
-              <CornerDownRight className="mt-0.5 h-3 w-3 flex-shrink-0 text-orange-300" />
-            )}
-            <div className="min-w-0">
-              <p
-                className={`${
-                  esHijo ? "text-xs font-medium" : "text-sm font-semibold"
-                } ${actividad.nombre ? "text-gray-800" : "italic text-gray-400"}`}
-              >
-                {actividad.nombre || "Sin nombre"}
-              </p>
-              {esHijo && (
-                <span className="text-[10px] font-bold uppercase tracking-wide text-orange-500">
-                  Subproducto
-                </span>
-              )}
-            </div>
-          </div>
-        </td>
-        <td className="px-3 py-2.5 align-top text-xs text-gray-500">
-          {actividad.responsable || "Sin asignar"}
-        </td>
-        <td className={`px-3 py-2.5 align-top text-xs ${vencida ? "font-semibold text-red-600" : "text-gray-500"}`}>
-          {actividad.fechaCumplimiento ? fechaCorta(actividad.fechaCumplimiento) : "Sin definir"}
-          {vencida && <span className="ml-1.5 text-[10px] font-bold uppercase">Vencida</span>}
-        </td>
-        <td className="px-3 py-2.5 align-top">
-          <label className="sr-only" htmlFor={`edt-estado-${actividad.id}`}>
-            Estado de {actividad.nombre || "la actividad"}
-          </label>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cfg.clases}`}
-          >
-            <Icono className="h-3 w-3" />
-            <select
-              id={`edt-estado-${actividad.id}`}
-              value={actividad.estado}
-              disabled={ocupado === actividad.id}
-              onChange={(e) => void cambiarEstado(actividad, e.target.value as EdtEstado)}
-              className="cursor-pointer appearance-none bg-transparent pr-0.5 text-[11px] font-semibold outline-none disabled:cursor-wait disabled:opacity-60"
-            >
-              {ESTADOS.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
-                </option>
-              ))}
-            </select>
-          </span>
-        </td>
-        <td className="px-3 py-2.5 align-top">
-          <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => setEditor({ etapa: actividad.etapa, actividad })}
-              title="Editar actividad"
-              className="rounded p-1 text-gray-300 transition-colors hover:bg-amber-50 hover:text-amber-600"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => void eliminar(actividad)}
-              disabled={ocupado === actividad.id}
-              title="Eliminar actividad"
-              className="rounded p-1 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-wait disabled:opacity-40"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </td>
-      </tr>
-    );
-  };
-
-  if (cargando) {
-    return <p className="py-10 text-center text-sm text-gray-400">Cargando checklist EDT…</p>;
   }
 
-  const candidatos = editor
-    ? raices(editor.etapa).filter(
-        (a) => a.id !== editor.actividad?.id && (!editor.actividad || !hijos(editor.actividad.id).length),
+  async function cambiarEstado(actividad: EdtActividadApi, estado: EdtEstado) {
+    await ejecutar(
+      actividad.id,
+      () => api.actualizarEdtActividad(actividad.id, { estado }),
+      `Actividad actualizada a “${estado}”.`,
+    );
+  }
+
+  async function eliminarActividad(actividad: EdtActividadApi) {
+    if (
+      !window.confirm(
+        `¿Eliminar la actividad “${actividad.nombre}”? También se quitarán sus tareas y vínculos.`,
       )
-    : [];
+    ) {
+      return;
+    }
+    await ejecutar(
+      actividad.id,
+      () => api.eliminarEdtActividad(actividad.id),
+      "Actividad eliminada.",
+    );
+  }
+
+  async function cargarChecklist() {
+    if (
+      !window.confirm(
+        `Se agregarán al proyecto las actividades y documentos del checklist de ${edt?.proyecto.tipoContrato ?? "interventoría"}. Las ya existentes no se duplican. ¿Continuar?`,
+      )
+    ) {
+      return;
+    }
+    setCargandoPlantilla(true);
+    try {
+      const respuesta = await api.cargarPlantillaEdt(proyectoId);
+      setEdt(respuesta);
+      await cargarDocumentos();
+      onShowToast(
+        respuesta.creados > 0
+          ? `Checklist cargado: ${respuesta.creados} actividad(es) y ${respuesta.tareasCreadas} tarea(s).`
+          : "El checklist ya estaba completo.",
+      );
+      onChanged?.();
+    } catch (e) {
+      onShowToast(e instanceof ApiError ? e.message : "No se pudo cargar el checklist.");
+    } finally {
+      setCargandoPlantilla(false);
+    }
+  }
+
+  async function eliminarFase(fase: EdtFaseApi) {
+    if (
+      !window.confirm(
+        `¿Eliminar la fase “${fase.nombre}”? Se eliminarán sus actividades y su tablero.`,
+      )
+    ) {
+      return;
+    }
+    await ejecutar(
+      `fase-${fase.id}`,
+      () => api.eliminarFaseEdt(fase.id),
+      "Fase eliminada.",
+    );
+  }
+
+  if (cargando && !edt) {
+    return (
+      <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-16">
+        <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />
+        <span className="ml-2 text-sm text-slate-500">Cargando EDT por fases…</span>
+      </div>
+    );
+  }
+
+  if (error && !edt) {
+    return (
+      <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-700">
+        {error}
+        <button
+          type="button"
+          onClick={() => void cargar()}
+          className="ml-3 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-gray-100 bg-white p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-gray-800">Checklist EDT · SAC-PI031</h2>
-            <p className="mt-0.5 text-[11px] text-gray-400">
-              Interventoría y consultoría · versión 1 · 23/06/2022 · tres etapas fijas por proyecto
-            </p>
-          </div>
+      <header className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="flex-shrink-0 rounded-full bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-600">
-              {resumen.completadas} de {resumen.total} completadas
+            <h2 className="text-base font-bold text-slate-800">EDT por fases</h2>
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#C2410C]">
+              {edt?.proyecto.tipoContrato ?? "Interventoría"}
             </span>
-            {resumen.total > 0 && (
-              <button
-                type="button"
-                onClick={() => void cargarPlantilla()}
-                disabled={ocupado === "plantilla"}
-                title="Agrega las actividades de la plantilla que falten en las tres etapas"
-                className="flex-shrink-0 rounded-lg border border-orange-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-orange-700 transition-colors hover:bg-orange-50 disabled:cursor-wait disabled:opacity-60"
-              >
-                {ocupado === "plantilla" ? "Completando…" : "Completar plantilla"}
-              </button>
-            )}
           </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Cada fase es un tablero; cada actividad se convierte en una tarea asignable con
+            documento obligatorio y requisitos previos.
+          </p>
         </div>
-        <div className="mt-3 flex items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-[#C2410C] transition-all"
-              style={{ width: `${resumen.pct}%` }}
-            />
-          </div>
-          <span className="w-9 text-right text-xs font-black text-orange-700">{resumen.pct}%</span>
-        </div>
-      </div>
-
-      {error && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700"
-        >
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-          <p className="flex-1">{error}</p>
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setError(null)}
-            aria-label="Cerrar aviso"
-            className="text-red-400 hover:text-red-600"
+            onClick={cargarChecklist}
+            disabled={cargandoPlantilla}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
           >
-            <X className="h-3.5 w-3.5" />
+            <ListChecksIcon />
+            {cargandoPlantilla ? "Cargando…" : "Completar checklist"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditorFase("nueva")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <Layers className="h-4 w-4" />
+            Nueva fase
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const fase = fases[0];
+              if (fase) setEditorActividad({ actividad: null, faseId: fase.id });
+            }}
+            disabled={!fases.length}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#9A3412] disabled:opacity-60"
+          >
+            <Plus className="h-4 w-4" />
+            Nueva actividad
           </button>
         </div>
-      )}
+      </header>
 
-      {resumen.total === 0 && (
-        <div className="rounded-xl border border-dashed border-orange-200 bg-orange-50/40 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <ListChecks className="h-6 w-6 flex-shrink-0 text-orange-400" />
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-800">Este proyecto aún no tiene checklist EDT</p>
-              <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                Carga la plantilla con las actividades diligenciadas del formato SAC-PI031 v1.0
-                (etapa constructiva y subproductos). Las etapas 1 y 3 se completan según el proyecto.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void cargarPlantilla()}
-              disabled={ocupado === "plantilla"}
-              className="flex-shrink-0 rounded-lg bg-[#C2410C] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:cursor-wait disabled:opacity-60"
-            >
-              {ocupado === "plantilla" ? "Cargando…" : "Cargar plantilla EDT"}
-            </button>
-          </div>
+      <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <Resumen etiqueta="Actividades" valor={resumen.total} detalle={`${fases.length} fase(s)`} />
+        <Resumen
+          etiqueta="Completadas"
+          valor={resumen.completadas}
+          detalle={`${resumen.total ? Math.round((resumen.completadas / resumen.total) * 100) : 0}% del EDT`}
+          tono="emerald"
+        />
+        <Resumen
+          etiqueta="Sin documento"
+          valor={resumen.sinDocumento}
+          detalle="Documentos obligatorios pendientes"
+          tono={resumen.sinDocumento ? "orange" : "slate"}
+        />
+        <Resumen
+          etiqueta="Vencidas"
+          valor={resumen.vencidas}
+          detalle="Con fecha de entrega superada"
+          tono={resumen.vencidas ? "purple" : "slate"}
+        />
+      </section>
+
+      {fases.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
+          <p className="text-sm font-semibold text-slate-700">Todavía no hay fases en este EDT.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Carga el checklist del contrato o crea una fase para empezar.
+          </p>
+        </div>
+      ) : (
+        <div className="grid auto-cols-[minmax(290px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-3">
+          {fases.map((fase) => {
+            const actividadesFase = actividades.filter(
+              (actividad) => actividad.faseId === fase.id,
+            );
+            const progreso = porcentajeCumplido(actividadesFase);
+            const anterior = fases.find((otra) => otra.id === fase.dependeDeFaseId);
+            return (
+              <section
+                key={fase.id}
+                className="flex min-h-[220px] flex-col rounded-xl border border-slate-200 bg-slate-50/70"
+              >
+                <header className="rounded-t-xl border-b border-slate-200 bg-white px-3 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                          F{fase.orden}
+                        </span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                            fase.esPrincipal
+                              ? "bg-orange-50 text-[#C2410C]"
+                              : "bg-sky-50 text-sky-700"
+                          }`}
+                        >
+                          {fase.esPrincipal ? "Principal" : "Adicional"}
+                        </span>
+                      </div>
+                      <h3 className="mt-1 truncate text-sm font-bold text-slate-800" title={fase.nombre}>
+                        {fase.nombre}
+                      </h3>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-500">
+                        {fase.descripcion || "Sin descripción."}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditorFase(fase)}
+                        aria-label={`Editar fase ${fase.nombre}`}
+                        className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      {!fase.esPrincipal && (
+                        <button
+                          type="button"
+                          onClick={() => void eliminarFase(fase)}
+                          disabled={ocupado === `fase-${fase.id}`}
+                          aria-label={`Eliminar fase ${fase.nombre}`}
+                          className="rounded-md p-1.5 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {anterior && (
+                    <p className="mt-2 inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-1 text-[10px] text-slate-500">
+                      <Link2 className="h-3 w-3" />
+                      Después de: {anterior.nombre}
+                    </p>
+                  )}
+                  <div className="mt-2">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-all"
+                        style={{ width: `${progreso}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+                      <span>
+                        {actividadesFase.filter((a) => a.estado === "Completado").length}/
+                        {actividadesFase.length} completadas
+                      </span>
+                      <span>{progreso}%</span>
+                    </div>
+                  </div>
+                </header>
+
+                <div className="flex-1 space-y-2 p-2">
+                  {actividadesFase.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] text-slate-400">
+                      Sin actividades en esta fase.
+                    </p>
+                  ) : (
+                    [...actividadesFase]
+                      .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
+                      .map((actividad) => (
+                        <TarjetaActividad
+                          key={actividad.id}
+                          actividad={actividad}
+                          documentos={documentosPorActividad.get(actividad.id) ?? []}
+                          ocupado={ocupado === actividad.id}
+                          onEditar={() =>
+                            setEditorActividad({ actividad, faseId: fase.id })
+                          }
+                          onEliminar={() => void eliminarActividad(actividad)}
+                          onEstado={(estado) => void cambiarEstado(actividad, estado)}
+                          onSubir={() => setSubida(actividad)}
+                        />
+                      ))
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEditorActividad({ actividad: null, faseId: fase.id })}
+                  className="m-2 inline-flex items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[11px] font-semibold text-slate-500 transition hover:border-[#EA580C] hover:text-[#C2410C]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar actividad
+                </button>
+              </section>
+            );
+          })}
         </div>
       )}
 
-      {ETAPAS.map((etapa) => {
-        const principales = raices(etapa.numero);
-        const progreso = resumenEtapa(etapa.numero);
-        return (
-          <section
-            key={etapa.numero}
-            className="overflow-hidden rounded-xl border border-gray-100 bg-white"
-          >
-            <header className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#C2410C]/10 text-xs font-black text-[#9A3412]">
-                  {etapa.numero}
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-800">{etapa.nombre}</h3>
-                  <p className="text-[11px] text-gray-400">{etapa.descripcion}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                <div className="text-right">
-                  <p className="text-[11px] font-bold text-gray-600">
-                    {progreso.completadas}/{progreso.total} completadas
-                  </p>
-                  {progreso.vencidas > 0 && (
-                    <p className="text-[10px] font-semibold text-red-500">
-                      {progreso.vencidas} vencida(s)
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditor({ etapa: etapa.numero, actividad: null })}
-                  className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-orange-700 transition-colors hover:bg-orange-50"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Actividad
-                </button>
-              </div>
-            </header>
-            <div className="h-1 bg-gray-100">
-              <div
-                className="h-full bg-[#C2410C] transition-all"
-                style={{ width: `${progreso.pct}%` }}
-              />
-            </div>
+      <p className="text-[11px] leading-relaxed text-slate-400">
+        Las tres fases principales se conservan como guía y pueden renombrarse. Las fases
+        adicionales se conectan a la fase anterior. Los documentos que cargues aquí quedan también
+        en Documentos, dentro de la carpeta sugerida, y una actividad no puede completarse sin sus
+        documentos y requisitos previos.
+      </p>
 
-            {principales.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-gray-400">
-                Sin actividades en esta etapa.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/40">
-                      {["No.", "Actividad", "Responsable", "Cumplimiento", "Estado", "Acciones"].map(
-                        (titulo) => (
-                          <th
-                            key={titulo}
-                            className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500"
-                          >
-                            {titulo}
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {principales.map((principal, indice) => (
-                      <Fragment key={principal.id}>
-                        {fila(principal, String(indice + 1), false)}
-                        {hijos(principal.id).map((hijo, indiceHijo) =>
-                          fila(hijo, `${indice + 1}.${indiceHijo + 1}`, true),
-                        )}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        );
-      })}
-
-      {editor && (
-        <EditorActividad
-          key={editor.actividad?.id ?? `nueva-${editor.etapa}`}
+      {editorActividad && edt && (
+        <ModalActividad
+          key={`${editorActividad.actividad?.id ?? "nueva"}-${editorActividad.faseId}`}
           proyectoId={proyectoId}
-          etapa={editor.etapa}
-          actividad={editor.actividad}
-          candidatos={candidatos}
+          faseInicial={editorActividad.faseId}
+          actividad={editorActividad.actividad}
+          fases={fases}
+          actividades={actividades}
           usuarios={usuarios}
-          onCerrar={() => setEditor(null)}
-          onGuardado={guardado}
+          carpetas={carpetas}
+          onCerrar={() => setEditorActividad(null)}
+          onGuardado={async () => {
+            setEditorActividad(null);
+            await cargar();
+            onChanged?.();
+          }}
+          onShowToast={onShowToast}
         />
       )}
+
+      {editorFase && (
+        <ModalFase
+          key={editorFase === "nueva" ? "nueva" : editorFase.id}
+          proyectoId={proyectoId}
+          fase={editorFase === "nueva" ? null : editorFase}
+          fases={fases}
+          onCerrar={() => setEditorFase(null)}
+          onGuardado={async () => {
+            setEditorFase(null);
+            await cargar();
+            onChanged?.();
+          }}
+          onShowToast={onShowToast}
+        />
+      )}
+
+      <SubirDocumentoModal
+        abierto={Boolean(subida)}
+        proyectoId={proyectoId}
+        edtActividadId={subida?.id ?? null}
+        carpetaInicial={subida?.carpeta ?? null}
+        tipoInicial={subida?.tipo === "Acta" ? "Actas" : subida?.tipo === "Documento" ? "Documentación técnica" : undefined}
+        nombreInicial={subida?.nombre}
+        onCerrar={() => setSubida(null)}
+        onSubido={() => {
+          void cargar();
+          onChanged?.();
+        }}
+      />
     </div>
   );
 }
 
-function EditorActividad({
-  proyectoId,
-  etapa,
+function ListChecksIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+      <path d="m3 7 2 2 3-3M3 17l2 2 3-3M13 6h8M13 12h8M13 18h8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Resumen({
+  etiqueta,
+  valor,
+  detalle,
+  tono = "slate",
+}: {
+  etiqueta: string;
+  valor: number;
+  detalle: string;
+  tono?: "slate" | "emerald" | "orange" | "purple";
+}) {
+  const tonos = {
+    slate: "text-slate-800",
+    emerald: "text-emerald-600",
+    orange: "text-orange-600",
+    purple: "text-purple-600",
+  };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{etiqueta}</p>
+      <p className={`mt-1 text-2xl font-bold ${tonos[tono]}`}>{valor}</p>
+      <p className="text-[11px] text-slate-500">{detalle}</p>
+    </div>
+  );
+}
+
+function TarjetaActividad({
   actividad,
-  candidatos,
+  documentos,
+  ocupado,
+  onEditar,
+  onEliminar,
+  onEstado,
+  onSubir,
+}: {
+  actividad: EdtActividadApi;
+  documentos: DocumentoApi[];
+  ocupado: boolean;
+  onEditar: () => void;
+  onEliminar: () => void;
+  onEstado: (estado: EdtEstado) => void;
+  onSubir: () => void;
+}) {
+  const urgencia = calcularUrgencia(actividad.fechaCumplimiento);
+  const estado = ESTADO_CFG[actividad.estado];
+  const IconoEstado = estado.icono;
+  const pendientes = actividad.requisitos.filter(
+    (requisito) =>
+      requisito.estado !== "Completado" || (requisito.tipo !== "Actividad" && !requisito.tieneDocumento),
+  );
+  const faltaDocumento = actividad.requiereDocumento && actividad.documentos === 0;
+  const bloqueada = faltaDocumento || pendientes.length > 0;
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase ${TIPO_CFG[actividad.tipo]}`}>
+          {actividad.tipo}
+        </span>
+        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${estado.clases}`}>
+          <IconoEstado className="mr-0.5 inline h-2.5 w-2.5" />
+          {actividad.estado}
+        </span>
+        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${urgencia.badge}`}>
+          {urgencia.etiqueta}
+        </span>
+        <span className="ml-auto flex gap-0.5">
+          <button
+            type="button"
+            onClick={onEditar}
+            aria-label="Editar actividad"
+            className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onEliminar}
+            disabled={ocupado}
+            aria-label="Eliminar actividad"
+            className="rounded p-1 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      </div>
+
+      <h4 className="mt-2 text-[13px] font-semibold leading-snug text-slate-800">
+        {actividad.nombre || "Actividad sin nombre"}
+      </h4>
+      {actividad.descripcion && (
+        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
+          {actividad.descripcion}
+        </p>
+      )}
+
+      <div className="mt-2.5">
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className={`h-full rounded-full ${urgencia.barra}`}
+            style={{ width: `${AVANCE_BARRA[urgencia.nivel]}%` }}
+          />
+        </div>
+        <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+          <span className="inline-flex items-center gap-1">
+            <CalendarClock className="h-3 w-3" />
+            {fechaCorta(actividad.fechaCumplimiento)}
+          </span>
+          <span className="font-medium">{urgencia.restante}</span>
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px]">
+        <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5 text-slate-500">
+          {actividad.responsable || "Sin asignar"}
+        </span>
+        {actividad.requiereDocumento && (
+          <span
+            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
+              faltaDocumento ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"
+            }`}
+          >
+            <FileText className="h-3 w-3" />
+            {faltaDocumento ? "Falta documento" : `${actividad.documentos} documento(s)`}
+          </span>
+        )}
+        {actividad.tareas > 0 && (
+          <span className="rounded bg-sky-50 px-1.5 py-0.5 text-sky-600">
+            {actividad.tareas} tarea(s)
+          </span>
+        )}
+      </div>
+
+      {actividad.requisitos.length > 0 && (
+        <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-2 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+            Requisitos previos
+          </p>
+          {actividad.requisitos.map((requisito) => {
+            const listo =
+              requisito.estado === "Completado" &&
+              (requisito.tipo === "Actividad" || requisito.tieneDocumento);
+            return (
+              <p
+                key={requisito.id}
+                className={`flex items-start gap-1 text-[10px] ${listo ? "text-emerald-600" : "text-amber-700"}`}
+              >
+                {listo ? (
+                  <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
+                ) : (
+                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                )}
+                <span className="line-clamp-2">{requisito.nombre}</span>
+              </p>
+            );
+          })}
+        </div>
+      )}
+
+      {documentos.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {documentos.map((documento) => (
+            <a
+              key={documento.id}
+              href={api.documentoArchivoUrl(documento.id, true)}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-sky-700 hover:bg-sky-50"
+            >
+              <FileText className="h-3 w-3 shrink-0" />
+              <span className="truncate">{documento.nombre}</span>
+              <span className="ml-auto shrink-0 text-slate-400">{documento.version}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {bloqueada && actividad.estado !== "Completado" && (
+        <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-[10px] leading-snug text-amber-700">
+          {faltaDocumento
+            ? "Carga el documento obligatorio antes de completar."
+            : "Completa primero los requisitos previos."}
+        </p>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap gap-1">
+        {actividad.estado === "No realizado" && (
+          <button
+            type="button"
+            onClick={() => onEstado("En ejecución")}
+            disabled={ocupado}
+            className="inline-flex items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-semibold text-[#C2410C] transition hover:bg-orange-100 disabled:opacity-50"
+          >
+            <Play className="h-3 w-3" />
+            Iniciar
+          </button>
+        )}
+        {actividad.estado === "En ejecución" && (
+          <button
+            type="button"
+            onClick={() => onEstado("Completado")}
+            disabled={ocupado}
+            title={bloqueada ? "Faltan documentos o requisitos" : "Marcar como completada"}
+            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+          >
+            <Check className="h-3 w-3" />
+            Completar
+          </button>
+        )}
+        {actividad.estado === "Completado" && (
+          <button
+            type="button"
+            onClick={() => onEstado("En ejecución")}
+            disabled={ocupado}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RotateCcw className="h-3 w-3" />
+            Reabrir
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onSubir}
+          className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100"
+        >
+          <FileUp className="h-3 w-3" />
+          Documento
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function ModalActividad({
+  proyectoId,
+  faseInicial,
+  actividad,
+  fases,
+  actividades,
   usuarios,
+  carpetas,
   onCerrar,
   onGuardado,
+  onShowToast,
 }: {
   proyectoId: string;
-  etapa: number;
+  faseInicial: string;
   actividad: EdtActividadApi | null;
-  candidatos: EdtActividadApi[];
+  fases: EdtFaseApi[];
+  actividades: EdtActividadApi[];
   usuarios: UsuarioAsignable[];
+  carpetas: string[];
   onCerrar: () => void;
-  onGuardado: (actividad: EdtActividadApi) => void;
+  onGuardado: () => Promise<void>;
+  onShowToast: (mensaje: string) => void;
 }) {
   const [nombre, setNombre] = useState(actividad?.nombre ?? "");
+  const [descripcion, setDescripcion] = useState(actividad?.descripcion ?? "");
+  const [faseId, setFaseId] = useState(actividad?.faseId ?? faseInicial);
+  const [tipo, setTipo] = useState<EdtTipoActividad>(actividad?.tipo ?? "Actividad");
+  const [prioridad, setPrioridad] = useState(actividad?.prioridad ?? "Alta");
+  const [fecha, setFecha] = useState(actividad?.fechaCumplimiento?.slice(0, 10) ?? "");
   const [responsableId, setResponsableId] = useState(actividad?.responsableId ?? "");
-  const [responsableTocado, setResponsableTocado] = useState(actividad === null);
-  const [fecha, setFecha] = useState(actividad?.fechaCumplimiento ?? "");
-  const [estado, setEstado] = useState<EdtEstado>(actividad?.estado ?? "No realizado");
-  const [padreId, setPadreId] = useState(actividad?.padreId ?? "");
+  const [requiereDocumento, setRequiereDocumento] = useState(
+    actividad?.requiereDocumento ?? false,
+  );
+  const [carpeta, setCarpeta] = useState(actividad?.carpeta ?? "");
+  const [requisitoIds, setRequisitoIds] = useState<string[]>(
+    actividad?.requisitos.map((requisito) => requisito.id) ?? [],
+  );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nombreEtapa = ETAPAS.find((item) => item.numero === etapa)?.nombre ?? `Etapa ${etapa}`;
+  const opcionesRequisito = actividades
+    .filter((otra) => otra.id !== actividad?.id)
+    .sort((a, b) => a.etapa - b.etapa || a.orden - b.orden);
 
-  const guardar = async (evento: FormEvent) => {
-    evento.preventDefault();
-    setError(null);
-    setGuardando(true);
+  function alternarRequisito(id: string) {
+    setRequisitoIds((actual) =>
+      actual.includes(id) ? actual.filter((valor) => valor !== id) : [...actual, id],
+    );
+  }
+
+  async function enviar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (guardando) return;
+    if (!nombre.trim()) return setError("Escribe el nombre de la actividad.");
+    if (!faseId) return setError("Selecciona una fase.");
+
+    const usuario = usuarios.find((fila) => fila.id === responsableId);
     const datos: NuevaEdtActividad = {
-      etapa,
-      padreId: padreId || null,
+      faseId,
       nombre: nombre.trim(),
+      descripcion: descripcion.trim(),
+      tipo,
+      prioridad,
+      requiereDocumento,
+      carpeta: carpeta || null,
+      responsableId: responsableId || null,
+      responsable: usuario?.nombre ?? null,
       fechaCumplimiento: fecha || null,
-      estado,
+      requisitoIds,
     };
-    if (responsableTocado) datos.responsableId = responsableId || null;
 
+    setGuardando(true);
+    setError(null);
     try {
-      const respuesta = actividad
-        ? await api.actualizarEdtActividad(actividad.id, datos)
-        : await api.crearEdtActividad(proyectoId, datos);
-      onGuardado(respuesta.actividad);
+      if (actividad) {
+        await api.actualizarEdtActividad(actividad.id, datos);
+      } else {
+        await api.crearEdtActividad(proyectoId, { ...datos, estado: "No realizado" });
+      }
+      onShowToast(actividad ? "Actividad actualizada." : "Actividad creada y asignada al tablero.");
+      await onGuardado();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar la actividad.");
+      setError(e instanceof ApiError ? e.message : "No se pudo guardar la actividad.");
     } finally {
       setGuardando(false);
     }
-  };
+  }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <form
-        onSubmit={(evento) => void guardar(evento)}
-        className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
-      >
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div>
-            <h2 className="text-sm font-bold text-gray-900">
-              {actividad ? "Editar actividad del EDT" : "Nueva actividad del EDT"}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-gray-400">{nombreEtapa}</p>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center">
+      <div className="my-auto w-full max-w-2xl rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-base font-bold text-slate-800">
+            {actividad ? "Editar actividad" : "Nueva actividad"}
+          </h2>
           <button
             type="button"
             onClick={onCerrar}
             aria-label="Cerrar"
-            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-4 px-5 py-4">
-          <div>
-            <label htmlFor="edt-nombre" className="text-xs font-semibold text-slate-700">
-              Actividad
-            </label>
-            <input
-              id="edt-nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              maxLength={300}
-              placeholder="Nombre de la actividad o subproducto"
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
-            />
-            <p className="mt-1 text-[11px] text-gray-400">
-              Puedes dejarla vacía si el formato aún no define el nombre; aparecerá como “Sin nombre”.
-            </p>
-          </div>
-
+        <form onSubmit={enviar} className="max-h-[75vh] space-y-4 overflow-y-auto px-5 py-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="edt-responsable" className="text-xs font-semibold text-slate-700">
+            <div className="space-y-1.5 sm:col-span-2">
+              <label htmlFor="act-nombre" className="text-xs font-semibold text-slate-700">
+                Nombre <span className="text-rose-500">*</span>
+              </label>
+              <input
+                id="act-nombre"
+                required
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                className={campoCls}
+                placeholder="Ej. Acta de inicio del contrato"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label htmlFor="act-descripcion" className="text-xs font-semibold text-slate-700">
+                Descripción
+              </label>
+              <textarea
+                id="act-descripcion"
+                rows={2}
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                className={campoCls}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="act-fase" className="text-xs font-semibold text-slate-700">
+                Fase / tablero
+              </label>
+              <select
+                id="act-fase"
+                value={faseId}
+                onChange={(e) => setFaseId(e.target.value)}
+                className={campoCls}
+              >
+                {fases.map((fase) => (
+                  <option key={fase.id} value={fase.id}>
+                    F{fase.orden} · {fase.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="act-tipo" className="text-xs font-semibold text-slate-700">
+                Tipo
+              </label>
+              <select
+                id="act-tipo"
+                value={tipo}
+                onChange={(e) => {
+                  const valor = e.target.value as EdtTipoActividad;
+                  setTipo(valor);
+                  if (valor !== "Actividad") setRequiereDocumento(true);
+                }}
+                className={campoCls}
+              >
+                {TIPOS.map((valor) => (
+                  <option key={valor} value={valor}>
+                    {valor}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="act-prioridad" className="text-xs font-semibold text-slate-700">
+                Prioridad
+              </label>
+              <select
+                id="act-prioridad"
+                value={prioridad}
+                onChange={(e) => setPrioridad(e.target.value as typeof prioridad)}
+                className={campoCls}
+              >
+                <option value="Alta">Alta</option>
+                <option value="Media">Media</option>
+                <option value="Baja">Baja</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="act-fecha" className="text-xs font-semibold text-slate-700">
+                Fecha de entrega
+              </label>
+              <input
+                id="act-fecha"
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className={campoCls}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="act-responsable" className="text-xs font-semibold text-slate-700">
                 Responsable
               </label>
               <select
-                id="edt-responsable"
+                id="act-responsable"
                 value={responsableId}
-                onChange={(e) => {
-                  setResponsableId(e.target.value);
-                  setResponsableTocado(true);
-                }}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                onChange={(e) => setResponsableId(e.target.value)}
+                className={campoCls}
               >
                 <option value="">Sin asignar</option>
                 {usuarios.map((usuario) => (
@@ -603,99 +981,253 @@ function EditorActividad({
                   </option>
                 ))}
               </select>
-              {actividad?.responsable && !actividad.responsableId && (
-                <p className="mt-1 text-[11px] text-gray-400">
-                  Responsable anterior: {actividad.responsable} (sin usuario vinculado). Elige una
-                  persona para reemplazarlo.
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="act-carpeta" className="text-xs font-semibold text-slate-700">
+                Carpeta guía
+              </label>
+              <select
+                id="act-carpeta"
+                value={carpeta}
+                onChange={(e) => setCarpeta(e.target.value)}
+                className={campoCls}
+              >
+                <option value="">Sin carpeta sugerida</option>
+                {carpetas.map((ruta) => (
+                  <option key={ruta} value={ruta}>
+                    {ruta}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={requiereDocumento}
+                onChange={(e) => setRequiereDocumento(e.target.checked)}
+                className="h-4 w-4 accent-[#C2410C]"
+              />
+              <span className="text-xs font-semibold text-slate-700">
+                Exige un documento cargado para completarse
+              </span>
+            </label>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-slate-700">Requisitos previos</p>
+            <p className="text-[11px] text-slate-400">
+              La actividad no podrá completarse hasta que estos requisitos estén completos y, si son
+              documentos, tengan archivo cargado.
+            </p>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+              {opcionesRequisito.length === 0 ? (
+                <p className="px-2 py-3 text-center text-[11px] text-slate-400">
+                  No hay otras actividades para vincular.
                 </p>
+              ) : (
+                opcionesRequisito.map((otra) => {
+                  const fase = fases.find((fila) => fila.id === otra.faseId);
+                  return (
+                    <label
+                      key={otra.id}
+                      className="flex items-start gap-2 rounded px-1.5 py-1 text-[11px] text-slate-600 hover:bg-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={requisitoIds.includes(otra.id)}
+                        onChange={() => alternarRequisito(otra.id)}
+                        className="mt-0.5 h-3.5 w-3.5 accent-[#C2410C]"
+                      />
+                      <span>
+                        <span className="font-medium text-slate-700">{otra.nombre}</span>
+                        <span className="ml-1 text-slate-400">
+                          {fase ? `· F${fase.orden}` : ""} · {otra.tipo}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
-            <div>
-              <label htmlFor="edt-fecha" className="text-xs font-semibold text-slate-700">
-                Fecha de cumplimiento
-              </label>
-              <input
-                id="edt-fecha"
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
-              />
-            </div>
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="edt-estado" className="text-xs font-semibold text-slate-700">
-                Estado de cumplimiento
-              </label>
-              <select
-                id="edt-estado"
-                value={estado}
-                onChange={(e) => setEstado(e.target.value as EdtEstado)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
-              >
-                {ESTADOS.map((valor) => (
-                  <option key={valor} value={valor}>
-                    {valor}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="edt-padre" className="text-xs font-semibold text-slate-700">
-                Subproducto de
-              </label>
-              <select
-                id="edt-padre"
-                value={padreId}
-                onChange={(e) => setPadreId(e.target.value)}
-                disabled={Boolean(actividad && candidatos.length === 0)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
-              >
-                <option value="">Actividad principal</option>
-                {candidatos.map((candidato) => (
-                  <option key={candidato.id} value={candidato.id}>
-                    {candidato.nombre || "Sin nombre"}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <p className="flex items-start gap-2 rounded-lg border border-orange-100 bg-orange-50/60 px-3 py-2.5 text-[11px] leading-relaxed text-orange-900">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-            Una actividad principal no puede marcarse como completada mientras sus subproductos
-            sigan pendientes.
-          </p>
 
           {error && (
             <p
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
             >
               {error}
             </p>
           )}
-        </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3">
+          <div className="flex flex-col-reverse justify-end gap-2 pt-1 sm:flex-row">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {guardando ? "Guardando…" : actividad ? "Guardar cambios" : "Crear actividad"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ModalFase({
+  proyectoId,
+  fase,
+  fases,
+  onCerrar,
+  onGuardado,
+  onShowToast,
+}: {
+  proyectoId: string;
+  fase: EdtFaseApi | null;
+  fases: EdtFaseApi[];
+  onCerrar: () => void;
+  onGuardado: () => Promise<void>;
+  onShowToast: (mensaje: string) => void;
+}) {
+  const [nombre, setNombre] = useState(fase?.nombre ?? "");
+  const [descripcion, setDescripcion] = useState(fase?.descripcion ?? "");
+  const [dependeDeFaseId, setDependeDeFaseId] = useState(
+    fase?.dependeDeFaseId ?? fases[fases.length - 1]?.id ?? "",
+  );
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function enviar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (guardando) return;
+    if (!nombre.trim()) return setError("Escribe el nombre de la fase.");
+
+    setGuardando(true);
+    setError(null);
+    try {
+      if (fase) {
+        await api.actualizarFaseEdt(fase.id, {
+          nombre: nombre.trim(),
+          descripcion: descripcion.trim(),
+          dependeDeFaseId: dependeDeFaseId || null,
+        });
+      } else {
+        await api.crearFaseEdt(proyectoId, {
+          nombre: nombre.trim(),
+          descripcion: descripcion.trim(),
+          dependeDeFaseId: dependeDeFaseId || null,
+        });
+      }
+      onShowToast(fase ? "Fase actualizada." : "Fase creada con su tablero.");
+      await onGuardado();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No se pudo guardar la fase.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center">
+      <div className="my-auto w-full max-w-md rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-base font-bold text-slate-800">
+            {fase ? "Editar fase" : "Nueva fase"}
+          </h2>
           <button
             type="button"
             onClick={onCerrar}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+            aria-label="Cerrar"
+            className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={guardando}
-            className="rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:cursor-wait disabled:opacity-60"
-          >
-            {guardando ? "Guardando…" : "Guardar actividad"}
+            <X className="h-4 w-4" />
           </button>
         </div>
-      </form>
+        <form onSubmit={enviar} className="space-y-4 px-5 py-5">
+          <div className="space-y-1.5">
+            <label htmlFor="fase-nombre" className="text-xs font-semibold text-slate-700">
+              Nombre <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="fase-nombre"
+              required
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className={campoCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="fase-descripcion" className="text-xs font-semibold text-slate-700">
+              Descripción
+            </label>
+            <textarea
+              id="fase-descripcion"
+              rows={2}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              className={campoCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="fase-anterior" className="text-xs font-semibold text-slate-700">
+              Se conecta después de
+            </label>
+            <select
+              id="fase-anterior"
+              value={dependeDeFaseId}
+              onChange={(e) => setDependeDeFaseId(e.target.value)}
+              className={campoCls}
+            >
+              <option value="">Sin fase anterior</option>
+              {fases
+                .filter((otra) => otra.id !== fase?.id)
+                .map((otra) => (
+                  <option key={otra.id} value={otra.id}>
+                    F{otra.orden} · {otra.nombre}
+                  </option>
+                ))}
+            </select>
+            <p className="text-[11px] text-slate-400">
+              Las fases adicionales heredan el orden y se muestran como un tablero conectado al
+              flujo principal.
+            </p>
+          </div>
+
+          {error && (
+            <p
+              role="alert"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+            >
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {guardando ? "Guardando…" : fase ? "Guardar cambios" : "Crear fase"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -142,6 +142,127 @@ export function asegurarEsquema(): Promise<void> {
       );
 
       await pool.query(`
+        DO $$
+        DECLARE nueva BOOLEAN;
+        BEGIN
+          SELECT NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = current_schema()
+               AND table_name = 'proyectos' AND column_name = 'tipo_contrato'
+          ) INTO nueva;
+          IF nueva THEN
+            ALTER TABLE proyectos ADD COLUMN tipo_contrato TEXT NOT NULL DEFAULT 'Interventoría';
+            -- La estructura de construcción identifica los contratos de obra existentes.
+            UPDATE proyectos SET tipo_contrato = 'Obra' WHERE estructura = 'construccion';
+          END IF;
+        END $$;
+      `);
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+             WHERE conrelid = 'proyectos'::regclass
+               AND conname = 'proyectos_tipo_contrato_check'
+          ) THEN
+            ALTER TABLE proyectos ADD CONSTRAINT proyectos_tipo_contrato_check
+              CHECK (tipo_contrato IN ('Obra', 'Interventoría'));
+          END IF;
+        END $$;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS edt_fases (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+          nombre TEXT NOT NULL,
+          descripcion TEXT NOT NULL DEFAULT '',
+          clave TEXT,
+          orden INTEGER NOT NULL DEFAULT 1,
+          es_principal BOOLEAN NOT NULL DEFAULT false,
+          depende_de_fase_id UUID REFERENCES edt_fases(id) ON DELETE SET NULL,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+          actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_edt_fases_proyecto ON edt_fases (proyecto_id, orden)",
+      );
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_fases_clave
+          ON edt_fases (proyecto_id, clave) WHERE clave IS NOT NULL
+      `);
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Actividad'");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS plantilla_clave TEXT");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS prioridad TEXT NOT NULL DEFAULT 'Alta'");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS requiere_documento BOOLEAN NOT NULL DEFAULT false");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS carpeta TEXT");
+      await pool.query("ALTER TABLE edt_actividades ALTER COLUMN etapa SET DEFAULT 1");
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_edt_fase ON edt_actividades (fase_id, orden)",
+      );
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_actividad_clave
+          ON edt_actividades (proyecto_id, plantilla_clave) WHERE plantilla_clave IS NOT NULL
+      `);
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+             WHERE conrelid = 'edt_actividades'::regclass
+               AND conname = 'edt_actividades_tipo_check'
+          ) THEN
+            ALTER TABLE edt_actividades ADD CONSTRAINT edt_actividades_tipo_check
+              CHECK (tipo IN ('Actividad', 'Documento', 'Acta'));
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+             WHERE conrelid = 'edt_actividades'::regclass
+               AND conname = 'edt_actividades_prioridad_check'
+          ) THEN
+            ALTER TABLE edt_actividades ADD CONSTRAINT edt_actividades_prioridad_check
+              CHECK (prioridad IN ('Alta', 'Media', 'Baja'));
+          END IF;
+        END $$;
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS edt_requisitos (
+          actividad_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+          requisito_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+          PRIMARY KEY (actividad_id, requisito_id),
+          CHECK (actividad_id <> requisito_id)
+        )
+      `);
+      await pool.query(
+        "ALTER TABLE documentos ADD COLUMN IF NOT EXISTS edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL",
+      );
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_documentos_edt ON documentos (edt_actividad_id)",
+      );
+
+      await pool.query(
+        "ALTER TABLE tableros ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES proyectos(id) ON DELETE CASCADE",
+      );
+      await pool.query(
+        "ALTER TABLE tableros ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE",
+      );
+      await pool.query(
+        "ALTER TABLE tableros ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Manual'",
+      );
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_tableros_proyecto ON tableros (proyecto_id, fase_id)",
+      );
+      await pool.query(
+        "ALTER TABLE tareas_personales ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES proyectos(id) ON DELETE SET NULL",
+      );
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_tareas_personales_proyecto ON tareas_personales (proyecto_id)",
+      );
+
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS proyecto_valores (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,

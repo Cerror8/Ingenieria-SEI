@@ -16,8 +16,9 @@ type Props = {
 const FORM_INICIAL = {
   id: "", prefijo: "OBR", consecutivo: "", nombre: "", nombreCorto: "", numeroContrato: "",
   organizadores: "", entidadContratante: "", entidadContratista: "", fechaAsignacion: "",
-  fechaInicio: "", fechaFin: "", linea: "", dependencia: "", responsable: "", liderId: "",
-  estructura: "", objetivo: "", presupuesto: "0", estado: "En ejecución", avance: "0", ejecucionPct: "0",
+  fechaInicio: "", fechaFin: "", linea: "", tipoContrato: "Interventoría", dependencia: "",
+  responsable: "", liderId: "", estructura: "", objetivo: "", presupuesto: "0", estado: "En ejecución",
+  avance: "0", ejecucionPct: "0",
 };
 type Campo = keyof typeof FORM_INICIAL;
 const PREFIJOS = ["OBR", "INT", "CON"];
@@ -76,6 +77,7 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
         entidadContratista: p.entidadContratista ?? "", fechaAsignacion: p.fechaAsignacion?.slice(0, 10) ?? "",
         fechaInicio: p.fechaInicio?.slice(0, 10) ?? "", fechaFin: p.fechaFin?.slice(0, 10) ?? "",
         linea: p.linea ?? "", dependencia: p.dependencia ?? "", responsable: p.responsable ?? "",
+        tipoContrato: p.tipoContrato ?? "Interventoría",
         liderId: p.liderId ?? "", estructura: p.estructura ?? "", objetivo: p.objetivo ?? "",
         presupuesto: String(p.presupuesto ?? 0), estado: p.estado,
         avance: String(p.avance ?? 0), ejecucionPct: String(p.ejecucionPct ?? 0),
@@ -150,6 +152,7 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
         nombre: form.nombre.trim(), nombreCorto: form.nombreCorto.trim(), numeroContrato: form.numeroContrato.trim(),
         organizadores: form.organizadores.trim(), entidadContratante: form.entidadContratante.trim(),
         entidadContratista: form.entidadContratista.trim(), linea: form.linea.trim(),
+        tipoContrato: form.tipoContrato as "Obra" | "Interventoría",
         dependencia: form.dependencia.trim(), responsable: form.responsable.trim(),
         liderId: form.liderId || null, estructura: form.estructura || null, objetivo: form.objetivo.trim(),
         presupuesto: Number(form.presupuesto), estado: form.estado as ProjectStatus,
@@ -257,6 +260,16 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {campo("organizadores", "Organizadores (opcional)", { placeholder: "Texto libre" })}
               {campo("linea", "Línea / área del proyecto", { required: true })}
+              <div>
+                <label htmlFor="proyecto-tipoContrato" className={labelCls}>Tipo de contrato</label>
+                <select {...atributos("tipoContrato")} onChange={e => upd("tipoContrato", e.target.value)}>
+                  <option value="Interventoría">Interventoría</option>
+                  <option value="Obra">Obra</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Define el checklist EDT, los documentos obligatorios y los tableros de fase del proyecto.
+                </p>
+              </div>
               {campo("dependencia", "Área responsable")}
               {campo("responsable", "Responsable")}
               <div>
