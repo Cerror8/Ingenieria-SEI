@@ -163,6 +163,7 @@ export type ProyectoApi = {
   liderId: string | null;
   estado: ProjectStatus;
   avance: number;
+  avanceOrigen: "Manual" | "EDT" | "Gantt";
   presupuesto: number;
   presupuestoNegociacion: number;
   presupuestoEjecucion: number;
@@ -213,6 +214,7 @@ export type EdtActividadApi = {
   padreId: string | null;
   nombre: string;
   responsable: string | null;
+  responsableId: string | null;
   fechaCumplimiento: string | null;
   estado: EdtEstado;
   orden: number;
@@ -223,6 +225,7 @@ export type NuevaEdtActividad = {
   padreId?: string | null;
   nombre: string;
   responsable?: string | null;
+  responsableId?: string | null;
   fechaCumplimiento?: string | null;
   estado?: EdtEstado;
 };
@@ -362,6 +365,45 @@ export type NuevaValorTabla = {
   truncada?: boolean;
 };
 
+export type CategoriaValorProyecto = "Material" | "Instrumento" | "Otro";
+
+export type ProyectoValorApi = {
+  id: string;
+  proyectoId: string;
+  valorId: string | null;
+  tablaId: string | null;
+  filaIndice: number | null;
+  nombre: string;
+  categoria: CategoriaValorProyecto;
+  unidad: string;
+  cantidad: number;
+  valorUnitario: number;
+  valorTotal: number;
+  tipoProyecto: string;
+  origen: "Manual" | "Tabla";
+  creadoPor: string | null;
+  creadoEn: string;
+};
+
+export type ResumenValoresProyectoApi = {
+  total: number;
+  porCategoria: Record<CategoriaValorProyecto, { items: number; total: number }>;
+  presupuesto: number;
+  diferencia: number;
+};
+
+export type NuevoProyectoValor = {
+  nombre: string;
+  categoria?: CategoriaValorProyecto;
+  unidad?: string;
+  cantidad: number;
+  valorUnitario: number;
+  tipoProyecto?: string;
+  valorId?: string | null;
+  tablaId?: string | null;
+  filaIndice?: number | null;
+};
+
 export type EstiloCeldaApi = {
   bold?: boolean;
   italic?: boolean;
@@ -410,6 +452,7 @@ export type NuevaTarea = {
   descripcion: string;
   proyectoId: string;
   responsableId: string | null;
+  edtActividadId?: string | null;
   prioridad: TareaTablero["prioridad"];
   fechaLimite: string | null;
   etiqueta: string;
@@ -472,6 +515,7 @@ export const mapProyecto = (p: ProyectoApi): Project => ({
   responsible: p.responsable,
   status: p.estado,
   progress: p.avance,
+  progressSource: p.avanceOrigen,
   budget: p.presupuesto,
   budgetNegotiation: p.presupuestoNegociacion,
   budgetExecution: p.presupuestoEjecucion,
@@ -595,6 +639,33 @@ export const api = {
     request<EliminacionProyectoApi>(`/proyectos/${encodeURIComponent(id)}/eliminacion`),
   eliminarProyecto: (id: string, confirmacion: string) =>
     request<{ ok: boolean }>(`/proyectos/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirmacion } }),
+
+  proyectoValores: (proyectoId: string) =>
+    request<{
+      proyecto: { id: string; nombre: string; linea: string };
+      valores: ProyectoValorApi[];
+      resumen: ResumenValoresProyectoApi;
+    }>(`/proyectos/${encodeURIComponent(proyectoId)}/valores`),
+  crearProyectoValores: (proyectoId: string, items: NuevoProyectoValor[]) =>
+    request<{
+      creados: number;
+      valores: ProyectoValorApi[];
+      resumen: ResumenValoresProyectoApi;
+    }>(`/proyectos/${encodeURIComponent(proyectoId)}/valores`, { method: "POST", body: { items } }),
+  actualizarProyectoValor: (
+    proyectoId: string,
+    valorId: string,
+    datos: Partial<Omit<NuevoProyectoValor, "valorId" | "tablaId" | "filaIndice">>,
+  ) =>
+    request<{ valor: ProyectoValorApi; resumen: ResumenValoresProyectoApi }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/valores/${encodeURIComponent(valorId)}`,
+      { method: "PATCH", body: datos },
+    ),
+  eliminarProyectoValor: (proyectoId: string, valorId: string) =>
+    request<{ ok: boolean; resumen: ResumenValoresProyectoApi }>(
+      `/proyectos/${encodeURIComponent(proyectoId)}/valores/${encodeURIComponent(valorId)}`,
+      { method: "DELETE" },
+    ),
 
   crearActividad: (proyectoId: string, datos: NuevaActividad) =>
     request<{ actividad: ActividadApi }>(

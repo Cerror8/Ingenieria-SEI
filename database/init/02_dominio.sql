@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS proyectos (
     'Cerrado'
   )),
   avance          INTEGER NOT NULL DEFAULT 0 CHECK (avance BETWEEN 0 AND 100),
+  avance_origen   TEXT NOT NULL DEFAULT 'Manual'
+                  CHECK (avance_origen IN ('Manual', 'EDT', 'Gantt')),
   presupuesto     BIGINT NOT NULL DEFAULT 0 CHECK (presupuesto >= 0),
   ejecucion_pct   INTEGER NOT NULL DEFAULT 0 CHECK (ejecucion_pct BETWEEN 0 AND 100),
   fecha_inicio    DATE NOT NULL,
@@ -114,6 +116,7 @@ ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratante TEXT NOT NULL
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS entidad_contratista TEXT NOT NULL DEFAULT '';
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS fecha_asignacion DATE;
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS creado_por TEXT;
+ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS avance_origen TEXT NOT NULL DEFAULT 'Manual';
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS carpeta TEXT;
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS fecha_documento DATE;
 ALTER TABLE documentos ADD COLUMN IF NOT EXISTS numero_documento TEXT;
@@ -134,6 +137,7 @@ CREATE TABLE IF NOT EXISTS edt_actividades (
   padre_id           UUID REFERENCES edt_actividades(id) ON DELETE CASCADE,
   actividad          TEXT NOT NULL DEFAULT '',
   responsable        TEXT,
+  responsable_id     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   fecha_cumplimiento DATE,
   estado             TEXT NOT NULL DEFAULT 'No realizado'
                      CHECK (estado IN ('Completado', 'En ejecución', 'No realizado')),
@@ -143,6 +147,7 @@ CREATE TABLE IF NOT EXISTS edt_actividades (
 );
 
 CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden);
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL;
 
 DROP TRIGGER IF EXISTS edt_actividades_touch ON edt_actividades;
 CREATE TRIGGER edt_actividades_touch
@@ -234,6 +239,7 @@ CREATE TABLE IF NOT EXISTS tareas_tablero (
                  CHECK (columna IN ('por-hacer', 'en-curso', 'en-revision', 'completado')),
   responsable    TEXT NOT NULL DEFAULT 'Sin asignar',
   responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL,
   creado_por     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
   prioridad      TEXT NOT NULL DEFAULT 'Media' CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
   fecha_limite   DATE,
@@ -250,6 +256,8 @@ CREATE INDEX IF NOT EXISTS ix_tareas_tablero_responsable ON tareas_tablero (resp
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_creador ON tareas_tablero (creado_por);
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_proyecto ON tareas_tablero (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
+ALTER TABLE tareas_tablero ADD COLUMN IF NOT EXISTS edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_tareas_tablero_edt ON tareas_tablero (edt_actividad_id);
 
 DROP TRIGGER IF EXISTS tareas_tablero_touch ON tareas_tablero;
 CREATE TRIGGER tareas_tablero_touch
@@ -465,3 +473,31 @@ CREATE TABLE IF NOT EXISTS valores_tablas (
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_valores_tablas_valor_hoja ON valores_tablas (valor_id, hoja);
 CREATE INDEX IF NOT EXISTS ix_valores_tablas_valor ON valores_tablas (valor_id);
+
+-- ---------------------------------------------------------------------
+-- Otros valores del proyecto: materiales, instrumentos y demás rubros
+-- tomados de las tablas analizadas de Formatos. El tipo vacío aplica a
+-- cualquier tipo de proyecto; si tiene valor, filtra por proyectos.linea.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS proyecto_valores (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proyecto_id     TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  valor_id        TEXT REFERENCES valores_referencia(id) ON DELETE SET NULL,
+  tabla_id        TEXT REFERENCES valores_tablas(id) ON DELETE SET NULL,
+  fila_indice     INTEGER,
+  nombre          TEXT NOT NULL,
+  categoria       TEXT NOT NULL DEFAULT 'Otro'
+                  CHECK (categoria IN ('Material', 'Instrumento', 'Otro')),
+  unidad          TEXT NOT NULL DEFAULT '',
+  cantidad        NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (cantidad >= 0),
+  valor_unitario  BIGINT NOT NULL DEFAULT 0 CHECK (valor_unitario >= 0),
+  valor_total     BIGINT GENERATED ALWAYS AS ((cantidad * valor_unitario)::bigint) STORED,
+  tipo_proyecto   TEXT NOT NULL DEFAULT '',
+  origen          TEXT NOT NULL DEFAULT 'Manual' CHECK (origen IN ('Manual', 'Tabla')),
+  creado_por      TEXT,
+  creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_proyecto_valores_proyecto ON proyecto_valores (proyecto_id, categoria);
+CREATE INDEX IF NOT EXISTS ix_proyecto_valores_tipo ON proyecto_valores (tipo_proyecto);

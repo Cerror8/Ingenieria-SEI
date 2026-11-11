@@ -4,6 +4,7 @@ import { registrarAuditoria } from "../audit.js";
 import { pool, withTx } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import { avisarAsignacion, avisarFlujo } from "../lib/correo.js";
+import { sincronizarEdtDesdeTareas } from "../lib/avance.js";
 import type { UsuarioSesion } from "../auth/session.js";
 
 const PRIORIDADES = ["Alta", "Media", "Baja"] as const;
@@ -18,6 +19,7 @@ const tareaSchema = z.object({
   descripcion: z.string().trim().max(1000).optional().default(""),
   proyectoId: z.string().trim().min(1, "Selecciona un proyecto").max(40),
   responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
+  edtActividadId: z.string().uuid("Actividad EDT inválida").nullable().optional(),
   prioridad: z.enum(PRIORIDADES).optional().default("Media"),
   fechaLimite: fechaSchema,
   etiqueta: z.string().trim().max(60).optional().default("General"),
@@ -28,6 +30,7 @@ const actualizacionSchema = z
     titulo: z.string().trim().min(1, "El título es obligatorio").max(200).optional(),
     descripcion: z.string().trim().max(1000).optional(),
     responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
+    edtActividadId: z.string().uuid("Actividad EDT inválida").nullable().optional(),
     prioridad: z.enum(PRIORIDADES).optional(),
     fechaLimite: fechaSchema,
     etiqueta: z.string().trim().max(60).optional(),
@@ -54,6 +57,7 @@ export const JOINS_TAREA = `
   LEFT JOIN usuarios pl ON pl.id = p.lider_id
   LEFT JOIN tableros b ON b.id = t.tablero_id
   LEFT JOIN usuarios bc ON bc.id = b.creado_por
+  LEFT JOIN edt_actividades e ON e.id = t.edt_actividad_id
 `;
 
 export const CAMPOS_TAREA = `
@@ -66,6 +70,8 @@ export const CAMPOS_TAREA = `
   t.titulo, t.descripcion, t.columna,
   t.responsable, t.responsable_id AS "responsableId",
   u.foto_url AS "responsableFoto",
+  t.edt_actividad_id AS "edtActividadId",
+  e.actividad AS "edtActividadNombre", e.etapa AS "edtEtapa", e.estado AS "edtEstado",
   t.creado_por AS "creadoPor", c.nombre AS "creadoPorNombre",
   t.prioridad, t.fecha_limite AS "fechaLimite", t.etiqueta, t.orden,
   t.completado_en AS "completadoEn",
@@ -91,6 +97,10 @@ export type Tarea = {
   responsable: string;
   responsableId: string | null;
   responsableFoto: string | null;
+  edtActividadId: string | null;
+  edtActividadNombre: string | null;
+  edtEtapa: number | null;
+  edtEstado: string | null;
   creadoPor: string | null;
   creadoPorNombre: string | null;
   prioridad: string;
@@ -154,6 +164,24 @@ async function resolverResponsable(
     throw new HttpError(400, "El responsable seleccionado no existe o está inactivo.");
   }
   return { id: responsableId, nombre: rows[0].nombre };
+}
+
+async function resolverEdtActividad(
+  edtActividadId: string | null | undefined,
+  proyectoId: string | null,
+): Promise<string | null> {
+  if (!edtActividadId) return null;
+  if (!proyectoId) {
+    throw new HttpError(400, "Selecciona un proyecto antes de vincular una actividad EDT.");
+  }
+  const { rows } = await pool.query<{ id: string }>(
+    "SELECT id FROM edt_actividades WHERE id = $1 AND proyecto_id = $2",
+    [edtActividadId, proyectoId],
+  );
+  if (!rows[0]) {
+    throw new HttpError(400, "La actividad EDT seleccionada no pertenece al proyecto de la tarea.");
+  }
+  return rows[0].id;
 }
 
 async function responderTarea(tableroId: string, tareaId: string) {
@@ -257,12 +285,13 @@ tableros.post(
       datos.responsableId,
       "Sin asignar",
     );
+    const edtActividadId = await resolverEdtActividad(datos.edtActividadId, proyecto[0].id);
 
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO tareas_tablero
          (tablero_id, proyecto_id, titulo, descripcion, columna, responsable, responsable_id,
-          creado_por, prioridad, fecha_limite, etiqueta, orden)
-       VALUES ($1, $2, $3, $4, 'por-hacer', $5, $6, $7, $8, $9, $10,
+          edt_actividad_id, creado_por, prioridad, fecha_limite, etiqueta, orden)
+       VALUES ($1, $2, $3, $4, 'por-hacer', $5, $6, $7, $8, $9, $10, $11,
                COALESCE((SELECT MAX(orden) + 1 FROM tareas_tablero WHERE tablero_id = $1 AND columna = 'por-hacer'), 1))
        RETURNING id`,
       [
@@ -272,12 +301,15 @@ tableros.post(
         datos.descripcion,
         asignado.nombre ?? "Sin asignar",
         asignado.id,
+        edtActividadId,
         usuario.id,
         datos.prioridad,
         datos.fechaLimite,
         datos.etiqueta || "General",
       ],
     );
+
+    await sincronizarEdtDesdeTareas(pool, edtActividadId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -329,6 +361,11 @@ tableros.patch(
       actual.columna !== "por-hacer" &&
       actual.columna !== "completado";
 
+    const cambiaEdt = datos.edtActividadId !== undefined;
+    const edtActividadId = cambiaEdt
+      ? await resolverEdtActividad(datos.edtActividadId, actual.proyectoId)
+      : actual.edtActividadId;
+
     await pool.query(
       `UPDATE tareas_tablero
           SET titulo = COALESCE($3, titulo),
@@ -339,6 +376,7 @@ tableros.patch(
               fecha_limite = CASE WHEN $9 THEN $10 ELSE fecha_limite END,
               etiqueta = COALESCE($11, etiqueta),
               columna = CASE WHEN $12 THEN 'por-hacer' ELSE columna END,
+              edt_actividad_id = CASE WHEN $13 THEN $14 ELSE edt_actividad_id END,
               ultima_devolucion_en = CASE WHEN $5 THEN now() ELSE ultima_devolucion_en END
         WHERE id = $1 AND tablero_id = $2`,
       [
@@ -354,8 +392,15 @@ tableros.patch(
         datos.fechaLimite ?? null,
         datos.etiqueta ?? null,
         vuelveAPorHacer,
+        cambiaEdt,
+        edtActividadId,
       ],
     );
+
+    if (cambiaEdt) {
+      await sincronizarEdtDesdeTareas(pool, actual.edtActividadId);
+      await sincronizarEdtDesdeTareas(pool, edtActividadId);
+    }
 
     if (cambiaResponsable) {
       await registrarAuditoria({
@@ -403,6 +448,7 @@ tableros.post(
       "UPDATE tareas_tablero SET columna = 'en-curso' WHERE id = $1 AND tablero_id = $2",
       [tareaId, tableroId],
     );
+    await sincronizarEdtDesdeTareas(pool, actual.edtActividadId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -464,6 +510,7 @@ tableros.post(
       "UPDATE tareas_tablero SET columna = 'en-revision' WHERE id = $1 AND tablero_id = $2",
       [tareaId, tableroId],
     );
+    await sincronizarEdtDesdeTareas(pool, actual.edtActividadId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -499,6 +546,7 @@ tableros.post(
         WHERE id = $1 AND tablero_id = $2`,
       [tareaId, tableroId],
     );
+    await sincronizarEdtDesdeTareas(pool, actual.edtActividadId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -540,6 +588,7 @@ tableros.post(
         [tareaId, usuario.id, usuario.nombre, `Corrección solicitada: ${datos.motivo}`],
       );
     });
+    await sincronizarEdtDesdeTareas(pool, actual.edtActividadId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -567,11 +616,14 @@ tableros.delete(
       throw new HttpError(403, "Solo un administrador puede eliminar tareas.");
     }
 
-    const { rows } = await pool.query<{ titulo: string }>(
-      "DELETE FROM tareas_tablero WHERE id = $1 AND tablero_id = $2 RETURNING titulo",
+    const { rows } = await pool.query<{ titulo: string; edtActividadId: string | null }>(
+      `DELETE FROM tareas_tablero WHERE id = $1 AND tablero_id = $2
+       RETURNING titulo, edt_actividad_id AS "edtActividadId"`,
       [tareaId, tableroId],
     );
     if (!rows[0]) throw new HttpError(404, "Tarea no encontrada");
+
+    await sincronizarEdtDesdeTareas(pool, rows[0].edtActividadId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,

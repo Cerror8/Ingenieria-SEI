@@ -15,6 +15,22 @@ export function asegurarEsquema(): Promise<void> {
       await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS fecha_asignacion DATE");
       await pool.query("ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS creado_por TEXT");
       await pool.query(
+        "ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS avance_origen TEXT NOT NULL DEFAULT 'Manual'",
+      );
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+             WHERE conrelid = 'proyectos'::regclass
+               AND conname = 'proyectos_avance_origen_check'
+          ) THEN
+            ALTER TABLE proyectos ADD CONSTRAINT proyectos_avance_origen_check
+              CHECK (avance_origen IN ('Manual', 'EDT', 'Gantt'));
+          END IF;
+        END $$;
+      `);
+      await pool.query(
         "ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS presupuesto_negociacion BIGINT NOT NULL DEFAULT 0",
       );
       await pool.query(
@@ -104,6 +120,53 @@ export function asegurarEsquema(): Promise<void> {
       `);
       await pool.query(
         "CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden)",
+      );
+      await pool.query(
+        "ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL",
+      );
+      // Vincula responsables históricos escritos a mano con usuarios registrados del mismo nombre.
+      await pool.query(`
+        UPDATE edt_actividades e
+           SET responsable_id = u.id
+          FROM usuarios u
+         WHERE e.responsable_id IS NULL
+           AND e.responsable IS NOT NULL
+           AND lower(btrim(e.responsable)) = lower(btrim(u.nombre))
+           AND u.activo = true
+      `);
+      await pool.query(
+        "ALTER TABLE tareas_tablero ADD COLUMN IF NOT EXISTS edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL",
+      );
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_tareas_tablero_edt ON tareas_tablero (edt_actividad_id)",
+      );
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS proyecto_valores (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+          valor_id TEXT REFERENCES valores_referencia(id) ON DELETE SET NULL,
+          tabla_id TEXT REFERENCES valores_tablas(id) ON DELETE SET NULL,
+          fila_indice INTEGER,
+          nombre TEXT NOT NULL,
+          categoria TEXT NOT NULL DEFAULT 'Otro'
+            CHECK (categoria IN ('Material', 'Instrumento', 'Otro')),
+          unidad TEXT NOT NULL DEFAULT '',
+          cantidad NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (cantidad >= 0),
+          valor_unitario BIGINT NOT NULL DEFAULT 0 CHECK (valor_unitario >= 0),
+          valor_total BIGINT GENERATED ALWAYS AS ((cantidad * valor_unitario)::bigint) STORED,
+          tipo_proyecto TEXT NOT NULL DEFAULT '',
+          origen TEXT NOT NULL DEFAULT 'Manual' CHECK (origen IN ('Manual', 'Tabla')),
+          creado_por TEXT,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+          actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_proyecto_valores_proyecto ON proyecto_valores (proyecto_id, categoria)",
+      );
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_proyecto_valores_tipo ON proyecto_valores (tipo_proyecto)",
       );
 
       // Informes: el semanal es el registro base; mensual y trimestral son consolidaciones.

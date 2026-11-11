@@ -4,12 +4,14 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool, withTx, type Db } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { recalcularAvanceProyecto } from "../lib/avance.js";
 
 export const ESTADOS_EDT = ["Completado", "En ejecución", "No realizado"] as const;
 
 const CAMPOS = `
   id, proyecto_id AS "proyectoId", etapa, padre_id AS "padreId", actividad AS "nombre",
-  responsable, fecha_cumplimiento AS "fechaCumplimiento", estado, orden
+  responsable, responsable_id AS "responsableId",
+  fecha_cumplimiento AS "fechaCumplimiento", estado, orden
 `;
 
 const crearSchema = z.object({
@@ -17,6 +19,7 @@ const crearSchema = z.object({
   padreId: z.string().uuid("La actividad predecesora es inválida").nullable().optional(),
   nombre: z.string().trim().max(300).default(""),
   responsable: z.string().trim().max(120).nullable().optional(),
+  responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
   fechaCumplimiento: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha debe tener formato AAAA-MM-DD")
@@ -54,6 +57,25 @@ async function actividadDeRuta(id: string): Promise<ActividadFila> {
   );
   if (!rows[0]) throw new HttpError(404, "Actividad del EDT no encontrada");
   return rows[0];
+}
+
+async function resolverResponsableEdt(
+  responsableId: string | null | undefined,
+  texto: string | null | undefined,
+  enviadoId: boolean,
+): Promise<{ id: string | null; nombre: string | null }> {
+  if (enviadoId) {
+    if (!responsableId) return { id: null, nombre: null };
+    const { rows } = await pool.query<{ nombre: string }>(
+      "SELECT nombre FROM usuarios WHERE id = $1 AND activo = true",
+      [responsableId],
+    );
+    if (!rows[0]) {
+      throw new HttpError(400, "El responsable seleccionado no existe o está inactivo.");
+    }
+    return { id: responsableId, nombre: rows[0].nombre };
+  }
+  return { id: null, nombre: texto?.trim() || null };
 }
 
 async function validarPadre(
@@ -157,10 +179,17 @@ edt.post(
       await validarPadre(datos.padreId, proyecto.id, datos.etapa);
     }
 
+    const responsable = await resolverResponsableEdt(
+      datos.responsableId,
+      datos.responsable,
+      Object.prototype.hasOwnProperty.call(req.body, "responsableId"),
+    );
+
     const { rows } = await pool.query(
       `INSERT INTO edt_actividades
-         (proyecto_id, etapa, padre_id, actividad, responsable, fecha_cumplimiento, estado, orden)
-       VALUES ($1, $2, $3, $4, $5, $6, $7,
+         (proyecto_id, etapa, padre_id, actividad, responsable, responsable_id,
+          fecha_cumplimiento, estado, orden)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
          (SELECT COALESCE(MAX(orden), 0) + 1 FROM edt_actividades WHERE proyecto_id = $1 AND etapa = $2))
        RETURNING ${CAMPOS}`,
       [
@@ -168,12 +197,15 @@ edt.post(
         datos.etapa,
         datos.padreId ?? null,
         datos.nombre,
-        datos.responsable || null,
+        responsable.nombre,
+        responsable.id,
         datos.fechaCumplimiento ?? null,
         datos.estado,
       ],
     );
     const actividad = rows[0] as ActividadFila;
+
+    await recalcularAvanceProyecto(pool, proyecto.id);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -205,14 +237,26 @@ edt.patch(
 
     await validarCambioEstado(actual, datos.estado ?? actual.estado);
 
+    const cambiaResponsable =
+      Object.prototype.hasOwnProperty.call(req.body, "responsableId") ||
+      Object.prototype.hasOwnProperty.call(req.body, "responsable");
+    const responsable = cambiaResponsable
+      ? await resolverResponsableEdt(
+          datos.responsableId,
+          datos.responsable,
+          Object.prototype.hasOwnProperty.call(req.body, "responsableId"),
+        )
+      : { id: null, nombre: null };
+
     const { rows } = await pool.query(
       `UPDATE edt_actividades
           SET etapa = $2,
               padre_id = $3,
               actividad = COALESCE($4, actividad),
               responsable = CASE WHEN $5 THEN $6 ELSE responsable END,
-              fecha_cumplimiento = CASE WHEN $7 THEN $8::date ELSE fecha_cumplimiento END,
-              estado = COALESCE($9, estado)
+              responsable_id = CASE WHEN $5 THEN $7 ELSE responsable_id END,
+              fecha_cumplimiento = CASE WHEN $8 THEN $9::date ELSE fecha_cumplimiento END,
+              estado = COALESCE($10, estado)
         WHERE id = $1
         RETURNING ${CAMPOS}`,
       [
@@ -220,14 +264,17 @@ edt.patch(
         etapa,
         padreId ?? null,
         datos.nombre,
-        Object.prototype.hasOwnProperty.call(req.body, "responsable"),
-        datos.responsable || null,
+        cambiaResponsable,
+        responsable.nombre,
+        responsable.id,
         Object.prototype.hasOwnProperty.call(req.body, "fechaCumplimiento"),
         datos.fechaCumplimiento ?? null,
         datos.estado ?? null,
       ],
     );
     const actualizada = rows[0] as ActividadFila;
+
+    await recalcularAvanceProyecto(pool, actual.proyectoId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -250,6 +297,8 @@ edt.delete(
     const usuario = res.locals.usuario as UsuarioSesion;
 
     await pool.query("DELETE FROM edt_actividades WHERE id = $1", [actual.id]);
+
+    await recalcularAvanceProyecto(pool, actual.proyectoId);
 
     await registrarAuditoria({
       usuario: usuario.nombre,
@@ -502,6 +551,7 @@ edt.post(
     const usuario = res.locals.usuario as UsuarioSesion;
 
     const creados = await withTx((db) => sembrarPlantilla(db, proyecto.id));
+    await recalcularAvanceProyecto(pool, proyecto.id);
 
     await registrarAuditoria({
       usuario: usuario.nombre,

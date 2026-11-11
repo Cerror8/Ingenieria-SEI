@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api, type ProyectoApi, type TableroApi } from "../../api/client";
+import { api, type EdtActividadApi, type ProyectoApi, type TableroApi } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import type {
   ColumnaTablero,
@@ -260,10 +260,13 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     descripcion: "",
     proyectoId: "",
     responsableId: "",
+    edtActividadId: "",
     prioridad: "Media" as PrioridadTablero,
     fechaLimite: "",
     etiqueta: "General",
   });
+  const [edtActividades, setEdtActividades] = useState<EdtActividadApi[]>([]);
+  const [cargandoEdt, setCargandoEdt] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -296,6 +299,29 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    if (!mostrarFormulario || !nueva.proyectoId) {
+      setEdtActividades([]);
+      return;
+    }
+    let cancelado = false;
+    setCargandoEdt(true);
+    void api
+      .edt(nueva.proyectoId)
+      .then(({ actividades }) => {
+        if (!cancelado) setEdtActividades(actividades);
+      })
+      .catch(() => {
+        if (!cancelado) setEdtActividades([]);
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoEdt(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [mostrarFormulario, nueva.proyectoId]);
 
   const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -388,6 +414,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         descripcion: nueva.descripcion.trim(),
         proyectoId: nueva.proyectoId,
         responsableId: nueva.responsableId || null,
+        edtActividadId: nueva.edtActividadId || null,
         prioridad: nueva.prioridad,
         fechaLimite: nueva.fechaLimite || null,
         etiqueta: nueva.etiqueta.trim() || "General",
@@ -398,6 +425,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         descripcion: "",
         proyectoId: "",
         responsableId: "",
+        edtActividadId: "",
         prioridad: "Media",
         fechaLimite: "",
         etiqueta: "General",
@@ -647,6 +675,14 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                             ? `${tarea.proyectoId} · ${tarea.proyectoNombre ?? "Proyecto"}`
                             : "Sin proyecto"}
                         </p>
+                        {tarea.edtActividadNombre && (
+                          <p
+                            className="mt-1 truncate text-[10px] font-semibold text-orange-600"
+                            title={`Actividad EDT de la etapa ${tarea.edtEtapa}: ${tarea.edtActividadNombre}`}
+                          >
+                            EDT E{tarea.edtEtapa} · {tarea.edtActividadNombre}
+                          </p>
+                        )}
                       </button>
 
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -801,7 +837,13 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                   id="proyecto-tarea"
                   required
                   value={nueva.proyectoId}
-                  onChange={(e) => setNueva((prev) => ({ ...prev, proyectoId: e.target.value }))}
+                  onChange={(e) =>
+                    setNueva((prev) => ({
+                      ...prev,
+                      proyectoId: e.target.value,
+                      edtActividadId: "",
+                    }))
+                  }
                   className={campoCls}
                 >
                   <option value="">Selecciona un proyecto</option>
@@ -811,6 +853,41 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="edt-tarea" className="text-xs font-semibold text-slate-700">
+                  Actividad EDT
+                </label>
+                <select
+                  id="edt-tarea"
+                  value={nueva.edtActividadId}
+                  onChange={(e) =>
+                    setNueva((prev) => ({ ...prev, edtActividadId: e.target.value }))
+                  }
+                  disabled={!nueva.proyectoId || cargandoEdt}
+                  className={campoCls}
+                >
+                  <option value="">
+                    {!nueva.proyectoId
+                      ? "Selecciona primero un proyecto"
+                      : cargandoEdt
+                        ? "Cargando actividades…"
+                        : "Sin vincular al EDT"}
+                  </option>
+                  {[...edtActividades]
+                    .sort((a, b) => a.etapa - b.etapa || a.orden - b.orden)
+                    .map((actividad) => (
+                      <option key={actividad.id} value={actividad.id}>
+                        {actividad.padreId ? "↳ " : ""}E{actividad.etapa} ·{" "}
+                        {actividad.nombre || "Sin nombre"}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Al aprobar la tarea, la actividad del EDT y el avance del proyecto se actualizan
+                  solos.
+                </p>
               </div>
 
               <div className="space-y-1.5">

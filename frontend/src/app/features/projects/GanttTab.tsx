@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AlertTriangle, Edit2, Plus, Trash2, X } from "lucide-react";
 import { api, mapActividad } from "../../api/client";
 import { ACT_STATUS_CFG, GANTT_MONTHS } from "../../constants";
-import type { GanttActivity } from "../../types";
+import type { GanttActivity, UsuarioAsignable } from "../../types";
 
 type EstadoActividad = GanttActivity["status"];
 
@@ -20,10 +20,18 @@ export function GanttTab({
   onShowToast: (mensaje: string) => void;
 }) {
   const [actividades, setActividades] = useState<GanttActivity[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioAsignable[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [editor, setEditor] = useState<{ actividad: GanttActivity | null } | null>(null);
+
+  useEffect(() => {
+    void api
+      .usuariosAsignables()
+      .then(({ usuarios: filas }) => setUsuarios(filas))
+      .catch(() => setUsuarios([]));
+  }, []);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -272,6 +280,7 @@ export function GanttTab({
           key={editor.actividad?.id ?? "nueva"}
           proyectoId={proyectoId}
           actividad={editor.actividad}
+          usuarios={usuarios}
           onCerrar={() => setEditor(null)}
           onGuardada={() => void guardada()}
         />
@@ -283,11 +292,13 @@ export function GanttTab({
 function EditorActividad({
   proyectoId,
   actividad,
+  usuarios,
   onCerrar,
   onGuardada,
 }: {
   proyectoId: string;
   actividad: GanttActivity | null;
+  usuarios: UsuarioAsignable[];
   onCerrar: () => void;
   onGuardada: () => void;
 }) {
@@ -300,6 +311,9 @@ function EditorActividad({
   const [hito, setHito] = useState(Boolean(actividad?.isMilestone));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const anteriorSinUsuario =
+    responsable !== "" && !usuarios.some((usuario) => usuario.nombre === responsable);
 
   const guardar = async (evento: FormEvent) => {
     evento.preventDefault();
@@ -372,14 +386,22 @@ function EditorActividad({
             <label htmlFor="gantt-responsable" className="text-xs font-semibold text-slate-700">
               Responsable
             </label>
-            <input
+            <select
               id="gantt-responsable"
               value={responsable}
               onChange={(e) => setResponsable(e.target.value)}
-              maxLength={120}
-              placeholder="Sin asignar"
               className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
-            />
+            >
+              <option value="">Sin asignar</option>
+              {anteriorSinUsuario && (
+                <option value={responsable}>{responsable} (nombre anterior)</option>
+              )}
+              {usuarios.map((usuario) => (
+                <option key={usuario.id} value={usuario.nombre}>
+                  {usuario.nombre}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

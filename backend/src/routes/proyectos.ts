@@ -5,6 +5,7 @@ import { registrarAuditoria } from "../audit.js";
 import { pool, withTx, type Db } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import { estructuraPorId } from "../lib/estructura.js";
+import { recalcularAvanceProyecto } from "../lib/avance.js";
 import { requireAdmin, type UsuarioSesion } from "../auth/session.js";
 
 export const ESTADOS_EN_EJECUCION = [
@@ -18,7 +19,8 @@ export const ESTADOS_PROYECTO = [
 ] as const;
 
 export const CAMPOS_PROYECTO = `
-  id, nombre, linea, estructura, responsable, lider_id AS "liderId", estado, avance, presupuesto,
+  id, nombre, linea, estructura, responsable, lider_id AS "liderId", estado, avance,
+  avance_origen AS "avanceOrigen", presupuesto,
   presupuesto_negociacion AS "presupuestoNegociacion",
   presupuesto_ejecucion AS "presupuestoEjecucion",
   presupuesto_alerta AS "presupuestoAlerta",
@@ -454,6 +456,10 @@ proyectos.patch(
         if (datos[campo] === undefined) continue;
         valores.push(datos[campo]);
         cambios.push(`${COLUMNAS_EDITABLES[campo]} = $${valores.length}`);
+        if (campo === "avance") {
+          // Un cambio explícito del avance vuelve a marcar el seguimiento como manual.
+          cambios.push("avance_origen = 'Manual'");
+        }
         if (campo === "fechaFin") {
           cambios.push(`dias_restantes = GREATEST(0, $${valores.length}::date - (now() AT TIME ZONE 'America/Bogota')::date)`);
         }
@@ -495,6 +501,7 @@ proyectos.post(
       [activityId, datos.nombre, datos.responsable, datos.mesInicio, datos.mesFin,
         datos.avance, datos.estado, datos.hito, id],
     );
+    await recalcularAvanceProyecto(pool, id);
     res.status(201).json({ actividad: rows[0] });
   }),
 );
@@ -536,6 +543,7 @@ proyectos.patch(
         datos.hito ?? actual.hito,
       ],
     );
+    await recalcularAvanceProyecto(pool, id);
     res.json({ actividad: rows[0] });
   }),
 );
@@ -549,6 +557,7 @@ proyectos.delete(
       "DELETE FROM actividades WHERE id = $1 AND proyecto_id = $2", [actividadId, id],
     );
     if (!rowCount) throw new HttpError(404, "Actividad no encontrada");
+    await recalcularAvanceProyecto(pool, id);
     res.json({ ok: true });
   }),
 );

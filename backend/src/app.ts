@@ -21,6 +21,7 @@ import { informes } from "./routes/informes.js";
 import { miTablero } from "./routes/mi-tablero.js";
 import { notificaciones } from "./routes/notificaciones.js";
 import { proyectos } from "./routes/proyectos.js";
+import { proyectoValores } from "./routes/proyecto-valores.js";
 import { tableros } from "./routes/tableros.js";
 import { tareas } from "./routes/tareas.js";
 import { usuarios } from "./routes/usuarios.js";
@@ -72,6 +73,7 @@ app.use("/api/cron", cron);
 
 app.use("/api/dashboard", requireAuth, dashboard);
 app.use("/api/proyectos", requireAuth, proyectos);
+app.use("/api/proyectos", requireAuth, proyectoValores);
 app.use("/api/indicadores", requireAuth, indicadores);
 app.use("/api/documentos", requireAuth, documentos);
 app.use("/api/edt", requireAuth, edt);

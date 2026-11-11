@@ -346,23 +346,43 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
               </div>
 
               <div className="rounded-xl border border-gray-100 p-5 space-y-4">
-                <h3 className="text-sm font-bold text-gray-800">Actualizar avance técnico</h3>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-gray-700">Porcentaje de avance</span>
-                    <span className="text-lg font-black text-orange-700">{seguimientoAvance}%</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-gray-800">Actualizar avance técnico</h3>
+                  <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
+                    {project.progressSource === "EDT"
+                      ? "Automático desde EDT"
+                      : project.progressSource === "Gantt"
+                        ? "Automático desde Gantt"
+                        : "Manual"}
+                  </span>
+                </div>
+                {project.progressSource === "Manual" ? (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-gray-700">Porcentaje de avance</span>
+                        <span className="text-lg font-black text-orange-700">{seguimientoAvance}%</span>
+                      </div>
+                      <input type="range" min={0} max={100} value={seguimientoAvance} onChange={e => setSeguimientoAvance(+e.target.value)}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
+                      <div className="mt-2"><Bar2 value={seguimientoAvance} color="bg-orange-500" h="h-2" /></div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button onClick={() => void guardarAvance()} disabled={guardandoAvance || seguimientoAvance === project.progress}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+                        <Sliders className="w-3.5 h-3.5" />{guardandoAvance ? "Guardando…" : "Actualizar avance"}
+                      </button>
+                      <span className="text-xs text-gray-400">Se guarda en el proyecto y alimenta el dashboard.</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-orange-100 bg-orange-50/60 px-3 py-3 text-xs leading-relaxed text-orange-900">
+                    El avance se calcula automáticamente con el promedio de las actividades
+                    {project.progressSource === "EDT" ? " del EDT" : " del cronograma Gantt"} y las
+                    tareas aprobadas que estén vinculadas. Para cambiarlo, actualiza esos estados;
+                    si eliminas todas las actividades, el control vuelve a ser manual.
                   </div>
-                  <input type="range" min={0} max={100} value={seguimientoAvance} onChange={e => setSeguimientoAvance(+e.target.value)}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
-                  <div className="mt-2"><Bar2 value={seguimientoAvance} color="bg-orange-500" h="h-2" /></div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button onClick={() => void guardarAvance()} disabled={guardandoAvance || seguimientoAvance === project.progress}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
-                    <Sliders className="w-3.5 h-3.5" />{guardandoAvance ? "Guardando…" : "Actualizar avance"}
-                  </button>
-                  <span className="text-xs text-gray-400">Se guarda en el proyecto y alimenta el dashboard.</span>
-                </div>
+                )}
               </div>
 
               <div className="rounded-xl border border-gray-100 overflow-hidden">
@@ -416,7 +436,13 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
           )}
 
           {/* ── EDT ── */}
-          {tab === "edt" && <EdtTab proyectoId={projectId} onShowToast={onShowToast} />}
+          {tab === "edt" && (
+            <EdtTab
+              proyectoId={projectId}
+              onShowToast={onShowToast}
+              onChanged={() => void recargarResumen()}
+            />
+          )}
 
           {/* ── GANTT ── */}
           {tab === "gantt" && (

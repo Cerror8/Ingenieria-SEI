@@ -16,7 +16,9 @@ import {
   fechaCorta,
   type EdtActividadApi,
   type EdtEstado,
+  type NuevaEdtActividad,
 } from "../../api/client";
+import type { UsuarioAsignable } from "../../types";
 
 const ETAPAS = [
   {
@@ -57,16 +59,26 @@ type EditorState = { etapa: number; actividad: EdtActividadApi | null };
 
 export function EdtTab({
   proyectoId,
+  onChanged,
   onShowToast,
 }: {
   proyectoId: string;
+  onChanged?: () => void;
   onShowToast: (mensaje: string) => void;
 }) {
   const [actividades, setActividades] = useState<EdtActividadApi[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioAsignable[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
+
+  useEffect(() => {
+    void api
+      .usuariosAsignables()
+      .then(({ usuarios: filas }) => setUsuarios(filas))
+      .catch(() => setUsuarios([]));
+  }, []);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -139,6 +151,7 @@ export function EdtTab({
           ? "Actividad completada."
           : `Estado actualizado a "${estado}".`,
       );
+      onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo actualizar el estado.");
     } finally {
@@ -162,6 +175,7 @@ export function EdtTab({
         prev.filter((a) => a.id !== actividad.id && a.padreId !== actividad.id),
       );
       onShowToast("Actividad eliminada.");
+      onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo eliminar la actividad.");
     } finally {
@@ -180,6 +194,7 @@ export function EdtTab({
           ? `Plantilla EDT actualizada: ${creados} actividad(es) nueva(s).`
           : "La plantilla EDT ya estaba completa.",
       );
+      onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar la plantilla EDT.");
     } finally {
@@ -195,6 +210,7 @@ export function EdtTab({
     );
     setEditor(null);
     onShowToast("Actividad del EDT guardada.");
+    onChanged?.();
   };
 
   const fila = (actividad: EdtActividadApi, numero: string, esHijo: boolean) => {
@@ -463,6 +479,7 @@ export function EdtTab({
           etapa={editor.etapa}
           actividad={editor.actividad}
           candidatos={candidatos}
+          usuarios={usuarios}
           onCerrar={() => setEditor(null)}
           onGuardado={guardado}
         />
@@ -476,6 +493,7 @@ function EditorActividad({
   etapa,
   actividad,
   candidatos,
+  usuarios,
   onCerrar,
   onGuardado,
 }: {
@@ -483,11 +501,13 @@ function EditorActividad({
   etapa: number;
   actividad: EdtActividadApi | null;
   candidatos: EdtActividadApi[];
+  usuarios: UsuarioAsignable[];
   onCerrar: () => void;
   onGuardado: (actividad: EdtActividadApi) => void;
 }) {
   const [nombre, setNombre] = useState(actividad?.nombre ?? "");
-  const [responsable, setResponsable] = useState(actividad?.responsable ?? "");
+  const [responsableId, setResponsableId] = useState(actividad?.responsableId ?? "");
+  const [responsableTocado, setResponsableTocado] = useState(actividad === null);
   const [fecha, setFecha] = useState(actividad?.fechaCumplimiento ?? "");
   const [estado, setEstado] = useState<EdtEstado>(actividad?.estado ?? "No realizado");
   const [padreId, setPadreId] = useState(actividad?.padreId ?? "");
@@ -500,14 +520,14 @@ function EditorActividad({
     evento.preventDefault();
     setError(null);
     setGuardando(true);
-    const datos = {
+    const datos: NuevaEdtActividad = {
       etapa,
       padreId: padreId || null,
       nombre: nombre.trim(),
-      responsable: responsable.trim() || null,
       fechaCumplimiento: fecha || null,
       estado,
     };
+    if (responsableTocado) datos.responsableId = responsableId || null;
 
     try {
       const respuesta = actividad
@@ -567,14 +587,28 @@ function EditorActividad({
               <label htmlFor="edt-responsable" className="text-xs font-semibold text-slate-700">
                 Responsable
               </label>
-              <input
+              <select
                 id="edt-responsable"
-                value={responsable}
-                onChange={(e) => setResponsable(e.target.value)}
-                maxLength={120}
-                placeholder="Sin asignar"
+                value={responsableId}
+                onChange={(e) => {
+                  setResponsableId(e.target.value);
+                  setResponsableTocado(true);
+                }}
                 className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
-              />
+              >
+                <option value="">Sin asignar</option>
+                {usuarios.map((usuario) => (
+                  <option key={usuario.id} value={usuario.id}>
+                    {usuario.nombre}
+                  </option>
+                ))}
+              </select>
+              {actividad?.responsable && !actividad.responsableId && (
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Responsable anterior: {actividad.responsable} (sin usuario vinculado). Elige una
+                  persona para reemplazarlo.
+                </p>
+              )}
             </div>
             <div>
               <label htmlFor="edt-fecha" className="text-xs font-semibold text-slate-700">

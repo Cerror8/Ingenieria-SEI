@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api, type TableroApi } from "../../api/client";
+import { api, type EdtActividadApi, type TableroApi } from "../../api/client";
 import type {
   AdjuntoTarea,
   ComentarioTarea,
@@ -109,6 +109,7 @@ export function TareaDetalle({
   const [accion, setAccion] = useState<string | null>(null);
   const [devolviendo, setDevolviendo] = useState(false);
   const [motivo, setMotivo] = useState("");
+  const [edtActividades, setEdtActividades] = useState<EdtActividadApi[]>([]);
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const esAdmin = usuario.rol === "admin";
@@ -154,6 +155,25 @@ export function TareaDetalle({
   useEffect(() => {
     void cargarColaboracion();
   }, [cargarColaboracion]);
+
+  useEffect(() => {
+    if (!tarea.proyectoId) {
+      setEdtActividades([]);
+      return;
+    }
+    let cancelado = false;
+    void api
+      .edt(tarea.proyectoId)
+      .then(({ actividades }) => {
+        if (!cancelado) setEdtActividades(actividades);
+      })
+      .catch(() => {
+        if (!cancelado) setEdtActividades([]);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [tarea.proyectoId]);
 
   useEffect(() => {
     const cerrarEscape = (evento: KeyboardEvent) => {
@@ -250,6 +270,14 @@ export function TareaDetalle({
     );
   }
 
+  async function vincularEdt(edtActividadId: string) {
+    await ejecutar("edt", () =>
+      api.actualizarTarea(tableroId, tarea.id, {
+        edtActividadId: edtActividadId || null,
+      }),
+    );
+  }
+
   async function devolverTarea(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (motivo.trim().length < 5) {
@@ -333,6 +361,14 @@ export function TareaDetalle({
               <Avatar nombre={tarea.responsable} foto={tarea.responsableFoto} />
               {tarea.responsable}
             </span>
+            {tarea.edtActividadNombre && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-[#9A3412]"
+                title={`Actividad EDT de la etapa ${tarea.edtEtapa}`}
+              >
+                EDT E{tarea.edtEtapa} · {tarea.edtActividadNombre} · {tarea.edtEstado}
+              </span>
+            )}
           </div>
 
           <div className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-[11px] sm:grid-cols-3">
@@ -386,6 +422,39 @@ export function TareaDetalle({
               </select>
               <span className="text-[10px] text-slate-400">
                 Solo el creador o el líder pueden asignar.
+              </span>
+            </div>
+          )}
+
+          {esGestor && tarea.proyectoId && (
+            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center">
+              <label
+                htmlFor="vincular-edt"
+                className="text-[11px] font-bold uppercase tracking-wide text-slate-500"
+              >
+                Actividad EDT
+              </label>
+              <select
+                id="vincular-edt"
+                value={tarea.edtActividadId ?? ""}
+                disabled={accion !== null}
+                onChange={(e) => void vincularEdt(e.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#EA580C] disabled:opacity-60"
+              >
+                <option value="">Sin vincular al EDT</option>
+                {[...edtActividades]
+                  .sort((a, b) => a.etapa - b.etapa || a.orden - b.orden)
+                  .map((actividad) => (
+                    <option key={actividad.id} value={actividad.id}>
+                      {actividad.padreId ? "↳ " : ""}E{actividad.etapa} ·{" "}
+                      {actividad.nombre || "Sin nombre"}
+                    </option>
+                  ))}
+              </select>
+              <span className="text-[10px] text-slate-400">
+                {tarea.edtActividadId
+                  ? `Estado actual: ${tarea.edtEstado}`
+                  : "Al vincularla, el estado y el avance se sincronizan."}
               </span>
             </div>
           )}

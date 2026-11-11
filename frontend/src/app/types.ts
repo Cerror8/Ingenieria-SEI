@@ -69,6 +69,7 @@ export interface Project {
   responsible: string;
   status: ProjectStatus;
   progress: number;
+  progressSource: "Manual" | "EDT" | "Gantt";
   budget: number;
   budgetNegotiation: number;
   budgetExecution: number;
@@ -176,6 +177,10 @@ export interface TareaTablero {
   responsable: string;
   responsableId: string | null;
   responsableFoto: string | null;
+  edtActividadId: string | null;
+  edtActividadNombre: string | null;
+  edtEtapa: number | null;
+  edtEstado: string | null;
   creadoPor: string | null;
   creadoPorNombre: string | null;
   prioridad: PrioridadTablero;
