@@ -677,47 +677,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           </select>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-          <button
-            type="button"
-            onClick={() => void abrirTablero("")}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-              enGeneral
-                ? "border-[#C2410C] bg-orange-50 text-[#9A3412]"
-                : "border-slate-200 bg-white text-slate-600 hover:border-orange-300 hover:text-[#C2410C]"
-            }`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            General
-            <span className="rounded-full bg-white/70 px-1.5 text-[10px]">{tareas.length}</span>
-          </button>
-          {gruposGuia.map((grupo) => (
-            <div key={grupo[0]?.proyectoId ?? "sin"} className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                {grupo[0]?.proyectoId ?? "Sin proyecto"}
-              </span>
-              {grupo.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => void abrirTablero(item.id)}
-                  title={`${item.proyectoNombre ?? "Proyecto"} · ${item.nombre}`}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                    !enGeneral && tableroId === item.id
-                      ? "border-[#C2410C] bg-orange-50 text-[#9A3412]"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-orange-300 hover:text-[#C2410C]"
-                  }`}
-                >
-                  {item.faseNombre ?? item.nombre}
-                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">
-                    {item.totalTareas ?? 0}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-
         <label htmlFor="selector-tablero" className="sr-only">
           Seleccionar tablero
         </label>
@@ -727,7 +686,9 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           onChange={(e) => void abrirTablero(e.target.value)}
           className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-[#EA580C] sm:max-w-md"
         >
-          <option value="">Tablero general (todos los proyectos)</option>
+          <option value="">
+            {filtroProyecto ? "Tablero general (proyecto seleccionado)" : "Tablero general (todos los proyectos)"}
+          </option>
           {gruposGuia.map((grupo) => (
             <optgroup
               key={grupo[0]?.proyectoId ?? "sin"}
