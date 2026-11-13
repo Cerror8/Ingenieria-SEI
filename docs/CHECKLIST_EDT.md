@@ -60,6 +60,8 @@ La interfaz muestra estos bloqueos en la tarjeta: **REQUISITOS PREVIOS**, **Falt
 La pestaña **Documentos** del proyecto ya no muestra el checklist inline: tiene un botón **Checklist documental** que abre un modal.
 
 - Lista las actividades documentales del EDT (`Documento`, `Acta` y actividades con `requiere_documento`) agrupadas por fase.
+- Cada fila muestra los documentos ya recibidos con su nombre, versión, fecha, estado y un enlace **Abrir**; lo que falta queda como **Documento pendiente**.
+- Filtros rápidos **Todos / Recibidos / Pendientes / No aplica** con sus conteos, para ver de inmediato qué se ha obtenido.
 - El check se sincroniza con el EDT: una actividad **Completado** aparece marcada; si se completa o reabre en el EDT, el checklist lo refleja al abrirse o al pulsar actualizar.
 - Al marcar una actividad sin archivo se abre el modal de carga con el proyecto, la carpeta sugerida, el nombre y el vínculo `edt_actividad_id` ya completos. Al subir el archivo se intenta completar la actividad.
 - Si la actividad ya tiene documento, marcarla la completa directamente; desmarcarla la reabre sin borrar el archivo.

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
   Circle,
   Clock,
-  LayoutGrid,
   MessageSquare,
   Paperclip,
   Plus,
@@ -124,9 +123,6 @@ const campoCls =
 
 export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }) {
   const { usuario } = useAuth();
-  const [vista, setVista] = useState<"general" | "tablero">("general");
-  const [tableroId, setTableroId] = useState<string | null>(null);
-  const [tablero, setTablero] = useState<TableroApi | null>(null);
   const [tareas, setTareas] = useState<TareaTablero[]>([]);
   const [tableros, setTableros] = useState<TableroApi[]>([]);
   const [proyectosGeneral, setProyectosGeneral] = useState<{ id: string; nombre: string }[]>([]);
@@ -135,8 +131,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [nuevoTablero, setNuevoTablero] = useState({ nombre: "", descripcion: "" });
-  const [creandoTablero, setCreandoTablero] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [plazo, setPlazo] = useState<FiltroPlazo>("todos");
   const [filtroProyecto, setFiltroProyecto] = useState("");
@@ -148,6 +142,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     titulo: "",
     descripcion: "",
     proyectoId: "",
+    tableroId: "",
     responsableId: "",
     edtActividadId: "",
     prioridad: "Media" as PrioridadTablero,
@@ -156,7 +151,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   });
   const [edtActividades, setEdtActividades] = useState<EdtActividadApi[]>([]);
   const [cargandoEdt, setCargandoEdt] = useState(false);
-  const primeraCarga = useRef(true);
 
   const cargarGeneral = useCallback(async () => {
     const datos = await api.tableroGeneral(filtroProyecto || undefined, filtroFase || undefined);
@@ -169,23 +163,11 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     setCargando(true);
     setError(null);
     try {
-      const [{ tableros: lista }, { usuarios }, { proyectos: listaProyectos }, general] =
-        await Promise.all([
-          api.tableros(),
-          api.usuariosAsignables(),
-          api.proyectos(),
-          api.tableroGeneral(),
-        ]);
+      const [{ tableros: lista }, { usuarios }, { proyectos: listaProyectos }] =
+        await Promise.all([api.tableros(), api.usuariosAsignables(), api.proyectos()]);
       setTableros(lista);
       setUsuariosAsignables(usuarios);
       setProyectos(listaProyectos);
-      setProyectosGeneral(general.proyectos);
-      setTareas(general.tareas);
-      if (!lista.length) {
-        setVista("general");
-        setTableroId(null);
-        setTablero(null);
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar el tablero.");
     } finally {
@@ -198,20 +180,14 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   }, [cargar]);
 
   useEffect(() => {
-    if (vista !== "general") return;
-    if (primeraCarga.current) {
-      primeraCarga.current = false;
-      return;
-    }
     let cancelado = false;
-    void cargarGeneral()
-      .catch(() => {
-        if (!cancelado) setAviso("No se pudo actualizar el tablero general.");
-      });
+    void cargarGeneral().catch(() => {
+      if (!cancelado) setAviso("No se pudo actualizar el tablero general.");
+    });
     return () => {
       cancelado = true;
     };
-  }, [cargarGeneral, vista]);
+  }, [cargarGeneral]);
 
   useEffect(() => {
     if (!filtroProyecto) {
@@ -260,23 +236,14 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     return [...mapa.entries()].map(([id, nombre]) => ({ id, nombre }));
   }, [tableros, filtroProyecto]);
 
-  const tablerosPorProyecto = useMemo(() => {
-    const mapa = new Map<string, TableroApi[]>();
-    for (const item of tableros) {
-      const clave = item.proyectoId ?? "sin-proyecto";
-      const lista = mapa.get(clave) ?? [];
-      lista.push(item);
-      mapa.set(clave, lista);
-    }
-    return [...mapa.values()];
-  }, [tableros]);
+  const tablerosDelProyecto = useMemo(
+    () => tableros.filter((item) => item.proyectoId === nueva.proyectoId),
+    [tableros, nueva.proyectoId],
+  );
 
-  const gruposGuia = useMemo(
-    () =>
-      filtroProyecto
-        ? tablerosPorProyecto.filter((grupo) => grupo[0]?.proyectoId === filtroProyecto)
-        : tablerosPorProyecto,
-    [tablerosPorProyecto, filtroProyecto],
+  const tableroElegido = useMemo(
+    () => tableros.find((item) => item.id === nueva.tableroId) ?? null,
+    [tableros, nueva.tableroId],
   );
 
   const filtradas = useMemo(() => {
@@ -309,40 +276,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   const actualizarTarea = useCallback((actualizada: TareaTablero) => {
     setTareas((prev) => prev.map((tarea) => (tarea.id === actualizada.id ? actualizada : tarea)));
   }, []);
-
-  async function abrirTablero(id: string) {
-    if (!id) {
-      if (vista === "general") {
-        setCargando(true);
-        try {
-          await cargarGeneral();
-        } catch (e) {
-          setAviso(e instanceof Error ? e.message : "No se pudo cargar el tablero general.");
-        } finally {
-          setCargando(false);
-        }
-      } else {
-        setVista("general");
-      }
-      setTableroId(null);
-      setTablero(null);
-      return;
-    }
-
-    setCargando(true);
-    setAviso(null);
-    try {
-      const detalle = await api.tablero(id);
-      setTableroId(detalle.tablero.id);
-      setTablero(detalle.tablero);
-      setTareas(detalle.tareas);
-      setVista("tablero");
-    } catch (e) {
-      setAviso(e instanceof Error ? e.message : "No se pudo abrir el tablero.");
-    } finally {
-      setCargando(false);
-    }
-  }
 
   async function eliminarTarea(id: string) {
     const tarea = tareas.find((item) => item.id === id);
@@ -388,46 +321,29 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     };
   }
 
-  async function crearTablero(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!nuevoTablero.nombre.trim()) return;
-
-    setCreandoTablero(true);
-    try {
-      const { tablero: creado } = await api.crearTablero({
-        nombre: nuevoTablero.nombre.trim(),
-        descripcion: nuevoTablero.descripcion.trim(),
-      });
-      setNuevoTablero({ nombre: "", descripcion: "" });
-      setTableros((prev) => [...prev, creado]);
-      setTableroId(creado.id);
-      setTablero(creado);
-      setTareas([]);
-      setVista("tablero");
-    } catch (e) {
-      setAviso(e instanceof Error ? e.message : "No se pudo crear el tablero.");
-    } finally {
-      setCreandoTablero(false);
-    }
-  }
-
   function abrirNuevaTarea() {
-    if (!tablero) return;
+    const delProyecto = tableros.filter((item) => item.proyectoId === filtroProyecto);
+    const destino =
+      delProyecto.find((item) => filtroFase && item.faseId === filtroFase) ??
+      delProyecto.find((item) => item.tipo === "Fase") ??
+      delProyecto[0] ??
+      null;
     setNueva((prev) => ({
       ...prev,
-      proyectoId: tablero.proyectoId ?? prev.proyectoId,
-      etiqueta: tablero.faseNombre ?? prev.etiqueta,
+      proyectoId: destino?.proyectoId ?? filtroProyecto ?? "",
+      tableroId: destino?.id ?? "",
+      etiqueta: destino?.faseNombre ?? "General",
     }));
     setMostrarFormulario(true);
   }
 
   async function crearTarea(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!nueva.titulo.trim() || !tableroId || !nueva.proyectoId) return;
+    if (!nueva.titulo.trim() || !nueva.tableroId || !nueva.proyectoId) return;
 
     setGuardando(true);
     try {
-      const { tarea } = await api.crearTarea(tableroId, {
+      const { tarea } = await api.crearTarea(nueva.tableroId, {
         titulo: nueva.titulo.trim(),
         descripcion: nueva.descripcion.trim(),
         proyectoId: nueva.proyectoId,
@@ -441,14 +357,16 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
       setNueva({
         titulo: "",
         descripcion: "",
-        proyectoId: tablero?.proyectoId ?? "",
+        proyectoId: "",
+        tableroId: "",
         responsableId: "",
         edtActividadId: "",
         prioridad: "Media",
         fechaLimite: "",
-        etiqueta: tablero?.faseNombre ?? "General",
+        etiqueta: "General",
       });
       setMostrarFormulario(false);
+      void cargarGeneral().catch(() => undefined);
     } catch (e) {
       setAviso(e instanceof Error ? e.message : "No se pudo crear la tarea.");
     } finally {
@@ -478,104 +396,46 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           </div>
         )}
 
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 shadow-sm sm:p-8">
-          <form onSubmit={crearTablero} className="mx-auto max-w-lg space-y-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-800">Crear el primer tablero</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Define un nombre y una descripción. Después podrás agregar tareas ligadas a un
-                proyecto.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="tablero-nombre" className="text-xs font-semibold text-slate-700">
-                Nombre
-              </label>
-              <input
-                id="tablero-nombre"
-                required
-                value={nuevoTablero.nombre}
-                onChange={(e) =>
-                  setNuevoTablero((prev) => ({ ...prev, nombre: e.target.value }))
-                }
-                placeholder="Ej. Equipo de resultados de aprendizaje"
-                className={campoCls}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="tablero-descripcion" className="text-xs font-semibold text-slate-700">
-                Descripción
-              </label>
-              <textarea
-                id="tablero-descripcion"
-                rows={2}
-                value={nuevoTablero.descripcion}
-                onChange={(e) =>
-                  setNuevoTablero((prev) => ({ ...prev, descripcion: e.target.value }))
-                }
-                placeholder="Para qué se usará este tablero"
-                className={campoCls}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={creandoTablero}
-              className="w-full rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412] disabled:opacity-60"
-            >
-              {creandoTablero ? "Creando…" : "Crear tablero"}
-            </button>
-          </form>
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm sm:p-8">
+          <p className="text-sm font-semibold text-slate-800">Los tableros se generan con el EDT</p>
+          <p className="mx-auto mt-1 max-w-lg text-xs leading-relaxed text-slate-500">
+            Crea un proyecto y carga su plantilla EDT desde la pestaña EDT: se crean los tableros
+            de cada fase con sus actividades.
+          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate("projects")}
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412]"
+          >
+            Ir a Proyectos
+          </button>
         </div>
       </div>
     );
   }
 
-  const enGeneral = vista === "general";
-  const contexto = enGeneral
-    ? filtroProyecto
-      ? proyectosGeneral.find((p) => p.id === filtroProyecto)?.nombre ?? filtroProyecto
-      : "Todos los proyectos"
-    : tablero?.faseNombre ?? tablero?.proyectoNombre ?? tablero?.nombre ?? "Tablero";
+  const contexto = filtroProyecto
+    ? proyectosGeneral.find((p) => p.id === filtroProyecto)?.nombre ?? filtroProyecto
+    : "Todos los proyectos";
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            {enGeneral ? "Tablero general de proyectos" : "Tablero de fase"}
-          </h1>
+          <h1 className="text-xl font-bold text-gray-900">Tablero general de proyectos</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {enGeneral
-              ? `${contexto} · Actividades y tareas de todas las fases y tableros`
-              : `${tablero?.proyectoNombre ?? "Proyecto"} · ${contexto} · Las tareas avanzan con aprobación`}
+            {contexto} · Actividades y tareas de todas las fases y tableros
           </p>
-          {!enGeneral && tablero?.creadoPorNombre && (
-            <p className="mt-1 text-[11px] text-slate-400">
-              Líder del tablero: {tablero.creadoPorNombre}
-            </p>
-          )}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          {!enGeneral && (
-            <button
-              type="button"
-              onClick={() => void abrirTablero("")}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Ver general
-            </button>
-          )}
-          {!enGeneral && (
-            <button
-              type="button"
-              onClick={abrirNuevaTarea}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
-            >
-              <Plus className="h-4 w-4" />
-              Nueva tarea
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={abrirNuevaTarea}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
+          >
+            <Plus className="h-4 w-4" />
+            Nueva tarea
+          </button>
         </div>
       </div>
 
@@ -608,37 +468,33 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
               className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
             />
           </div>
-          {enGeneral && (
-            <>
-              <select
-                value={filtroProyecto}
-                onChange={(e) => setFiltroProyecto(e.target.value)}
-                aria-label="Filtrar por proyecto"
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
-              >
-                <option value="">Todos los proyectos</option>
-                {proyectosGeneral.map((proyecto) => (
-                  <option key={proyecto.id} value={proyecto.id}>
-                    {proyecto.id} · {proyecto.nombre}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filtroFase}
-                onChange={(e) => setFiltroFase(e.target.value)}
-                aria-label="Filtrar por fase"
-                disabled={fasesDisponibles.length === 0}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50"
-              >
-                <option value="">Todas las fases</option>
-                {fasesDisponibles.map((fase) => (
-                  <option key={fase.id} value={fase.id}>
-                    {fase.nombre}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
+          <select
+            value={filtroProyecto}
+            onChange={(e) => setFiltroProyecto(e.target.value)}
+            aria-label="Filtrar por proyecto"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+          >
+            <option value="">Todos los proyectos</option>
+            {proyectosGeneral.map((proyecto) => (
+              <option key={proyecto.id} value={proyecto.id}>
+                {proyecto.id} · {proyecto.nombre}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filtroFase}
+            onChange={(e) => setFiltroFase(e.target.value)}
+            aria-label="Filtrar por fase"
+            disabled={fasesDisponibles.length === 0}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50"
+          >
+            <option value="">Todas las fases</option>
+            {fasesDisponibles.map((fase) => (
+              <option key={fase.id} value={fase.id}>
+                {fase.nombre}
+              </option>
+            ))}
+          </select>
           <select
             value={plazo}
             onChange={(e) => setPlazo(e.target.value as FiltroPlazo)}
@@ -652,32 +508,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             ))}
           </select>
         </div>
-
-        <label htmlFor="selector-tablero" className="sr-only">
-          Seleccionar tablero
-        </label>
-        <select
-          id="selector-tablero"
-          value={enGeneral ? "" : tableroId ?? ""}
-          onChange={(e) => void abrirTablero(e.target.value)}
-          className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-[#EA580C] sm:max-w-md"
-        >
-          <option value="">
-            {filtroProyecto ? "Tablero general (proyecto seleccionado)" : "Tablero general (todos los proyectos)"}
-          </option>
-          {gruposGuia.map((grupo) => (
-            <optgroup
-              key={grupo[0]?.proyectoId ?? "sin"}
-              label={grupo[0]?.proyectoNombre ?? grupo[0]?.proyectoId ?? "Sin proyecto"}
-            >
-              {grupo.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.faseNombre ? `Fase · ${item.faseNombre}` : item.nombre} ({item.totalTareas ?? 0})
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-slate-100 bg-white px-4 py-2.5 text-[11px] font-medium text-slate-500">
@@ -905,9 +735,9 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
               <div>
                 <h2 className="text-base font-bold text-slate-800">Nueva tarea</h2>
                 <p className="text-xs text-slate-500">
-                  {tablero?.faseNombre
-                    ? `Se agregará al tablero de la fase ${tablero.faseNombre}.`
-                    : `Se agregará al tablero ${tablero?.nombre ?? ""}.`}
+                  {tableroElegido?.faseNombre
+                    ? `Se agregará al tablero de la fase ${tableroElegido.faseNombre}.`
+                    : "Selecciona el proyecto y la fase donde vivirá la tarea."}
                 </p>
               </div>
               <button
@@ -951,15 +781,16 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                   id="proyecto-tarea"
                   required
                   value={nueva.proyectoId}
-                  disabled={Boolean(tablero?.proyectoId)}
                   onChange={(e) =>
                     setNueva((prev) => ({
                       ...prev,
                       proyectoId: e.target.value,
+                      tableroId: "",
                       edtActividadId: "",
+                      etiqueta: "General",
                     }))
                   }
-                  className={`${campoCls} disabled:opacity-70`}
+                  className={campoCls}
                 >
                   <option value="">Selecciona un proyecto</option>
                   {proyectos.map((proyecto) => (
@@ -968,11 +799,41 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                     </option>
                   ))}
                 </select>
-                {tablero?.proyectoId && (
-                  <p className="text-[11px] text-slate-400">
-                    El tablero de fase está fijado al proyecto {tablero.proyectoId}.
-                  </p>
-                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="tablero-tarea" className="text-xs font-semibold text-slate-700">
+                  Fase / tablero <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="tablero-tarea"
+                  required
+                  value={nueva.tableroId}
+                  disabled={!nueva.proyectoId || tablerosDelProyecto.length === 0}
+                  onChange={(e) => {
+                    const elegido = tableros.find((item) => item.id === e.target.value);
+                    setNueva((prev) => ({
+                      ...prev,
+                      tableroId: e.target.value,
+                      edtActividadId: "",
+                      etiqueta: elegido?.faseNombre ?? "General",
+                    }));
+                  }}
+                  className={`${campoCls} disabled:opacity-70`}
+                >
+                  <option value="">
+                    {!nueva.proyectoId
+                      ? "Selecciona primero un proyecto"
+                      : tablerosDelProyecto.length === 0
+                        ? "El proyecto aún no tiene tableros EDT"
+                        : "Selecciona la fase"}
+                  </option>
+                  {tablerosDelProyecto.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.faseNombre ? `Fase · ${item.faseNombre}` : item.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-1.5">
@@ -996,7 +857,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                         : "Sin vincular al EDT"}
                   </option>
                   {[...edtActividades]
-                    .filter((actividad) => !tablero?.faseId || actividad.faseId === tablero.faseId)
+                    .filter((actividad) => !tableroElegido?.faseId || actividad.faseId === tableroElegido.faseId)
                     .sort((a, b) => a.etapa - b.etapa || a.orden - b.orden)
                     .map((actividad) => (
                       <option key={actividad.id} value={actividad.id}>
