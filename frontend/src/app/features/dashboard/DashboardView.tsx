@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Briefcase,
   CheckCircle,
-  ChevronDown,
   DollarSign,
   Download,
   FileText,
@@ -46,6 +45,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
 }) {
   const [activeSeg, setActiveSeg] = useState<string | null>(null);
   const [datos, setDatos] = useState<DashboardApi | null>(null);
+  const [linea, setLinea] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,13 +53,13 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
     setCargando(true);
     setError(null);
     try {
-      setDatos(await api.dashboard());
+      setDatos(await api.dashboard(linea || undefined));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar el dashboard.");
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [linea]);
 
   useEffect(() => {
     void cargar();
@@ -79,6 +79,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
   const proximos: Project[] = datos.proximos.map(mapProyecto);
   const alertas: Indicator[] = datos.alertas.map(mapIndicador);
   const lineas = datos.lineas.map((l) => ({ line: l.nombre, count: l.total }));
+  const opcionesLinea = (datos.lineasDisponibles ?? datos.lineas).map((l) => l.nombre);
 
   return (
     <div className="space-y-5">
@@ -99,11 +100,33 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         <Filter className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-        {[`Año ${new Date().getFullYear()}`, "Línea de investigación", "Estado", "Responsable", "Período del informe"].map(f => (
-          <button key={f} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100">
-            {f} <ChevronDown className="h-3 w-3" />
+        <label htmlFor="dashboard-linea" className="text-xs font-semibold text-gray-600">
+          Línea de investigación
+        </label>
+        <select
+          id="dashboard-linea"
+          value={linea}
+          onChange={(e) => setLinea(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-[#EA580C]"
+        >
+          <option value="">Todas las líneas</option>
+          {linea && !opcionesLinea.includes(linea) && <option value={linea}>{linea}</option>}
+          {opcionesLinea.map((nombre) => (
+            <option key={nombre} value={nombre}>{nombre}</option>
+          ))}
+        </select>
+        {linea && (
+          <button
+            type="button"
+            onClick={() => setLinea("")}
+            className="text-xs font-semibold text-[#C2410C] hover:underline"
+          >
+            Limpiar filtro
           </button>
-        ))}
+        )}
+        <span className="ml-auto text-[11px] text-gray-400">
+          {linea ? `Mostrando proyectos de ${linea}.` : "Sin filtro de línea."}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">

@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS edt_actividades (
   prioridad          TEXT NOT NULL DEFAULT 'Alta'
                      CHECK (prioridad IN ('Alta', 'Media', 'Baja')),
   requiere_documento BOOLEAN NOT NULL DEFAULT false,
+  no_aplica          BOOLEAN NOT NULL DEFAULT false,
   carpeta            TEXT,
   responsable        TEXT,
   responsable_id     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -191,10 +192,6 @@ CREATE TABLE IF NOT EXISTS edt_actividades (
   actualizado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden);
-CREATE INDEX IF NOT EXISTS ix_edt_fase ON edt_actividades (fase_id, orden);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_actividad_clave
-  ON edt_actividades (proyecto_id, plantilla_clave) WHERE plantilla_clave IS NOT NULL;
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS responsable_id UUID REFERENCES usuarios(id) ON DELETE SET NULL;
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE;
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
@@ -202,8 +199,14 @@ ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS plantilla_clave TEXT;
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS prioridad TEXT NOT NULL DEFAULT 'Alta';
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS requiere_documento BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS no_aplica BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS carpeta TEXT;
 ALTER TABLE edt_actividades ALTER COLUMN etapa SET DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS ix_edt_proyecto ON edt_actividades (proyecto_id, etapa, orden);
+CREATE INDEX IF NOT EXISTS ix_edt_fase ON edt_actividades (fase_id, orden);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_edt_actividad_clave
+  ON edt_actividades (proyecto_id, plantilla_clave) WHERE plantilla_clave IS NOT NULL;
 
 DO $$
 BEGIN
@@ -318,6 +321,10 @@ CREATE TABLE IF NOT EXISTS tableros (
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES proyectos(id) ON DELETE CASCADE;
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE;
+ALTER TABLE tableros ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Manual';
+
 CREATE INDEX IF NOT EXISTS ix_tableros_proyecto ON tableros (proyecto_id, fase_id);
 
 DROP TRIGGER IF EXISTS tableros_touch ON tableros;
@@ -354,9 +361,6 @@ CREATE INDEX IF NOT EXISTS ix_tareas_tablero_proyecto ON tareas_tablero (proyect
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_completado ON tareas_tablero (completado_en);
 ALTER TABLE tareas_tablero ADD COLUMN IF NOT EXISTS edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS ix_tareas_tablero_edt ON tareas_tablero (edt_actividad_id);
-ALTER TABLE tableros ADD COLUMN IF NOT EXISTS proyecto_id TEXT REFERENCES proyectos(id) ON DELETE CASCADE;
-ALTER TABLE tableros ADD COLUMN IF NOT EXISTS fase_id UUID REFERENCES edt_fases(id) ON DELETE CASCADE;
-ALTER TABLE tableros ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'Manual';
 
 DROP TRIGGER IF EXISTS tareas_tablero_touch ON tareas_tablero;
 CREATE TRIGGER tareas_tablero_touch

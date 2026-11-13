@@ -198,6 +198,7 @@ export function asegurarEsquema(): Promise<void> {
       await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS plantilla_clave TEXT");
       await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS prioridad TEXT NOT NULL DEFAULT 'Alta'");
       await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS requiere_documento BOOLEAN NOT NULL DEFAULT false");
+      await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS no_aplica BOOLEAN NOT NULL DEFAULT false");
       await pool.query("ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS carpeta TEXT");
       await pool.query("ALTER TABLE edt_actividades ALTER COLUMN etapa SET DEFAULT 1");
       await pool.query(

@@ -61,13 +61,14 @@ const AVANCE_BARRA: Record<Urgencia["nivel"], number> = {
 };
 
 function porcentajeCumplido(actividades: EdtActividadApi[]): number {
-  if (!actividades.length) return 0;
-  const valor = actividades.reduce(
+  const aplicables = actividades.filter((actividad) => !actividad.noAplica);
+  if (!aplicables.length) return 0;
+  const valor = aplicables.reduce(
     (total, actividad) =>
       total + (actividad.estado === "Completado" ? 1 : actividad.estado === "En ejecución" ? 0.5 : 0),
     0,
   );
-  return Math.round((valor / actividades.length) * 100);
+  return Math.round((valor / aplicables.length) * 100);
 }
 
 export function EdtTab({
@@ -153,17 +154,19 @@ export function EdtTab({
   const fases = edt?.fases ?? [];
 
   const resumen = useMemo(() => {
-    const total = actividades.length;
-    const completadas = actividades.filter((actividad) => actividad.estado === "Completado").length;
-    const sinDocumento = actividades.filter(
+    const aplicables = actividades.filter((actividad) => !actividad.noAplica);
+    const total = aplicables.length;
+    const completadas = aplicables.filter((actividad) => actividad.estado === "Completado").length;
+    const sinDocumento = aplicables.filter(
       (actividad) => actividad.requiereDocumento && actividad.documentos === 0,
     ).length;
-    const vencidas = actividades.filter(
+    const vencidas = aplicables.filter(
       (actividad) =>
         actividad.estado !== "Completado" &&
         calcularUrgencia(actividad.fechaCumplimiento).nivel === "morado",
     ).length;
-    return { total, completadas, sinDocumento, vencidas };
+    const noAplica = actividades.length - total;
+    return { total, completadas, sinDocumento, vencidas, noAplica };
   }, [actividades]);
 
   async function ejecutar(id: string, accion: () => Promise<unknown>, exito: string) {
@@ -317,7 +320,11 @@ export function EdtTab({
       </header>
 
       <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <Resumen etiqueta="Actividades" valor={resumen.total} detalle={`${fases.length} fase(s)`} />
+        <Resumen
+          etiqueta="Actividades"
+          valor={resumen.total}
+          detalle={`${fases.length} fase(s)${resumen.noAplica ? ` · ${resumen.noAplica} no aplica` : ""}`}
+        />
         <Resumen
           etiqueta="Completadas"
           valor={resumen.completadas}
@@ -352,6 +359,7 @@ export function EdtTab({
               (actividad) => actividad.faseId === fase.id,
             );
             const progreso = porcentajeCumplido(actividadesFase);
+            const aplicablesFase = actividadesFase.filter((actividad) => !actividad.noAplica);
             const anterior = fases.find((otra) => otra.id === fase.dependeDeFaseId);
             return (
               <section
@@ -419,15 +427,15 @@ export function EdtTab({
                     </div>
                     <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
                       <span>
-                        {actividadesFase.filter((a) => a.estado === "Completado").length}/
-                        {actividadesFase.length} completadas
+                        {aplicablesFase.filter((a) => a.estado === "Completado").length}/
+                        {aplicablesFase.length} completadas
                       </span>
                       <span>{progreso}%</span>
                     </div>
                   </div>
                 </header>
 
-                <div className="flex-1 space-y-2 p-2">
+                <div className="max-h-[540px] flex-1 space-y-2 overflow-y-auto p-2">
                   {actividadesFase.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] text-slate-400">
                       Sin actividades en esta fase.
@@ -580,26 +588,41 @@ function TarjetaActividad({
   const urgencia = calcularUrgencia(actividad.fechaCumplimiento);
   const estado = ESTADO_CFG[actividad.estado];
   const IconoEstado = estado.icono;
-  const pendientes = actividad.requisitos.filter(
+  const requisitosVisibles = actividad.requisitos.filter((requisito) => !requisito.noAplica);
+  const pendientes = requisitosVisibles.filter(
     (requisito) =>
       requisito.estado !== "Completado" || (requisito.tipo !== "Actividad" && !requisito.tieneDocumento),
   );
   const faltaDocumento = actividad.requiereDocumento && actividad.documentos === 0;
-  const bloqueada = faltaDocumento || pendientes.length > 0;
+  const bloqueada = !actividad.noAplica && (faltaDocumento || pendientes.length > 0);
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+    <article
+      className={`rounded-lg border p-3 shadow-sm ${
+        actividad.noAplica
+          ? "border-dashed border-slate-300 bg-slate-50/70 opacity-80"
+          : "border-slate-200 bg-white"
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase ${TIPO_CFG[actividad.tipo]}`}>
           {actividad.tipo}
         </span>
-        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${estado.clases}`}>
-          <IconoEstado className="mr-0.5 inline h-2.5 w-2.5" />
-          {actividad.estado}
-        </span>
-        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${urgencia.badge}`}>
-          {urgencia.etiqueta}
-        </span>
+        {actividad.noAplica ? (
+          <span className="rounded-full border border-slate-300 bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-500">
+            No aplica
+          </span>
+        ) : (
+          <>
+            <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${estado.clases}`}>
+              <IconoEstado className="mr-0.5 inline h-2.5 w-2.5" />
+              {actividad.estado}
+            </span>
+            <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${urgencia.badge}`}>
+              {urgencia.etiqueta}
+            </span>
+          </>
+        )}
         <span className="ml-auto flex gap-0.5">
           <button
             type="button"
@@ -630,27 +653,33 @@ function TarjetaActividad({
         </p>
       )}
 
-      <div className="mt-2.5">
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={`h-full rounded-full ${urgencia.barra}`}
-            style={{ width: `${AVANCE_BARRA[urgencia.nivel]}%` }}
-          />
+      {actividad.noAplica ? (
+        <p className="mt-2 rounded bg-slate-100 px-2 py-1 text-[10px] leading-snug text-slate-500">
+          No aplica a este proyecto: no cuenta en el avance ni exige documento.
+        </p>
+      ) : (
+        <div className="mt-2.5">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full ${urgencia.barra}`}
+              style={{ width: `${AVANCE_BARRA[urgencia.nivel]}%` }}
+            />
+          </div>
+          <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+            <span className="inline-flex items-center gap-1">
+              <CalendarClock className="h-3 w-3" />
+              {fechaCorta(actividad.fechaCumplimiento)}
+            </span>
+            <span className="font-medium">{urgencia.restante}</span>
+          </div>
         </div>
-        <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
-          <span className="inline-flex items-center gap-1">
-            <CalendarClock className="h-3 w-3" />
-            {fechaCorta(actividad.fechaCumplimiento)}
-          </span>
-          <span className="font-medium">{urgencia.restante}</span>
-        </div>
-      </div>
+      )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px]">
         <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5 text-slate-500">
           {actividad.responsable || "Sin asignar"}
         </span>
-        {actividad.requiereDocumento && (
+        {actividad.requiereDocumento && !actividad.noAplica && (
           <span
             className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
               faltaDocumento ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"
@@ -667,12 +696,12 @@ function TarjetaActividad({
         )}
       </div>
 
-      {actividad.requisitos.length > 0 && (
+      {requisitosVisibles.length > 0 && (
         <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-2 py-1.5">
           <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
             Requisitos previos
           </p>
-          {actividad.requisitos.map((requisito) => {
+          {requisitosVisibles.map((requisito) => {
             const listo =
               requisito.estado === "Completado" &&
               (requisito.tipo === "Actividad" || requisito.tieneDocumento);
@@ -720,7 +749,12 @@ function TarjetaActividad({
       )}
 
       <div className="mt-2.5 flex flex-wrap gap-1">
-        {actividad.estado === "No realizado" && (
+        {actividad.noAplica && (
+          <span className="text-[10px] font-medium text-slate-400">
+            Edita la actividad para volver a aplicarla.
+          </span>
+        )}
+        {!actividad.noAplica && actividad.estado === "No realizado" && (
           <button
             type="button"
             onClick={() => onEstado("En ejecución")}
@@ -731,7 +765,7 @@ function TarjetaActividad({
             Iniciar
           </button>
         )}
-        {actividad.estado === "En ejecución" && (
+        {!actividad.noAplica && actividad.estado === "En ejecución" && (
           <button
             type="button"
             onClick={() => onEstado("Completado")}
@@ -743,7 +777,7 @@ function TarjetaActividad({
             Completar
           </button>
         )}
-        {actividad.estado === "Completado" && (
+        {!actividad.noAplica && actividad.estado === "Completado" && (
           <button
             type="button"
             onClick={() => onEstado("En ejecución")}
@@ -754,14 +788,16 @@ function TarjetaActividad({
             Reabrir
           </button>
         )}
-        <button
-          type="button"
-          onClick={onSubir}
-          className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100"
-        >
-          <FileUp className="h-3 w-3" />
-          Documento
-        </button>
+        {!actividad.noAplica && (
+          <button
+            type="button"
+            onClick={onSubir}
+            className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-semibold text-sky-700 transition hover:bg-sky-100"
+          >
+            <FileUp className="h-3 w-3" />
+            Documento
+          </button>
+        )}
       </div>
     </article>
   );
@@ -800,6 +836,7 @@ function ModalActividad({
   const [requiereDocumento, setRequiereDocumento] = useState(
     actividad?.requiereDocumento ?? false,
   );
+  const [noAplica, setNoAplica] = useState(actividad?.noAplica ?? false);
   const [carpeta, setCarpeta] = useState(actividad?.carpeta ?? "");
   const [requisitoIds, setRequisitoIds] = useState<string[]>(
     actividad?.requisitos.map((requisito) => requisito.id) ?? [],
@@ -831,6 +868,7 @@ function ModalActividad({
       tipo,
       prioridad,
       requiereDocumento,
+      noAplica,
       carpeta: carpeta || null,
       responsableId: responsableId || null,
       responsable: usuario?.nombre ?? null,
@@ -1009,6 +1047,20 @@ function ModalActividad({
               />
               <span className="text-xs font-semibold text-slate-700">
                 Exige un documento cargado para completarse
+              </span>
+            </label>
+            <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={noAplica}
+                onChange={(e) => setNoAplica(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[#C2410C]"
+              />
+              <span className="text-xs font-semibold text-slate-700">
+                No aplica a este proyecto
+                <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
+                  Sale del avance y del checklist documental; no exige documento ni puede completarse.
+                </span>
               </span>
             </label>
           </div>

@@ -227,6 +227,7 @@ export type EdtRequisitoApi = {
   nombre: string;
   estado: EdtEstado;
   tipo: EdtTipoActividad;
+  noAplica: boolean;
   tieneDocumento: boolean;
 };
 
@@ -242,6 +243,7 @@ export type EdtActividadApi = {
   plantillaClave: string | null;
   prioridad: "Alta" | "Media" | "Baja";
   requiereDocumento: boolean;
+  noAplica: boolean;
   carpeta: string | null;
   responsable: string | null;
   responsableId: string | null;
@@ -271,6 +273,7 @@ export type NuevaEdtActividad = {
   tipo?: EdtTipoActividad;
   prioridad?: "Alta" | "Media" | "Baja";
   requiereDocumento?: boolean;
+  noAplica?: boolean;
   carpeta?: string | null;
   responsable?: string | null;
   responsableId?: string | null;
@@ -337,6 +340,7 @@ export type DashboardApi = {
   estados: { nombre: string; total: number }[];
   avances: { id: string; nombre: string; avance: number }[];
   lineas: { nombre: string; total: number }[];
+  lineasDisponibles?: { nombre: string }[];
   proximos: ProyectoApi[];
   alertas: IndicadorApi[];
   periodo: { desde: number; hasta: number };
@@ -691,7 +695,8 @@ export const api = {
     request<{ ok: boolean }>("/auth/me/password", { method: "PATCH", body: datos }),
   urlGoogle: `${API_URL}/auth/google`,
 
-  dashboard: () => request<DashboardApi>("/dashboard"),
+  dashboard: (linea?: string) =>
+    request<DashboardApi>(`/dashboard${linea ? `?linea=${encodeURIComponent(linea)}` : ""}`),
 
   proyectos: () => request<{ proyectos: ProyectoApi[] }>("/proyectos"),
   proyecto: (id: string) => request<DetalleProyectoApi>(`/proyectos/${encodeURIComponent(id)}`),

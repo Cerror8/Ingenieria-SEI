@@ -49,8 +49,9 @@ La pantalla **Tableros** abre por defecto en la vista **Tablero general de proye
 - Selector de proyecto y de fase.
 - Búsqueda por tarea, proyecto, fase o responsable.
 - Filtro por **plazo**: fechas cercanas (días, hasta 14 días), intermedias (15–30 días), largas (más de 30 días) o sin fecha. Sustituye el filtro anterior por prioridad Alta/Media/Baja.
-- Filtro por **responsable** y contador `N de M tareas`.
+- Contador `N de M tareas`. Se retiró el filtro por persona para dejar solo los cuatro filtros principales (búsqueda, proyecto, fase y plazo).
 - Un único selector de tablero, agrupado por proyecto, con `Tablero general (todos los proyectos)` o un tablero concreto. Se reduce al proyecto elegido en el filtro, de modo que los proyectos no se listan como chips.
+- Cada columna muestra las tarjetas en un área con desplazamiento vertical (estilo Jira): se ven las primeras cinco y el resto se consulta bajando, sin alargar toda la página.
 - Leyenda de urgencia y tarjetas con fecha límite, tiempo restante y color de borde.
 - Botón **Entendido, iniciar tarea** para que la persona asignada confirme que la recibió antes de pasar a **En curso**.
 - En modo tablero de fase, botón **Nueva tarea** y acciones de gestión según permisos.
@@ -64,6 +65,7 @@ La pestaña **EDT** muestra las fases como tableros, no como acordeones ni despl
 - Botones de acción por tarjeta: editar, eliminar, cargar documento y cambiar estado.
 - Botón **Nueva actividad** dentro de cada fase y **Nueva fase** para agregar fases enlazadas a la anterior.
 - Bloqueos visibles: **REQUISITOS PREVIOS**, **Falta documento** y el aviso de carga obligatoria.
+- Las columnas de fase tienen scroll vertical propio (estilo Jira): cinco tarjetas visibles y el resto hacia abajo.
 
 Las tres fases principales se pueden **renombrar** pero no eliminar. Las fases adicionales guardan `depende_de_fase_id` y se muestran como tableros conectados a la fase anterior.
 

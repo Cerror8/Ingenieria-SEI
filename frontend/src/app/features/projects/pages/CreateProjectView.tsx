@@ -22,6 +22,7 @@ const FORM_INICIAL = {
 };
 type Campo = keyof typeof FORM_INICIAL;
 const PREFIJOS = ["OBR", "INT", "CON"];
+const LINEAS_PROYECTO = ["Obra", "Interventoría", "Consultoría"];
 const inputCls = "w-full min-w-0 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:opacity-60 read-only:bg-gray-100";
 const labelCls = "mb-1.5 block text-xs font-semibold text-gray-700";
 
@@ -259,7 +260,16 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
             <legend className="px-1 text-base font-bold text-gray-900">Organización</legend>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {campo("organizadores", "Organizadores (opcional)", { placeholder: "Texto libre" })}
-              {campo("linea", "Línea / área del proyecto", { required: true })}
+              <div>
+                <label htmlFor="proyecto-linea" className={labelCls}>Línea / área del proyecto *</label>
+                <select {...atributos("linea")} onChange={e => upd("linea", e.target.value)}>
+                  <option value="">Selecciona una línea</option>
+                  {LINEAS_PROYECTO.map(linea => <option key={linea} value={linea}>{linea}</option>)}
+                  {form.linea && !LINEAS_PROYECTO.includes(form.linea) && (
+                    <option value={form.linea}>Línea actual ({form.linea})</option>
+                  )}
+                </select>
+              </div>
               <div>
                 <label htmlFor="proyecto-tipoContrato" className={labelCls}>Tipo de contrato</label>
                 <select {...atributos("tipoContrato")} onChange={e => upd("tipoContrato", e.target.value)}>

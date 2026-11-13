@@ -10,8 +10,10 @@ El checklist deja de ser una única plantilla fija y pasa a depender del **tipo 
 
 | Tipo | Fases | Actividades sembradas |
 |---|---|---|
-| Obra | 3 principales | 17 + 22 + 8 = **47** |
-| Interventoría | 3 principales | 20 + 20 + 8 = **48** |
+| Obra | 3 principales | 33 + 33 + 13 = **79** |
+| Interventoría | 3 principales | 27 + 28 + 14 = **69** |
+
+La plantilla de Obra se transcribió de la versión actualizada de `Fases_v_obra.docx`; la de Interventoría es su espejo de revisión (`Fases_ve_interventoria.docx` v1.1), con las solicitudes, revisiones y avales del interventor.
 
 Las tres fases principales son siempre las mismas y se crean con el proyecto:
 
@@ -53,6 +55,17 @@ La interfaz muestra estos bloqueos en la tarjeta: **REQUISITOS PREVIOS**, **Falt
 - Al sembrar se crean también el tablero de cada fase y la tarea vinculada de cada actividad.
 - La plantilla sugiere la carpeta documental según la estructura del proyecto. El usuario puede cambiarla a otra carpeta válida.
 
+## Checklist documental desde Documentos
+
+La pestaña **Documentos** del proyecto ya no muestra el checklist inline: tiene un botón **Checklist documental** que abre un modal.
+
+- Lista las actividades documentales del EDT (`Documento`, `Acta` y actividades con `requiere_documento`) agrupadas por fase.
+- El check se sincroniza con el EDT: una actividad **Completado** aparece marcada; si se completa o reabre en el EDT, el checklist lo refleja al abrirse o al pulsar actualizar.
+- Al marcar una actividad sin archivo se abre el modal de carga con el proyecto, la carpeta sugerida, el nombre y el vínculo `edt_actividad_id` ya completos. Al subir el archivo se intenta completar la actividad.
+- Si la actividad ya tiene documento, marcarla la completa directamente; desmarcarla la reabre sin borrar el archivo.
+- Se respetan las mismas reglas de requisitos y documento obligatorio de la API; si falta un prerrequisito, el error se muestra dentro del modal.
+- El progreso del modal cuenta actividades completadas y actividades con documento. Las carpetas con documentos se siguen resumiendo en la cabecera de **Documentos** y el filtro por carpeta queda en un selector junto a los tipos.
+
 ## Documentos y carpetas
 
 - Un documento cargado desde el EDT guarda `documentos.edt_actividad_id` y queda visible tanto en la actividad como en **Documentos**.
@@ -92,3 +105,15 @@ Estados válidos: `Completado`, `En ejecución`, `No realizado`.
 - Los pasos puramente administrativos se fusionaron cuando el Word los repetía en varias fases (por ejemplo, legalización, pólizas y hojas de vida en la etapa precontractual).
 - Se añadieron documentos de control presupuestal (CDP, RP y plan de inversión del anticipo) porque el Word los menciona como soportes de las actas.
 - El detalle completo de la arquitectura de tableros, documentos y urgencias está en `docs/TABLEROS_EDT.md`.
+
+## Requisitos en rojo del Word
+
+| Requisito | Cómo quedó |
+|---|---|
+| Línea de tiempo de documentos por fecha de llegada | La tabla de **Documentos** guarda fecha del documento, fecha de subida, versión y estado; se ordena por llegada y se puede descargar. |
+| Casilla **aplica / no aplica** por capítulo | Implementado por actividad/requisito con la columna `edt_actividades.no_aplica`. La tarjeta del EDT y el checklist documental muestran “No aplica”, dejan de exigir documento y salen del cálculo de avance (incluidos los requisitos previos). Para excluir un capítulo completo se marcan sus actividades. |
+| Matriz automática de entregables (fecha de radicación, versión y respuesta) | La tabla de **Documentos** muestra nombre, versión, fecha del documento, fecha de subida y estado. Falta la fecha de respuesta y, como actualizar un documento reemplaza archivo y versión en la misma fila, no se conserva el histórico de versiones anteriores. |
+| Cada documento se guarda en la carpeta respectiva | Implementado: la actividad sugiere la carpeta de la plantilla y la carga la conserva; la tabla permite filtrar por carpeta. |
+| Nombre `documento – versión – fecha` | Implementado: el modal de carga pide la versión (por defecto `v1.0`) y arma el nombre como `archivo v1.0 11nov26` si no se escribe uno. |
+
+Queda pendiente la fecha de respuesta por documento (requiere columna nueva y campo en la tabla) y, para cumplir “cada versión hasta que se apruebe”, un histórico de versiones: hoy la actualización reemplaza el archivo en la misma fila. Ninguna de las dos bloquea compartir el enlace.

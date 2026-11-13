@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   FileText, FolderOpen, Activity, ChevronRight,
   Plus, Download, Eye, Edit2, ArrowLeft, X, Upload,
-  Clock, Sliders, Archive, FileUp, CheckCircle2, CircleDashed
+  Clock, Sliders, Archive, FileUp, ListChecks
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -16,6 +16,7 @@ import {
 import { CargandoModule, ErrorModule } from "../../../components/DataState";
 import { SubirDocumentoModal } from "../../documentos/SubirDocumentoModal";
 import { ActualizarDocumentoModal } from "../../documentos/ActualizarDocumentoModal";
+import { ChecklistDocumentalModal } from "../ChecklistDocumentalModal";
 import { EdtTab } from "../EdtTab";
 import { GanttTab } from "../GanttTab";
 import { PresupuestoTab } from "../PresupuestoTab";
@@ -34,6 +35,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
   const [seguimientoAvance, setSeguimientoAvance] = useState(0);
   const [guardandoAvance, setGuardandoAvance] = useState(false);
   const [mostrarSubida, setMostrarSubida] = useState(false);
+  const [mostrarChecklist, setMostrarChecklist] = useState(false);
   const [docEditando, setDocEditando] = useState<Document | null>(null);
   const [mostrarZip, setMostrarZip] = useState(false);
   const [zipArchivo, setZipArchivo] = useState<File | null>(null);
@@ -139,18 +141,9 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
 
   const docCategories = ["Todos", "Actas", "Informes", "Antecedentes", "Evidencias", "Documentación técnica", "Comunicaciones", "Otros"];
   const carpetas = estructura?.carpetas ?? [];
-  const documentosPorCarpeta = new Map<string, number>();
-  for (const doc of projDocs) {
-    if (!doc.folder) continue;
-    const exacta = carpetas.includes(doc.folder)
-      ? doc.folder
-      : carpetas
-          .filter((carpeta) => doc.folder?.startsWith(`${carpeta}/`))
-          .sort((a, b) => b.length - a.length)[0];
-    if (exacta) documentosPorCarpeta.set(exacta, (documentosPorCarpeta.get(exacta) ?? 0) + 1);
-  }
-  const carpetasConDocumentos = carpetas.filter((carpeta) => (documentosPorCarpeta.get(carpeta) ?? 0) > 0).length;
-  const documentosSinCarpeta = projDocs.filter((doc) => !doc.folder).length;
+  const carpetasConDocumentos = carpetas.filter((carpeta) =>
+    projDocs.some((doc) => doc.folder === carpeta || doc.folder?.startsWith(`${carpeta}/`)),
+  ).length;
   const filteredDocs = projDocs.filter((doc) => {
     const coincideTipo = docCat === "Todos" || doc.type === docCat;
     const coincideCarpeta = docFolder === "Todas" || (doc.folder ?? "").startsWith(docFolder);
@@ -540,6 +533,12 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                     <FileUp className="w-3.5 h-3.5" /> Actualizar desde ZIP
                   </button>
                   <button
+                    onClick={() => setMostrarChecklist(true)}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <ListChecks className="w-3.5 h-3.5" /> Checklist documental
+                  </button>
+                  <button
                     onClick={() => setMostrarSubida(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors"
                   >
@@ -548,73 +547,44 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                 </div>
               </div>
               {estructura && (
-                <div className="rounded-xl border border-orange-100 bg-orange-50/30 p-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-800">Checklist documental · qué ya tenemos</h3>
-                      <p className="mt-0.5 text-[11px] text-gray-500">
-                        {carpetasConDocumentos} de {carpetas.length} carpetas de la plantilla ya tienen al menos un documento.
-                      </p>
-                    </div>
-                    <span className="flex-shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-orange-700 shadow-sm">
-                      {carpetas.length === 0 ? 0 : Math.round((carpetasConDocumentos / carpetas.length) * 100)}%
-                    </span>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/80">
-                    <div
-                      className="h-full rounded-full bg-[#C2410C] transition-all"
-                      style={{ width: `${carpetas.length === 0 ? 0 : (carpetasConDocumentos / carpetas.length) * 100}%` }}
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setDocFolder("Todas")}
-                      className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${docFolder === "Todas" ? "border-[#C2410C] bg-white text-orange-700" : "border-orange-100 bg-white/70 text-gray-500 hover:bg-white"}`}
-                    >
-                      Todas ({projDocs.length})
-                    </button>
-                  </div>
-                  <div className="mt-2 grid max-h-56 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
-                    {carpetas.map((carpeta) => {
-                      const total = documentosPorCarpeta.get(carpeta) ?? 0;
-                      const activa = docFolder === carpeta;
-                      return (
-                        <button
-                          key={carpeta}
-                          type="button"
-                          onClick={() => setDocFolder(activa ? "Todas" : carpeta)}
-                          title={carpeta}
-                          className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[11px] transition-colors ${activa ? "border-[#C2410C] bg-white" : "border-orange-100/70 bg-white/60 hover:bg-white"}`}
-                        >
-                          {total > 0 ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-600" />
-                          ) : (
-                            <CircleDashed className="h-3.5 w-3.5 flex-shrink-0 text-gray-300" />
-                          )}
-                          <span className="min-w-0 flex-1 truncate font-semibold text-gray-700">{carpeta}</span>
-                          <span className={`flex-shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${total > 0 ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-400"}`}>
-                            {total}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {documentosSinCarpeta > 0 && (
-                    <p className="mt-2 text-[11px] text-amber-700">
-                      {documentosSinCarpeta} documento(s) sin carpeta asignada.
+                <div className="flex flex-col gap-2 rounded-xl border border-orange-100 bg-orange-50/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800">Checklist documental</h3>
+                    <p className="mt-0.5 text-[11px] text-gray-500">
+                      {carpetasConDocumentos} de {carpetas.length} carpetas con documentos · {projDocs.length} documento(s) cargado(s).
+                      Se actualiza con las actividades completadas del EDT.
                     </p>
-                  )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarChecklist(true)}
+                    className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-[#C2410C] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#9A3412]"
+                  >
+                    <ListChecks className="h-3.5 w-3.5" /> Abrir checklist ({carpetasConDocumentos}/{carpetas.length})
+                  </button>
                 </div>
               )}
 
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap items-center gap-2">
                 {docCategories.map(cat => (
                   <button key={cat} onClick={() => setDocCat(cat)}
                     className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${docCat === cat ? "bg-[#C2410C] text-white border-[#C2410C]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
                     {cat}
                   </button>
                 ))}
+                {carpetas.length > 0 && (
+                  <select
+                    value={docFolder}
+                    onChange={(e) => setDocFolder(e.target.value)}
+                    aria-label="Filtrar documentos por carpeta"
+                    className="ml-auto rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 focus:border-orange-400 focus:outline-none"
+                  >
+                    <option value="Todas">Todas las carpetas</option>
+                    {carpetas.map((carpeta) => (
+                      <option key={carpeta} value={carpeta}>{carpeta}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="rounded-xl border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
@@ -763,6 +733,14 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
         proyectoId={projectId}
         onCerrar={() => setMostrarSubida(false)}
         onSubido={() => void recargarDocs()}
+      />
+
+      <ChecklistDocumentalModal
+        abierto={mostrarChecklist}
+        proyectoId={projectId}
+        onCerrar={() => setMostrarChecklist(false)}
+        onActualizado={() => void recargarDocs()}
+        onShowToast={onShowToast}
       />
 
       <ActualizarDocumentoModal

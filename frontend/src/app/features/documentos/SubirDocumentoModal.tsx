@@ -35,6 +35,7 @@ export function SubirDocumentoModal({
   const [nombre, setNombre] = useState("");
   const [fechaDocumento, setFechaDocumento] = useState("");
   const [numeroDocumento, setNumeroDocumento] = useState("");
+  const [version, setVersion] = useState("v1.0");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function SubirDocumentoModal({
     setNombre(nombreInicial ?? "");
     setFechaDocumento("");
     setNumeroDocumento("");
+    setVersion("v1.0");
     setArchivo(null);
     setError(null);
     if (!proyectoId) {
@@ -92,9 +94,13 @@ export function SubirDocumentoModal({
     if (!proyectoSel) return setError("Selecciona el proyecto.");
     if (!fechaDocumento) return setError("Indica la fecha del documento.");
     if (!archivo) return setError("Selecciona un archivo.");
+    if (!version.trim()) return setError("Indica la versión del documento.");
 
     setEnviando(true);
     setError(null);
+
+    const nombreArchivo = archivo.name.replace(/\.[^.]+$/, "");
+    const nombreFinal = (nombre.trim() || `${nombreArchivo} ${version.trim()} ${fechaDocumento}`).slice(0, 200);
 
     try {
       await api.subirDocumento(archivo, {
@@ -102,8 +108,8 @@ export function SubirDocumentoModal({
         tipo,
         carpeta: carpeta || null,
         estado,
-        version: "v1.0",
-        nombre: nombre.trim() || undefined,
+        version: version.trim(),
+        nombre: nombreFinal,
         fechaDocumento,
         numeroDocumento: numeroDocumento.trim() || null,
         edtActividadId: edtActividadId ?? null,
@@ -151,7 +157,7 @@ export function SubirDocumentoModal({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <label htmlFor="tipo" className="text-xs font-semibold text-slate-700">Tipo</label>
               <select
@@ -173,6 +179,20 @@ export function SubirDocumentoModal({
               >
                 {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="version" className="text-xs font-semibold text-slate-700">Versión</label>
+              <input
+                id="version"
+                type="text"
+                required
+                maxLength={20}
+                disabled={enviando}
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                placeholder="v1.0"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+              />
             </div>
           </div>
 
@@ -203,9 +223,12 @@ export function SubirDocumentoModal({
               maxLength={200}
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              placeholder="Si lo dejas vacío se usa el nombre del archivo"
+              placeholder="Ej.: Cronograma de obra v1.0 11nov26"
               className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
             />
+            <p className="text-[11px] text-slate-400">
+              Si lo dejas vacío se arma automáticamente como <strong>documento – versión – fecha</strong>.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

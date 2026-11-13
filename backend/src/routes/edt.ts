@@ -25,7 +25,7 @@ const CAMPOS = `
   a.id, a.proyecto_id AS "proyectoId", a.fase_id AS "faseId", a.etapa,
   a.padre_id AS "padreId", a.actividad AS "nombre", a.descripcion,
   a.tipo, a.plantilla_clave AS "plantillaClave", a.prioridad,
-  a.requiere_documento AS "requiereDocumento", a.carpeta,
+  a.requiere_documento AS "requiereDocumento", a.no_aplica AS "noAplica", a.carpeta,
   a.responsable, a.responsable_id AS "responsableId",
   a.fecha_cumplimiento AS "fechaCumplimiento", a.estado, a.orden,
   (SELECT COUNT(*)::int FROM documentos d WHERE d.edt_actividad_id = a.id) AS documentos,
@@ -39,6 +39,7 @@ const CAMPOS_REQUISITOS = `
              'nombre', r.actividad,
              'estado', r.estado,
              'tipo', r.tipo,
+             'noAplica', r.no_aplica,
              'tieneDocumento', EXISTS(
                SELECT 1 FROM documentos d WHERE d.edt_actividad_id = r.id
              )
@@ -61,6 +62,7 @@ const baseActividad = {
   tipo: z.enum(["Actividad", "Documento", "Acta"]).optional().default("Actividad"),
   prioridad: z.enum(["Alta", "Media", "Baja"]).optional().default("Alta"),
   requiereDocumento: z.boolean().optional(),
+  noAplica: z.boolean().optional(),
   carpeta: z.string().trim().max(300).nullable().optional(),
   responsable: z.string().trim().max(120).nullable().optional(),
   responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
@@ -108,6 +110,7 @@ type ActividadFila = {
   tipo: (typeof TIPOS_ACTIVIDAD_EDT)[number];
   prioridad: string;
   requiereDocumento: boolean;
+  noAplica: boolean;
   carpeta: string | null;
   responsable: string | null;
   responsableId: string | null;
@@ -121,6 +124,7 @@ type ActividadFila = {
     nombre: string;
     estado: string;
     tipo: string;
+    noAplica: boolean;
     tieneDocumento: boolean;
   }>;
 };
@@ -211,6 +215,7 @@ async function validarRequisitos(actividadId: string): Promise<void> {
        FROM edt_requisitos q
        JOIN edt_actividades r ON r.id = q.requisito_id
       WHERE q.actividad_id = $1
+        AND r.no_aplica = false
       ORDER BY r.orden`,
     [actividadId],
   );
@@ -277,12 +282,20 @@ async function validarCambioEstado(
   actividad: ActividadFila,
   estado: (typeof ESTADOS_EDT)[number],
   requiereDocumento: boolean,
+  noAplica: boolean,
 ): Promise<void> {
+  if (noAplica) {
+    if (estado === "Completado") {
+      throw new HttpError(400, "La actividad está marcada como no aplica. Actívala antes de completarla.");
+    }
+    return;
+  }
+
   if (estado === "Completado") {
     const { rows } = await pool.query<{ nombre: string }>(
       `SELECT COALESCE(NULLIF(actividad, ''), 'Sin nombre') AS nombre
          FROM edt_actividades
-        WHERE padre_id = $1 AND estado <> 'Completado'
+        WHERE padre_id = $1 AND no_aplica = false AND estado <> 'Completado'
         ORDER BY orden`,
       [actividad.id],
     );
@@ -507,9 +520,9 @@ edt.post(
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO edt_actividades
          (proyecto_id, fase_id, etapa, actividad, descripcion, tipo, prioridad,
-          requiere_documento, carpeta, responsable, responsable_id, fecha_cumplimiento,
+          requiere_documento, no_aplica, carpeta, responsable, responsable_id, fecha_cumplimiento,
           estado, orden)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::date, $14,
          COALESCE((SELECT MAX(orden) + 1 FROM edt_actividades WHERE fase_id = $2), 1))
        RETURNING id`,
       [
@@ -521,11 +534,12 @@ edt.post(
         datos.tipo,
         datos.prioridad,
         requiereDocumento,
+        datos.noAplica ?? false,
         carpeta,
         responsable.nombre,
         responsable.id,
         datos.fechaCumplimiento ?? null,
-        datos.estado,
+        datos.noAplica ? "No realizado" : datos.estado,
       ],
     );
     const actividad = await actividadDeRuta(rows[0].id);
@@ -574,8 +588,9 @@ edt.patch(
       (datos.tipo
         ? datos.tipo === "Documento" || datos.tipo === "Acta"
         : actual.requiereDocumento);
-    const estado = datos.estado ?? actual.estado;
-    await validarCambioEstado(actual, estado, requiereDocumento);
+    const noAplica = datos.noAplica ?? actual.noAplica;
+    const estado = noAplica ? "No realizado" : datos.estado ?? actual.estado;
+    await validarCambioEstado(actual, estado, requiereDocumento, noAplica);
 
     const cambiaResponsable =
       Object.prototype.hasOwnProperty.call(req.body, "responsableId") ||
@@ -604,7 +619,8 @@ edt.patch(
               responsable = CASE WHEN $13 THEN $14 ELSE responsable END,
               responsable_id = CASE WHEN $13 THEN $15 ELSE responsable_id END,
               fecha_cumplimiento = CASE WHEN $16 THEN $17::date ELSE fecha_cumplimiento END,
-              estado = COALESCE($18, estado)
+              estado = COALESCE($18, estado),
+              no_aplica = $19
         WHERE id = $1
         RETURNING id`,
       [
@@ -625,7 +641,8 @@ edt.patch(
         responsable.id,
         Object.prototype.hasOwnProperty.call(req.body, "fechaCumplimiento"),
         datos.fechaCumplimiento ?? null,
-        datos.estado ?? null,
+        noAplica ? "No realizado" : datos.estado ?? null,
+        noAplica,
       ],
     );
 

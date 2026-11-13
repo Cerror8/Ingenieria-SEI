@@ -10,7 +10,7 @@ const VALOR_ESTADO: Record<string, number> = {
 
 const redondear = (valor: number) => Math.max(0, Math.min(100, Math.round(valor)));
 
-type FilaEdt = { id: string; padreId: string | null; estado: string };
+type FilaEdt = { id: string; padreId: string | null; estado: string; noAplica: boolean };
 
 // El avance del proyecto se calcula desde el EDT (promedio de actividades raíz,
 // donde cada raíz con subproductos vale el promedio de sus hijos) y, si no hay
@@ -20,7 +20,7 @@ export async function recalcularAvanceProyecto(
   proyectoId: string,
 ): Promise<{ avance: number; origen: "EDT" | "Gantt" } | null> {
   const { rows: edt } = await db.query<FilaEdt>(
-    `SELECT id, padre_id AS "padreId", estado
+    `SELECT id, padre_id AS "padreId", estado, no_aplica AS "noAplica"
        FROM edt_actividades
       WHERE proyecto_id = $1`,
     [proyectoId],
@@ -29,10 +29,11 @@ export async function recalcularAvanceProyecto(
   let avance: number | null = null;
   let origen: "EDT" | "Gantt" = "EDT";
 
-  if (edt.length) {
+  const aplicables = edt.filter((fila) => !fila.noAplica);
+  if (aplicables.length) {
     const hijos = new Map<string, FilaEdt[]>();
     const raices: FilaEdt[] = [];
-    for (const fila of edt) {
+    for (const fila of aplicables) {
       if (fila.padreId) {
         const lista = hijos.get(fila.padreId) ?? [];
         lista.push(fila);
@@ -50,7 +51,9 @@ export async function recalcularAvanceProyecto(
       return VALOR_ESTADO[fila.estado] ?? 0;
     };
 
-    avance = redondear(raices.reduce((suma, raiz) => suma + valor(raiz), 0) / raices.length);
+    if (raices.length) {
+      avance = redondear(raices.reduce((suma, raiz) => suma + valor(raiz), 0) / raices.length);
+    }
   } else {
     const { rows } = await db.query<{ total: number; promedio: number | null }>(
       `SELECT count(*)::int AS total, avg(avance)::float AS promedio
@@ -91,7 +94,7 @@ export async function recalcularAvanceProyecto(
 
 async function estadoDesdeHijos(db: Consulta, actividadId: string): Promise<string | null> {
   const { rows: hijos } = await db.query<{ id: string; estado: string }>(
-    `SELECT id, estado FROM edt_actividades WHERE padre_id = $1`,
+    `SELECT id, estado FROM edt_actividades WHERE padre_id = $1 AND no_aplica = false`,
     [actividadId],
   );
   if (!hijos.length) return null;
@@ -136,6 +139,7 @@ export async function bloqueoParaCompletar(
                FROM edt_requisitos q
                JOIN edt_actividades r ON r.id = q.requisito_id
               WHERE q.actividad_id = a.id
+                AND r.no_aplica = false
                 AND (r.estado <> 'Completado'
                      OR (r.requiere_documento
                          AND NOT EXISTS (SELECT 1 FROM documentos d2 WHERE d2.edt_actividad_id = r.id)))
@@ -166,13 +170,16 @@ export async function sincronizarEdtDesdeTareas(
     proyectoId: string;
     padreId: string | null;
     estado: string;
+    noAplica: boolean;
   }>(
-    `SELECT id, proyecto_id AS "proyectoId", padre_id AS "padreId", estado
+    `SELECT id, proyecto_id AS "proyectoId", padre_id AS "padreId", estado,
+            no_aplica AS "noAplica"
        FROM edt_actividades WHERE id = $1`,
     [actividadId],
   );
   const actividad = rows[0];
   if (!actividad) return;
+  if (actividad.noAplica) return;
 
   let nuevo =
     (await estadoDesdeHijos(db, actividad.id)) ?? (await estadoDesdeTareas(db, actividad.id));

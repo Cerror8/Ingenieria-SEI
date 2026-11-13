@@ -139,7 +139,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   const [creandoTablero, setCreandoTablero] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [plazo, setPlazo] = useState<FiltroPlazo>("todos");
-  const [asignacion, setAsignacion] = useState("todas");
   const [filtroProyecto, setFiltroProyecto] = useState("");
   const [filtroFase, setFiltroFase] = useState("");
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
@@ -303,15 +302,9 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         plazo === "todos" ||
         (plazo === "sin-fecha" && nivel === "sin-fecha") ||
         (plazo !== "sin-fecha" && NIVELES_PLAZO[plazo].includes(nivel));
-      const coincideResponsable =
-        asignacion === "todas" ||
-        (asignacion === "mias" && tarea.responsableId === usuario?.id) ||
-        (asignacion === "sin-asignar" && !tarea.responsableId) ||
-        (asignacion.startsWith("persona:") &&
-          tarea.responsableId === asignacion.slice("persona:".length));
-      return coincideTexto && coincidePlazo && coincideResponsable;
+      return coincideTexto && coincidePlazo;
     });
-  }, [tareas, busqueda, plazo, asignacion, usuario?.id]);
+  }, [tareas, busqueda, plazo]);
 
   const actualizarTarea = useCallback((actualizada: TareaTablero) => {
     setTareas((prev) => prev.map((tarea) => (tarea.id === actualizada.id ? actualizada : tarea)));
@@ -658,23 +651,6 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
               </option>
             ))}
           </select>
-          <select
-            value={asignacion}
-            onChange={(e) => setAsignacion(e.target.value)}
-            aria-label="Filtrar por responsable"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
-          >
-            <option value="todas">Todas las personas</option>
-            <option value="mias">Mis tareas</option>
-            <option value="sin-asignar">Sin asignar</option>
-            <optgroup label="Por persona">
-              {usuariosAsignables.map((u) => (
-                <option key={u.id} value={`persona:${u.id}`}>
-                  {u.nombre}
-                </option>
-              ))}
-            </optgroup>
-          </select>
         </div>
 
         <label htmlFor="selector-tablero" className="sr-only">
@@ -739,7 +715,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
                 <div className={`h-1 w-8 rounded-full ${columna.barra}`} />
               </header>
 
-              <div className="flex-1 space-y-3 p-3">
+              <div className="max-h-[540px] flex-1 space-y-3 overflow-y-auto p-3">
                 {tareasColumna.map((tarea) => {
                   const completada = tarea.columna === "completado";
                   const urgencia = calcularUrgencia(tarea.fechaLimite);
