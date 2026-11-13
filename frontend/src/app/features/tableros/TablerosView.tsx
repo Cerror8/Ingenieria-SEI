@@ -458,8 +458,8 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           </span>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
+          <div className="relative min-w-0 flex-1 sm:min-w-[180px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               value={busqueda}
@@ -472,7 +472,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             value={filtroProyecto}
             onChange={(e) => setFiltroProyecto(e.target.value)}
             aria-label="Filtrar por proyecto"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+            className="truncate rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] sm:max-w-[280px]"
           >
             <option value="">Todos los proyectos</option>
             {proyectosGeneral.map((proyecto) => (
@@ -486,7 +486,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             onChange={(e) => setFiltroFase(e.target.value)}
             aria-label="Filtrar por fase"
             disabled={fasesDisponibles.length === 0}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50"
+            className="truncate rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50 sm:max-w-[220px]"
           >
             <option value="">Todas las fases</option>
             {fasesDisponibles.map((fase) => (
