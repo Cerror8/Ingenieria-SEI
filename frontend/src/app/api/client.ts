@@ -231,6 +231,16 @@ export type EdtRequisitoApi = {
   tieneDocumento: boolean;
 };
 
+export type ContactoExternoApi = {
+  id: string;
+  nombre: string;
+  email: string;
+  organizacion: string;
+  activo: boolean;
+  creadoPor: string | null;
+  creadoEn: string;
+};
+
 export type EdtActividadApi = {
   id: string;
   proyectoId: string;
@@ -247,12 +257,27 @@ export type EdtActividadApi = {
   carpeta: string | null;
   responsable: string | null;
   responsableId: string | null;
+  contactoExternoId: string | null;
+  correoEnviadoEn: string | null;
+  contactoExterno: {
+    id: string;
+    nombre: string;
+    email: string;
+    organizacion: string;
+  } | null;
   fechaCumplimiento: string | null;
   estado: EdtEstado;
   orden: number;
   documentos: number;
   tareas: number;
   requisitos: EdtRequisitoApi[];
+  formatos: Array<{ id: string; nombre: string }>;
+};
+
+export type EdtPlantillaApi = {
+  clave: string;
+  nombre: string;
+  actividades: Array<{ clave: string; nombre: string }>;
 };
 
 export type EdtApi = {
@@ -264,6 +289,7 @@ export type EdtApi = {
   };
   fases: EdtFaseApi[];
   actividades: EdtActividadApi[];
+  plantillaEdt: EdtPlantillaApi[];
 };
 
 export type NuevaEdtActividad = {
@@ -277,9 +303,11 @@ export type NuevaEdtActividad = {
   carpeta?: string | null;
   responsable?: string | null;
   responsableId?: string | null;
+  contactoExternoId?: string | null;
   fechaCumplimiento?: string | null;
   estado?: EdtEstado;
   requisitoIds?: string[];
+  formatoIds?: string[];
 };
 
 export type ResumenZipApi = {
@@ -924,6 +952,37 @@ export const api = {
         tareasCreadas: number;
       }
     >(`/edt/${encodeURIComponent(proyectoId)}/plantilla`, { method: "POST" }),
+  enviarCorreoActividad: (id: string, mensaje?: string) =>
+    request<{ ok: boolean; asunto: string; enviadoEn: string | null; documentoId: string | null }>(
+      `/edt/actividades/${encodeURIComponent(id)}/correo`,
+      { method: "POST", body: { mensaje } },
+    ),
+  sincronizarCorreos: () =>
+    request<{
+      ok: boolean;
+      revisados: number;
+      registrados: number;
+      documentos: number;
+      ignorados: number;
+    }>("/edt/correos/sincronizar", { method: "POST" }),
+
+  contactosExternos: (buscar?: string) =>
+    request<{ contactos: ContactoExternoApi[] }>(
+      `/contactos-externos${query({ buscar })}`,
+    ),
+  crearContactoExterno: (datos: { nombre: string; email: string; organizacion?: string }) =>
+    request<{ contacto: ContactoExternoApi }>("/contactos-externos", {
+      method: "POST",
+      body: datos,
+    }),
+  actualizarContactoExterno: (
+    id: string,
+    datos: { nombre?: string; email?: string; organizacion?: string; activo?: boolean },
+  ) =>
+    request<{ contacto: ContactoExternoApi }>(
+      `/contactos-externos/${encodeURIComponent(id)}`,
+      { method: "PATCH", body: datos },
+    ),
 
   informes: (proyecto?: string) =>
     request<{ informes: InformeApi[] }>(`/informes${query({ proyecto })}`),

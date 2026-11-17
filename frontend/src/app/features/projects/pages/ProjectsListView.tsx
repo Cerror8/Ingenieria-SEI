@@ -184,7 +184,7 @@ export function ProjectsListView({
           <table className="w-full min-w-[1050px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60">
-                {["Código", "Proyecto", "N.º contrato", "Línea / área", "Responsable", "Estado", "Avance", "Presupuesto", "Finaliza", "Acciones"].map(h => (
+                {["Acciones", "Código", "Proyecto", "N.º contrato", "Línea / área", "Responsable", "Estado", "Avance", "Presupuesto", "Finaliza"].map(h => (
                   <th key={h} scope="col" className="whitespace-nowrap px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">{h}</th>
                 ))}
               </tr>
@@ -197,23 +197,6 @@ export function ProjectsListView({
               )}
               {filtered.map(p => (
                 <tr key={p.id} className="transition-colors hover:bg-orange-50/10">
-                  <td className="whitespace-nowrap px-4 py-3"><span className="font-mono text-xs font-bold text-orange-700">{p.id}</span></td>
-                  <td className="px-4 py-3">
-                    <p className="min-w-[160px] max-w-[260px] break-words text-sm font-semibold text-gray-900">{p.nombreCorto || p.name}</p>
-                    {p.nombreCorto && <p className="mt-1 max-w-[260px] break-words text-xs text-gray-500">{p.name}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-600">{p.numeroContrato || "No registrado"}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{p.line}</td>
-                  <td className="px-4 py-3 text-xs text-gray-600">{p.responsible}</td>
-                  <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                  <td className="px-4 py-3">
-                    <div className="flex min-w-[100px] items-center gap-2">
-                      <Bar2 value={p.progress} color="bg-orange-500" h="h-1.5" />
-                      <span className="flex-shrink-0 text-xs font-bold text-gray-700">{p.progress}%</span>
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">{fmt(p.budget)}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{p.endDate}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-0.5">
                       <button type="button" onClick={() => onSelectProject(p.id)} className="rounded p-2 text-gray-500 transition-colors hover:bg-orange-50 hover:text-orange-600" title={`Ver detalle de ${p.id}`} aria-label={`Ver detalle de ${p.id}`}><Eye className="h-4 w-4" /></button>
@@ -229,6 +212,23 @@ export function ProjectsListView({
                       />
                     </div>
                   </td>
+                  <td className="whitespace-nowrap px-4 py-3"><span className="font-mono text-xs font-black text-orange-700">{p.id}</span></td>
+                  <td className="px-4 py-3">
+                    <p className="min-w-[160px] max-w-[260px] break-words text-sm font-bold text-gray-900">{p.nombreCorto || p.name}</p>
+                    {p.nombreCorto && <p className="mt-1 max-w-[260px] break-words text-xs text-gray-500">{p.name}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-xs font-semibold text-gray-800">{p.numeroContrato || "No registrado"}</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-gray-800">{p.line}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">{p.responsible}</td>
+                  <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex min-w-[100px] items-center gap-2">
+                      <Bar2 value={p.progress} color="bg-orange-500" h="h-1.5" />
+                      <span className="flex-shrink-0 text-xs font-bold text-gray-700">{p.progress}%</span>
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-gray-900">{fmt(p.budget)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-gray-800">{p.endDate}</td>
                 </tr>
               ))}
             </tbody>

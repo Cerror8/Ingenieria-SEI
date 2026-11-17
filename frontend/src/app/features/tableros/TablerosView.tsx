@@ -422,7 +422,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Tablero general de proyectos</h1>
+          <h1 className="text-xl font-bold text-gray-900">Tareas generales</h1>
           <p className="mt-0.5 text-sm text-gray-500">
             {contexto} · Actividades y tareas de todas las fases y tableros
           </p>
@@ -458,7 +458,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           </span>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative min-w-0 flex-1 sm:min-w-[180px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input

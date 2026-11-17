@@ -59,12 +59,12 @@ export type NavGroup = {
 export type NavEntry = ({ type: "item" } & NavItem) | ({ type: "group" } & NavGroup);
 
 export const NAV_ENTRIES: NavEntry[] = [
-  { type: "item", id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { type: "item", id: "tableros",  label: "Tableros",  icon: SquareKanban  },
+  { type: "item", id: "dashboard", label: "Resumen proyectos", icon: LayoutDashboard },
+  { type: "item", id: "tableros",  label: "Tareas generales", icon: SquareKanban  },
   {
     type: "group",
     id: "projects",
-    label: "Proyectos",
+    label: "Área proyectos",
     icon: Briefcase,
     children: [
       { id: "projects",     label: "Ver proyectos", icon: Briefcase  },
@@ -80,7 +80,6 @@ export const NAV_ENTRIES: NavEntry[] = [
 
 export const PROJ_TABS = [
   { id: "resumen",      label: "Resumen"            },
-  { id: "dashboard",    label: "Dashboard"          },
   { id: "seguimiento",  label: "Seguimiento"        },
   { id: "edt",          label: "EDT"                },
   { id: "gantt",        label: "Gantt"              },

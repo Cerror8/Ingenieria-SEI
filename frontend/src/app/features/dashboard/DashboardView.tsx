@@ -85,7 +85,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Dashboard de Ingeniería SEI</h1>
+          <h1 className="text-xl font-bold text-gray-900">Resumen proyectos</h1>
           <p className="mt-0.5 text-sm text-gray-500">
             Período activo: {datos.periodo.desde}
             {datos.periodo.hasta !== datos.periodo.desde ? ` – ${datos.periodo.hasta}` : ""}

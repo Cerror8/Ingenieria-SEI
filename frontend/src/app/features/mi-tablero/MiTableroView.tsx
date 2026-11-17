@@ -415,7 +415,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
             onClick={() => onNavigate("tableros")}
             className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-[#C2410C] hover:underline sm:self-auto"
           >
-            Ir a Tableros
+            Ir a Tareas generales
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>

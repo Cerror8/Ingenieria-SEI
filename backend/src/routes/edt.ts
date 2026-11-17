@@ -4,22 +4,33 @@ import { registrarAuditoria } from "../audit.js";
 import type { UsuarioSesion } from "../auth/session.js";
 import { pool, type Db } from "../db.js";
 import { ah, HttpError } from "../http.js";
+import { guardarBuffer } from "../lib/almacen.js";
 import { recalcularAvanceProyecto } from "../lib/avance.js";
+import { carpetaSubidas } from "../lib/carpetas.js";
+import {
+  construirCorreoActividad,
+  correoConfigurado,
+  enviarCorreo,
+} from "../lib/correo.js";
+import { imapConfigurado, sincronizarCorreosEntrantes } from "../lib/correoEntrante.js";
+import { estructuraPorId, normalizarCarpeta } from "../lib/estructura.js";
 import {
   TIPOS_CONTRATO,
   asegurarFasesProyecto,
   crearTableroFase,
   crearTareaActividad,
+  etiquetaFase,
   plantillaDe,
   sembrarChecklist,
   sincronizarTareasDeActividad,
   type FaseEdt,
   type TipoContrato,
 } from "../lib/edtFases.js";
-import { estructuraPorId, normalizarCarpeta } from "../lib/estructura.js";
 
 export const ESTADOS_EDT = ["Completado", "En ejecución", "No realizado"] as const;
 export const TIPOS_ACTIVIDAD_EDT = ["Actividad", "Documento", "Acta"] as const;
+
+const CARPETA = carpetaSubidas();
 
 const CAMPOS = `
   a.id, a.proyecto_id AS "proyectoId", a.fase_id AS "faseId", a.etapa,
@@ -27,6 +38,12 @@ const CAMPOS = `
   a.tipo, a.plantilla_clave AS "plantillaClave", a.prioridad,
   a.requiere_documento AS "requiereDocumento", a.no_aplica AS "noAplica", a.carpeta,
   a.responsable, a.responsable_id AS "responsableId",
+  a.contacto_externo_id AS "contactoExternoId", a.correo_enviado_en AS "correoEnviadoEn",
+  (SELECT json_build_object(
+            'id', c.id, 'nombre', c.nombre, 'email', c.email, 'organizacion', c.organizacion
+          )
+     FROM contactos_externos c
+    WHERE c.id = a.contacto_externo_id) AS "contactoExterno",
   a.fecha_cumplimiento AS "fechaCumplimiento", a.estado, a.orden,
   (SELECT COUNT(*)::int FROM documentos d WHERE d.edt_actividad_id = a.id) AS documentos,
   (SELECT COUNT(*)::int FROM tareas_tablero t WHERE t.edt_actividad_id = a.id) AS tareas
@@ -50,6 +67,15 @@ const CAMPOS_REQUISITOS = `
   ), '[]'::json) AS requisitos
 `;
 
+const CAMPOS_FORMATOS = `
+  COALESCE((
+    SELECT json_agg(json_build_object('id', f.id, 'nombre', f.nombre) ORDER BY f.nombre)
+      FROM edt_actividad_formatos ef
+      JOIN formatos f ON f.id = ef.formato_id
+     WHERE ef.actividad_id = a.id
+  ), '[]'::json) AS formatos
+`;
+
 const fechaSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha debe tener formato AAAA-MM-DD")
@@ -66,9 +92,11 @@ const baseActividad = {
   carpeta: z.string().trim().max(300).nullable().optional(),
   responsable: z.string().trim().max(120).nullable().optional(),
   responsableId: z.string().uuid("Responsable inválido").nullable().optional(),
+  contactoExternoId: z.string().uuid("Contacto externo inválido").nullable().optional(),
   fechaCumplimiento: fechaSchema,
   estado: z.enum(["Completado", "En ejecución", "No realizado"]).optional().default("No realizado"),
   requisitoIds: z.array(z.string().uuid("Requisito inválido")).max(20).optional(),
+  formatoIds: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
 };
 
 const crearSchema = z.object({
@@ -114,6 +142,14 @@ type ActividadFila = {
   carpeta: string | null;
   responsable: string | null;
   responsableId: string | null;
+  contactoExternoId: string | null;
+  correoEnviadoEn: string | null;
+  contactoExterno: {
+    id: string;
+    nombre: string;
+    email: string;
+    organizacion: string;
+  } | null;
   fechaCumplimiento: string | null;
   estado: (typeof ESTADOS_EDT)[number];
   orden: number;
@@ -127,6 +163,7 @@ type ActividadFila = {
     noAplica: boolean;
     tieneDocumento: boolean;
   }>;
+  formatos: Array<{ id: string; nombre: string }>;
 };
 
 async function proyectoDeRuta(id: string): Promise<ProyectoRef> {
@@ -153,7 +190,7 @@ async function faseDeRuta(id: string): Promise<FaseEdt> {
 
 async function actividadDeRuta(id: string): Promise<ActividadFila> {
   const { rows } = await pool.query<ActividadFila>(
-    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}
+    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}, ${CAMPOS_FORMATOS}
        FROM edt_actividades a WHERE a.id = $1`,
     [id],
   );
@@ -178,6 +215,24 @@ async function resolverResponsable(
     return { id: responsableId, nombre: rows[0].nombre };
   }
   return { id: null, nombre: texto?.trim() || null };
+}
+
+type ContactoExterno = {
+  id: string;
+  nombre: string;
+  email: string;
+  organizacion: string;
+  activo: boolean;
+};
+
+async function contactoDeRuta(id: string): Promise<ContactoExterno> {
+  const { rows } = await pool.query<ContactoExterno>(
+    "SELECT id, nombre, email, organizacion, activo FROM contactos_externos WHERE id = $1",
+    [id],
+  );
+  if (!rows[0]) throw new HttpError(404, "Contacto externo no encontrado");
+  if (!rows[0].activo) throw new HttpError(400, "El contacto externo está inactivo.");
+  return rows[0];
 }
 
 function validarCarpeta(carpeta: string | null | undefined, estructuraId: string | null): string | null {
@@ -350,13 +405,37 @@ async function reemplazarRequisitos(
   }
 }
 
+async function reemplazarFormatos(
+  db: Db | typeof pool,
+  actividadId: string,
+  formatoIds: string[],
+): Promise<void> {
+  const unicos = [...new Set(formatoIds)];
+  if (unicos.length) {
+    const { rows } = await db.query<{ id: string }>(
+      "SELECT id FROM formatos WHERE id = ANY($1::text[]) AND activo = true",
+      [unicos],
+    );
+    if (rows.length !== unicos.length) {
+      throw new HttpError(400, "Alguno de los formatos no existe o está inactivo.");
+    }
+  }
+  await db.query("DELETE FROM edt_actividad_formatos WHERE actividad_id = $1", [actividadId]);
+  for (const formatoId of unicos) {
+    await db.query(
+      "INSERT INTO edt_actividad_formatos (actividad_id, formato_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+      [actividadId, formatoId],
+    );
+  }
+}
+
 async function listarFases(proyecto: ProyectoRef): Promise<FaseEdt[]> {
   return asegurarFasesProyecto(pool, proyecto.id, proyecto.tipoContrato);
 }
 
 async function listar(proyectoId: string): Promise<ActividadFila[]> {
   const { rows } = await pool.query<ActividadFila>(
-    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}
+    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}, ${CAMPOS_FORMATOS}
        FROM edt_actividades a
       WHERE a.proyecto_id = $1
       ORDER BY a.etapa, a.orden, a.creado_en`,
@@ -376,6 +455,14 @@ async function responderEdt(proyecto: ProyectoRef) {
     },
     fases,
     actividades: await listar(proyecto.id),
+    plantillaEdt: plantillaDe(proyecto.tipoContrato).map((fase) => ({
+      clave: fase.clave,
+      nombre: fase.nombre,
+      actividades: fase.actividades.map((actividad) => ({
+        clave: actividad.clave,
+        nombre: actividad.nombre,
+      })),
+    })),
   };
 }
 
@@ -458,7 +545,7 @@ edt.patch(
 
     await pool.query(
       "UPDATE tableros SET nombre = $2 WHERE fase_id = $1",
-      [actual.id, `F${rows[0].orden} · ${rows[0].nombre}`.slice(0, 120)],
+      [actual.id, `${etiquetaFase(rows[0])} · ${rows[0].nombre}`.slice(0, 120)],
     );
 
     await registrarAuditoria({
@@ -482,7 +569,7 @@ edt.delete(
     const usuario = res.locals.usuario as UsuarioSesion;
 
     if (actual.esPrincipal) {
-      throw new HttpError(400, "Las tres fases principales no se pueden eliminar; puedes renombrarlas.");
+      throw new HttpError(400, "Las fases principales no se pueden eliminar; puedes renombrarlas.");
     }
 
     await pool.query("DELETE FROM edt_fases WHERE id = $1", [actual.id]);
@@ -508,11 +595,16 @@ edt.post(
     const usuario = res.locals.usuario as UsuarioSesion;
     const fase = await validarFaseDeProyecto(datos.faseId, proyecto.id);
 
-    const responsable = await resolverResponsable(
-      datos.responsableId,
-      datos.responsable,
-      Object.prototype.hasOwnProperty.call(req.body, "responsableId"),
-    );
+    const contacto = datos.contactoExternoId
+      ? await contactoDeRuta(datos.contactoExternoId)
+      : null;
+    const responsable = contacto
+      ? { id: null, nombre: contacto.nombre }
+      : await resolverResponsable(
+          datos.responsableId,
+          datos.responsable,
+          Object.prototype.hasOwnProperty.call(req.body, "responsableId"),
+        );
     const requiereDocumento =
       datos.requiereDocumento ?? (datos.tipo === "Documento" || datos.tipo === "Acta");
     const carpeta = validarCarpeta(datos.carpeta, proyecto.estructura);
@@ -520,9 +612,9 @@ edt.post(
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO edt_actividades
          (proyecto_id, fase_id, etapa, actividad, descripcion, tipo, prioridad,
-          requiere_documento, no_aplica, carpeta, responsable, responsable_id, fecha_cumplimiento,
-          estado, orden)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::date, $14,
+          requiere_documento, no_aplica, carpeta, responsable, responsable_id, contacto_externo_id,
+          fecha_cumplimiento, estado, orden)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15,
          COALESCE((SELECT MAX(orden) + 1 FROM edt_actividades WHERE fase_id = $2), 1))
        RETURNING id`,
       [
@@ -538,6 +630,7 @@ edt.post(
         carpeta,
         responsable.nombre,
         responsable.id,
+        contacto?.id ?? null,
         datos.fechaCumplimiento ?? null,
         datos.noAplica ? "No realizado" : datos.estado,
       ],
@@ -546,6 +639,9 @@ edt.post(
 
     if (datos.requisitoIds?.length) {
       await reemplazarRequisitos(pool, actividad.id, proyecto.id, datos.requisitoIds);
+    }
+    if (datos.formatoIds?.length) {
+      await reemplazarFormatos(pool, actividad.id, datos.formatoIds);
     }
 
     await crearTareaActividad(pool, proyecto, fase, actividad);
@@ -592,16 +688,23 @@ edt.patch(
     const estado = noAplica ? "No realizado" : datos.estado ?? actual.estado;
     await validarCambioEstado(actual, estado, requiereDocumento, noAplica);
 
+    const pideContacto = Object.prototype.hasOwnProperty.call(req.body, "contactoExternoId");
     const cambiaResponsable =
+      pideContacto ||
       Object.prototype.hasOwnProperty.call(req.body, "responsableId") ||
       Object.prototype.hasOwnProperty.call(req.body, "responsable");
-    const responsable = cambiaResponsable
-      ? await resolverResponsable(
-          datos.responsableId,
-          datos.responsable,
-          Object.prototype.hasOwnProperty.call(req.body, "responsableId"),
-        )
-      : { id: null, nombre: null };
+    const contacto = pideContacto && datos.contactoExternoId
+      ? await contactoDeRuta(datos.contactoExternoId)
+      : null;
+    const responsable = contacto
+      ? { id: null, nombre: contacto.nombre }
+      : cambiaResponsable
+        ? await resolverResponsable(
+            datos.responsableId,
+            datos.responsable,
+            Object.prototype.hasOwnProperty.call(req.body, "responsableId"),
+          )
+        : { id: null, nombre: null };
     const carpeta =
       datos.carpeta !== undefined ? validarCarpeta(datos.carpeta, proyecto.estructura) : undefined;
 
@@ -618,6 +721,7 @@ edt.patch(
               carpeta = CASE WHEN $11 THEN $12 ELSE carpeta END,
               responsable = CASE WHEN $13 THEN $14 ELSE responsable END,
               responsable_id = CASE WHEN $13 THEN $15 ELSE responsable_id END,
+              contacto_externo_id = CASE WHEN $13 THEN $20::uuid ELSE contacto_externo_id END,
               fecha_cumplimiento = CASE WHEN $16 THEN $17::date ELSE fecha_cumplimiento END,
               estado = COALESCE($18, estado),
               no_aplica = $19
@@ -643,11 +747,15 @@ edt.patch(
         datos.fechaCumplimiento ?? null,
         noAplica ? "No realizado" : datos.estado ?? null,
         noAplica,
+        contacto?.id ?? null,
       ],
     );
 
     if (datos.requisitoIds !== undefined) {
       await reemplazarRequisitos(pool, actual.id, proyecto.id, datos.requisitoIds);
+    }
+    if (datos.formatoIds !== undefined) {
+      await reemplazarFormatos(pool, actual.id, datos.formatoIds);
     }
 
     await sincronizarTareasDeActividad(pool, actual.id);
@@ -719,5 +827,153 @@ edt.post(
       tablerosCreados: resumen.tablerosCreados,
       tareasCreadas: resumen.tareasCreadas,
     });
+  }),
+);
+
+const correoSchema = z.object({
+  mensaje: z.string().trim().max(2000).optional(),
+});
+
+// Envía al contacto externo el detalle de la actividad. La referencia `[SEI-ACT:<id>]`
+// del asunto permite que la respuesta llegue de vuelta a esta misma actividad.
+edt.post(
+  "/actividades/:id/correo",
+  ah(async (req, res) => {
+    if (!correoConfigurado()) {
+      throw new HttpError(503, "El envío de correo no está configurado (SMTP).");
+    }
+
+    const datosCorreo = correoSchema.parse(req.body ?? {});
+    const actividad = await actividadDeRuta(
+      z.string().uuid("Actividad inválida").parse(req.params.id),
+    );
+    const contacto = actividad.contactoExterno;
+    if (!contacto) {
+      throw new HttpError(400, "La actividad no tiene una persona externa asignada.");
+    }
+
+    const { rows: proyectoRows } = await pool.query<{
+      nombre: string;
+      nombreCorto: string | null;
+      numeroContrato: string | null;
+    }>(
+      `SELECT nombre, nombre_corto AS "nombreCorto", numero_contrato AS "numeroContrato"
+         FROM proyectos WHERE id = $1`,
+      [actividad.proyectoId],
+    );
+    const proyecto = proyectoRows[0];
+    if (!proyecto) throw new HttpError(404, "Proyecto no encontrado");
+
+    let fase = `Etapa ${actividad.etapa}`;
+    if (actividad.faseId) {
+      const { rows: faseRows } = await pool.query<{
+        clave: string | null;
+        orden: number;
+        nombre: string;
+      }>("SELECT clave, orden, nombre FROM edt_fases WHERE id = $1", [actividad.faseId]);
+      if (faseRows[0]) fase = etiquetaFase(faseRows[0]);
+    }
+
+    const abreviatura =
+      proyecto.nombreCorto?.trim() || proyecto.numeroContrato?.trim() || actividad.proyectoId;
+    const contenido = construirCorreoActividad({
+      para: contacto.email,
+      contacto: contacto.nombre,
+      token: actividad.id,
+      referencia: proyecto.nombre,
+      abreviatura,
+      numeroContrato: proyecto.numeroContrato,
+      fase,
+      actividad: actividad.nombre,
+      descripcion: actividad.descripcion ?? "",
+      orden: actividad.orden,
+      fecha: actividad.fechaCumplimiento,
+      formatos: actividad.formatos.map((formato) => formato.nombre),
+      mensaje: datosCorreo.mensaje ?? "",
+    });
+
+    const enviado = await enviarCorreo({ para: contacto.email, ...contenido });
+    if (!enviado) throw new HttpError(502, "No se pudo enviar el correo.");
+
+    const usuario = res.locals.usuario as UsuarioSesion;
+    const html = Buffer.from(contenido.html, "utf8");
+    const nombreArchivo = `Correo enviado - ${contenido.asunto}`.slice(0, 200);
+    const clave = await guardarBuffer(
+      html,
+      `${nombreArchivo}.html`,
+      "text/html",
+      "documentos",
+      CARPETA,
+    );
+
+    const { rows: documentoRows } = await pool.query<{ id: string }>(
+      `INSERT INTO documentos
+         (id, nombre, tipo, carpeta, version, fecha, usuario, estado, proyecto_id,
+          archivo_nombre, archivo_ruta, archivo_mime, archivo_tamano, fecha_documento,
+          edt_actividad_id)
+       VALUES (gen_random_uuid(), $1, 'Comunicaciones', $2, 'v1.0',
+               (now() AT TIME ZONE 'America/Bogota')::date, $3, 'Aprobado', $4,
+               $5, $6, 'text/html', $7, (now() AT TIME ZONE 'America/Bogota')::date, $8)
+       RETURNING id`,
+      [
+        nombreArchivo,
+        actividad.carpeta,
+        usuario.nombre,
+        actividad.proyectoId,
+        `${nombreArchivo}.html`.slice(0, 255),
+        clave,
+        html.length,
+        actividad.id,
+      ],
+    );
+
+    const { rows: actualizadas } = await pool.query<{ correoEnviadoEn: string }>(
+      `UPDATE edt_actividades
+          SET correo_enviado_en = now(),
+              estado = CASE WHEN estado = 'No realizado' THEN 'En ejecución' ELSE estado END
+        WHERE id = $1
+        RETURNING correo_enviado_en AS "correoEnviadoEn"`,
+      [actividad.id],
+    );
+    await recalcularAvanceProyecto(pool, actividad.proyectoId);
+
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Actualización",
+      entidad: "Actividad EDT",
+      registro: actividad.proyectoId,
+      nuevo: `Correo enviado a ${contacto.email} · ${contacto.nombre}`,
+    });
+
+    res.json({
+      ok: true,
+      asunto: contenido.asunto,
+      enviadoEn: actualizadas[0]?.correoEnviadoEn ?? null,
+      documentoId: documentoRows[0]?.id ?? null,
+    });
+  }),
+);
+
+edt.post(
+  "/correos/sincronizar",
+  ah(async (_req, res) => {
+    const usuario = res.locals.usuario as UsuarioSesion;
+    if (usuario.rol !== "admin") {
+      throw new HttpError(403, "Solo un administrador puede sincronizar el correo.");
+    }
+    if (!imapConfigurado()) {
+      throw new HttpError(503, "La recepción de correo (IMAP) no está configurada.");
+    }
+
+    const resultado = await sincronizarCorreosEntrantes();
+    await registrarAuditoria({
+      usuario: usuario.nombre,
+      accion: "Actualización",
+      entidad: "Correo entrante",
+      registro: "IMAP",
+      nuevo: `${resultado.registrados} correo(s) · ${resultado.documentos} documento(s)`,
+    });
+
+    res.json({ ok: true, ...resultado });
   }),
 );

@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { carpetaConstruccionActual } from "./estructura.js";
 
 let preparacion: Promise<void> | null = null;
 
@@ -42,6 +43,42 @@ export function asegurarEsquema(): Promise<void> {
       await pool.query("ALTER TABLE documentos ADD COLUMN IF NOT EXISTS carpeta TEXT");
       await pool.query("ALTER TABLE documentos ADD COLUMN IF NOT EXISTS fecha_documento DATE");
       await pool.query("ALTER TABLE documentos ADD COLUMN IF NOT EXISTS numero_documento TEXT");
+
+      // La estructura de «Construcción ejecución» se alineó con el modelo de carpetas:
+      // se migran las rutas antiguas de documentos y actividades sin borrar archivos.
+      const { rows: documentosAntiguos } = await pool.query<{ id: string; carpeta: string }>(
+        `SELECT d.id, d.carpeta
+           FROM documentos d
+           JOIN proyectos p ON p.id = d.proyecto_id
+          WHERE p.estructura = 'construccion'
+            AND d.carpeta IS NOT NULL
+            AND (d.carpeta LIKE '2.Control de obra/%'
+              OR d.carpeta LIKE '4.Calidad/%'
+              OR d.carpeta LIKE '3.Comunicaciones/%')`,
+      );
+      for (const documento of documentosAntiguos) {
+        const carpeta = carpetaConstruccionActual(documento.carpeta);
+        if (carpeta !== documento.carpeta) {
+          await pool.query("UPDATE documentos SET carpeta = $1 WHERE id = $2", [carpeta, documento.id]);
+        }
+      }
+
+      const { rows: actividadesAntiguas } = await pool.query<{ id: string; carpeta: string }>(
+        `SELECT a.id, a.carpeta
+           FROM edt_actividades a
+           JOIN proyectos p ON p.id = a.proyecto_id
+          WHERE p.estructura = 'construccion'
+            AND a.carpeta IS NOT NULL
+            AND (a.carpeta LIKE '2.Control de obra/%'
+              OR a.carpeta LIKE '4.Calidad/%'
+              OR a.carpeta LIKE '3.Comunicaciones/%')`,
+      );
+      for (const actividad of actividadesAntiguas) {
+        const carpeta = carpetaConstruccionActual(actividad.carpeta);
+        if (carpeta !== actividad.carpeta) {
+          await pool.query("UPDATE edt_actividades SET carpeta = $1 WHERE id = $2", [carpeta, actividad.id]);
+        }
+      }
 
       // El CHECK original sólo admitía cinco estados; se reemplaza sin perder filas.
       await pool.query(`
@@ -237,6 +274,56 @@ export function asegurarEsquema(): Promise<void> {
           CHECK (actividad_id <> requisito_id)
         )
       `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS edt_actividad_formatos (
+          actividad_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+          formato_id TEXT NOT NULL REFERENCES formatos(id) ON DELETE CASCADE,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+          PRIMARY KEY (actividad_id, formato_id)
+        )
+      `);
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_edt_formatos_formato ON edt_actividad_formatos (formato_id)",
+      );
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS contactos_externos (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          nombre TEXT NOT NULL,
+          email TEXT NOT NULL,
+          organizacion TEXT NOT NULL DEFAULT '',
+          activo BOOLEAN NOT NULL DEFAULT true,
+          creado_por TEXT,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+          actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_contactos_externos_email ON contactos_externos (lower(email))",
+      );
+      await pool.query(
+        "ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS contacto_externo_id UUID REFERENCES contactos_externos(id) ON DELETE SET NULL",
+      );
+      await pool.query(
+        "ALTER TABLE edt_actividades ADD COLUMN IF NOT EXISTS correo_enviado_en TIMESTAMPTZ",
+      );
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_edt_actividades_contacto ON edt_actividades (contacto_externo_id)",
+      );
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS correos_entrantes (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          message_id TEXT NOT NULL UNIQUE,
+          actividad_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+          remitente TEXT NOT NULL DEFAULT '',
+          asunto TEXT NOT NULL DEFAULT '',
+          recibido_en TIMESTAMPTZ,
+          documentos INTEGER NOT NULL DEFAULT 0,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_correos_entrantes_actividad ON correos_entrantes (actividad_id)",
+      );
       await pool.query(
         "ALTER TABLE documentos ADD COLUMN IF NOT EXISTS edt_actividad_id UUID REFERENCES edt_actividades(id) ON DELETE SET NULL",
       );

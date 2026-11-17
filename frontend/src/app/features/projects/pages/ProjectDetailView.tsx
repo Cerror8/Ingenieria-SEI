@@ -174,7 +174,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <Crumb items={[{ label: "Proyectos", onClick: onBack }, { label: project.id }, { label: "Detalle" }]} />
+          <Crumb items={[{ label: "Área proyectos", onClick: onBack }, { label: project.id }, { label: "Detalle" }]} />
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-2">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -268,26 +268,26 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
             </div>
           )}
 
-          {/* ── DASHBOARD INDIVIDUAL ── */}
-          {tab === "dashboard" && (
+          {/* ── SEGUIMIENTO ── */}
+          {tab === "seguimiento" && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-gray-800">Dashboard del proyecto</h2>
-                <span className="text-xs text-gray-400">{project.id}</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <h2 className="text-sm font-bold text-gray-800">Seguimiento del proyecto</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { label: "Avance técnico",        value: `${project.progress}%`,        bg: "bg-orange-50",    tc: "text-orange-800"   },
-                  { label: "Avance financiero",     value: `${project.budgetExecuted}%`,   bg: "bg-emerald-50", tc: "text-emerald-800" },
-                  { label: "Indicadores cumplidos", value: `${indicadoresCumplidos} / ${projIndicators.length}`, bg: "bg-green-50", tc: "text-green-800" },
-                  { label: "Alertas activas",       value: String(alertasActivas),          bg: "bg-red-50",     tc: "text-red-700"    },
+                  { label: "Avance técnico",     value: `${project.progress}%`,      color: "text-orange-700",   bg: "bg-orange-50" },
+                  { label: "Avance presupuestal",value: `${project.budgetExecuted}%`, color: "text-emerald-700",bg: "bg-emerald-50" },
+                  { label: "Indicadores",        value: `${indicadoresCumplidos} / ${projIndicators.length}`, color: "text-slate-700", bg: "bg-slate-50" },
+                  { label: "Actividades",        value: `${actividadesCompletadas} / ${ganttActivities.length}`, color: "text-orange-700", bg: "bg-orange-50" },
+                  { label: "Entregables",        value: String(projDocs.length),      color: "text-gray-700",   bg: "bg-gray-50" },
+                  { label: "Alertas",            value: String(alertasActivas),       color: "text-red-700",    bg: "bg-red-50" },
                 ].map(k => (
                   <div key={k.label} className={`${k.bg} rounded-xl p-3`}>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{k.label}</p>
-                    <p className={`text-2xl font-black mt-1 ${k.tc}`}>{k.value}</p>
+                    <p className={`text-2xl font-black mt-0.5 ${k.color}`}>{k.value}</p>
                   </div>
                 ))}
               </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="rounded-xl border border-gray-100 p-4">
                   <h3 className="text-xs font-bold text-gray-700 mb-3">Avance técnico y presupuestal (%)</h3>
@@ -322,28 +322,6 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                     </ResponsiveContainer>
                   )}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── SEGUIMIENTO ── */}
-          {tab === "seguimiento" && (
-            <div className="space-y-5">
-              <h2 className="text-sm font-bold text-gray-800">Seguimiento del proyecto</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { label: "Avance técnico",     value: `${project.progress}%`,      color: "text-orange-700",   bg: "bg-orange-50" },
-                  { label: "Avance presupuestal",value: `${project.budgetExecuted}%`, color: "text-emerald-700",bg: "bg-emerald-50" },
-                  { label: "Indicadores",        value: `${indicadoresCumplidos} / ${projIndicators.length}`, color: "text-slate-700", bg: "bg-slate-50" },
-                  { label: "Actividades",        value: `${actividadesCompletadas} / ${ganttActivities.length}`, color: "text-orange-700", bg: "bg-orange-50" },
-                  { label: "Entregables",        value: String(projDocs.length),      color: "text-gray-700",   bg: "bg-gray-50" },
-                  { label: "Alertas",            value: String(alertasActivas),       color: "text-red-700",    bg: "bg-red-50" },
-                ].map(k => (
-                  <div key={k.label} className={`${k.bg} rounded-xl p-3`}>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{k.label}</p>
-                    <p className={`text-2xl font-black mt-0.5 ${k.color}`}>{k.value}</p>
-                  </div>
-                ))}
               </div>
 
               <div className="rounded-xl border border-gray-100 p-5 space-y-4">

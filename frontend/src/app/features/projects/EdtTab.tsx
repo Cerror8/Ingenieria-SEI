@@ -1,34 +1,43 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
-  CalendarClock,
   Check,
   CheckCircle2,
   CircleDashed,
+  ClipboardList,
   Clock,
   FileText,
   FileUp,
   Layers,
   Link2,
+  Mail,
+  MailCheck,
   Pencil,
   Play,
   Plus,
   RefreshCw,
   RotateCcw,
+  Search,
   Trash2,
+  UserPlus,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   api,
   ApiError,
+  type ContactoExternoApi,
   type DocumentoApi,
   type EdtActividadApi,
   type EdtApi,
   type EdtEstado,
   type EdtFaseApi,
+  type EdtPlantillaApi,
   type EdtTipoActividad,
+  type FormatoApi,
   type NuevaEdtActividad,
 } from "../../api/client";
+import { useAuth } from "../../auth/AuthProvider";
 import { calcularUrgencia, fechaCorta, type Urgencia } from "../../lib/urgencia";
 import type { UsuarioAsignable } from "../../types";
 import { SubirDocumentoModal } from "../documentos/SubirDocumentoModal";
@@ -59,6 +68,12 @@ const AVANCE_BARRA: Record<Urgencia["nivel"], number> = {
   morado: 100,
   "sin-fecha": 0,
 };
+
+function etiquetaFase(fase: { clave: string | null; orden?: number | null }): string {
+  const partes = fase.clave?.match(/^fase-(\d+)(?:-(\d+))?$/);
+  if (partes) return partes[2] ? `Fase ${partes[1]}.${partes[2]}` : `Fase ${partes[1]}`;
+  return `Fase ${fase.orden ?? 1}`;
+}
 
 function porcentajeCumplido(actividades: EdtActividadApi[]): number {
   const aplicables = actividades.filter((actividad) => !actividad.noAplica);
@@ -94,6 +109,16 @@ export function EdtTab({
   const [editorFase, setEditorFase] = useState<EdtFaseApi | null | "nueva">(null);
   const [subida, setSubida] = useState<EdtActividadApi | null>(null);
   const [cargandoPlantilla, setCargandoPlantilla] = useState(false);
+  const [formatos, setFormatos] = useState<FormatoApi[]>([]);
+  const [contactos, setContactos] = useState<ContactoExternoApi[]>([]);
+  const [correo, setCorreo] = useState<EdtActividadApi | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const { usuario } = useAuth();
+  const [vistaGeneral, setVistaGeneral] = useState(false);
+  const [busquedas, setBusquedas] = useState<Record<string, string>>({});
+  const [anchoFases, setAnchoFases] = useState(0);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const barraRef = useRef<HTMLDivElement>(null);
 
   const cargarDocumentos = useCallback(async () => {
     try {
@@ -137,7 +162,38 @@ export function EdtTab({
       .usuariosAsignables()
       .then(({ usuarios: filas }) => setUsuarios(filas))
       .catch(() => setUsuarios([]));
+    void api
+      .formatos()
+      .then(({ formatos: filas }) => setFormatos(filas.filter((formato) => formato.activo)))
+      .catch(() => setFormatos([]));
+    void api
+      .contactosExternos()
+      .then(({ contactos: filas }) => setContactos(filas.filter((contacto) => contacto.activo)))
+      .catch(() => setContactos([]));
   }, [cargar]);
+
+  useEffect(() => {
+    if (vistaGeneral) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const medir = () => setAnchoFases(grid.scrollWidth);
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(grid);
+    window.addEventListener("resize", medir);
+    return () => {
+      observador.disconnect();
+      window.removeEventListener("resize", medir);
+    };
+  }, [vistaGeneral, edt]);
+
+  function sincronizarScroll(origen: "barra" | "grid") {
+    const grid = gridRef.current;
+    const barra = barraRef.current;
+    if (!grid || !barra) return;
+    if (origen === "barra") grid.scrollLeft = barra.scrollLeft;
+    else barra.scrollLeft = grid.scrollLeft;
+  }
 
   const documentosPorActividad = useMemo(() => {
     const mapa = new Map<string, DocumentoApi[]>();
@@ -232,6 +288,24 @@ export function EdtTab({
     }
   }
 
+  async function sincronizarCorreos() {
+    setSincronizando(true);
+    try {
+      const resultado = await api.sincronizarCorreos();
+      onShowToast(
+        resultado.registrados > 0
+          ? `Respuestas registradas: ${resultado.registrados} correo(s) y ${resultado.documentos} documento(s).`
+          : `Sin respuestas nuevas (${resultado.revisados} correo(s) revisado(s)).`,
+      );
+      await cargar();
+      onChanged?.();
+    } catch (e) {
+      onShowToast(e instanceof ApiError ? e.message : "No se pudo sincronizar el correo.");
+    } finally {
+      setSincronizando(false);
+    }
+  }
+
   async function eliminarFase(fase: EdtFaseApi) {
     if (
       !window.confirm(
@@ -289,6 +363,19 @@ export function EdtTab({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            onClick={() => setVistaGeneral((valor) => !valor)}
+            aria-pressed={vistaGeneral}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+              vistaGeneral
+                ? "border-[#C2410C] bg-orange-50 text-[#C2410C]"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <ClipboardList className="h-4 w-4" />
+            {vistaGeneral ? "Ver tableros" : "Vista general"}
+          </button>
+          <button
+            type="button"
             onClick={cargarChecklist}
             disabled={cargandoPlantilla}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
@@ -296,6 +383,18 @@ export function EdtTab({
             <ListChecksIcon />
             {cargandoPlantilla ? "Cargando…" : "Completar checklist"}
           </button>
+          {usuario?.rol === "admin" && (
+            <button
+              type="button"
+              onClick={() => void sincronizarCorreos()}
+              disabled={sincronizando}
+              title="Busca en el buzón las respuestas de las personas externas y las archiva en su actividad"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              <MailCheck className={`h-4 w-4 ${sincronizando ? "animate-pulse" : ""}`} />
+              {sincronizando ? "Sincronizando…" : "Sincronizar respuestas"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setEditorFase("nueva")}
@@ -352,12 +451,37 @@ export function EdtTab({
             Carga el checklist del contrato o crea una fase para empezar.
           </p>
         </div>
+      ) : vistaGeneral ? (
+        <VistaGeneralEdt plantilla={edt?.plantillaEdt ?? []} actividades={actividades} />
       ) : (
-        <div className="grid auto-cols-[minmax(290px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-3">
+        <>
+          <div className="rounded-lg border border-slate-200 bg-white px-1 py-0.5">
+            <div
+              ref={barraRef}
+              onScroll={() => sincronizarScroll("barra")}
+              aria-hidden="true"
+              className="overflow-x-auto overflow-y-hidden"
+            >
+              <div style={{ width: `${Math.max(anchoFases, 1)}px` }} className="h-1" />
+            </div>
+          </div>
+          <div
+            ref={gridRef}
+            onScroll={() => sincronizarScroll("grid")}
+            className="grid auto-cols-[minmax(290px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-3"
+          >
           {fases.map((fase) => {
             const actividadesFase = actividades.filter(
               (actividad) => actividad.faseId === fase.id,
             );
+            const busqueda = (busquedas[fase.id] ?? "").trim().toLocaleLowerCase("es");
+            const actividadesFiltradas = busqueda
+              ? actividadesFase.filter((actividad) =>
+                  [actividad.nombre, actividad.descripcion, actividad.responsable ?? ""].some(
+                    (valor) => valor.toLocaleLowerCase("es").includes(busqueda),
+                  ),
+                )
+              : actividadesFase;
             const progreso = porcentajeCumplido(actividadesFase);
             const aplicablesFase = actividadesFase.filter((actividad) => !actividad.noAplica);
             const anterior = fases.find((otra) => otra.id === fase.dependeDeFaseId);
@@ -371,7 +495,7 @@ export function EdtTab({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-                          F{fase.orden}
+                          {etiquetaFase(fase)}
                         </span>
                         <span
                           className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
@@ -389,6 +513,22 @@ export function EdtTab({
                       <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-500">
                         {fase.descripcion || "Sin descripción."}
                       </p>
+                      <div className="relative mt-2">
+                        <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="search"
+                          value={busquedas[fase.id] ?? ""}
+                          onChange={(event) =>
+                            setBusquedas((actual) => ({
+                              ...actual,
+                              [fase.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Buscar en esta fase…"
+                          aria-label={`Buscar actividades en ${fase.nombre}`}
+                          className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pl-7 pr-2 text-[11px] text-slate-700 outline-none focus:border-[#EA580C] focus:bg-white"
+                        />
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <button
@@ -436,12 +576,14 @@ export function EdtTab({
                 </header>
 
                 <div className="max-h-[540px] flex-1 space-y-2 overflow-y-auto p-2">
-                  {actividadesFase.length === 0 ? (
+                  {actividadesFiltradas.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] text-slate-400">
-                      Sin actividades en esta fase.
+                      {actividadesFase.length === 0
+                        ? "Sin actividades en esta fase."
+                        : "Ninguna actividad coincide con la búsqueda."}
                     </p>
                   ) : (
-                    [...actividadesFase]
+                    [...actividadesFiltradas]
                       .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
                       .map((actividad) => (
                         <TarjetaActividad
@@ -455,6 +597,7 @@ export function EdtTab({
                           onEliminar={() => void eliminarActividad(actividad)}
                           onEstado={(estado) => void cambiarEstado(actividad, estado)}
                           onSubir={() => setSubida(actividad)}
+                          onCorreo={() => setCorreo(actividad)}
                         />
                       ))
                   )}
@@ -471,14 +614,16 @@ export function EdtTab({
               </section>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       <p className="text-[11px] leading-relaxed text-slate-400">
-        Las tres fases principales se conservan como guía y pueden renombrarse. Las fases
-        adicionales se conectan a la fase anterior. Los documentos que cargues aquí quedan también
-        en Documentos, dentro de la carpeta sugerida, y una actividad no puede completarse sin sus
-        documentos y requisitos previos.
+        Las fases del checklist se conservan como guía y pueden renombrarse. Las fases adicionales
+        se conectan a la fase anterior. Los documentos que cargues aquí quedan también en
+        Documentos, dentro de la carpeta sugerida, y una actividad no puede completarse sin sus
+        documentos y requisitos previos. La vista general compara la plantilla del contrato con las
+        actividades ya cargadas en el proyecto.
       </p>
 
       {editorActividad && edt && (
@@ -490,7 +635,10 @@ export function EdtTab({
           fases={fases}
           actividades={actividades}
           usuarios={usuarios}
+          contactos={contactos}
           carpetas={carpetas}
+          formatos={formatos}
+          onContactoCreado={(contacto) => setContactos((actual) => [...actual, contacto])}
           onCerrar={() => setEditorActividad(null)}
           onGuardado={async () => {
             setEditorActividad(null);
@@ -530,6 +678,19 @@ export function EdtTab({
           onChanged?.();
         }}
       />
+
+      {correo && (
+        <ModalCorreo
+          actividad={correo}
+          onCerrar={() => setCorreo(null)}
+          onEnviado={async () => {
+            setCorreo(null);
+            await cargar();
+            onChanged?.();
+          }}
+          onShowToast={onShowToast}
+        />
+      )}
     </div>
   );
 }
@@ -568,6 +729,110 @@ function Resumen({
   );
 }
 
+function VistaGeneralEdt({
+  plantilla,
+  actividades,
+}: {
+  plantilla: EdtPlantillaApi[];
+  actividades: EdtActividadApi[];
+}) {
+  const presentes = new Set(
+    actividades
+      .map((actividad) => actividad.plantillaClave)
+      .filter((clave): clave is string => Boolean(clave)),
+  );
+  const total = plantilla.reduce((suma, fase) => suma + fase.actividades.length, 0);
+  const obtenidas = plantilla.reduce(
+    (suma, fase) => suma + fase.actividades.filter((item) => presentes.has(item.clave)).length,
+    0,
+  );
+
+  if (!plantilla.length) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
+        <p className="text-sm font-semibold text-slate-700">
+          Aún no hay una plantilla de checklist para este tipo de contrato.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div>
+          <p className="text-sm font-bold text-slate-800">Vista general del EDT</p>
+          <p className="text-[11px] text-slate-500">
+            Plantilla del contrato con cada actividad: ✓ presente en el proyecto, ✗ falta cargarla.
+          </p>
+        </div>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+            obtenidas === total
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-orange-200 bg-orange-50 text-[#C2410C]"
+          }`}
+        >
+          {obtenidas}/{total} obtenidas
+        </span>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        {plantilla.map((fase) => {
+          const hechas = fase.actividades.filter((item) => presentes.has(item.clave)).length;
+          return (
+            <section
+              key={fase.clave}
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+            >
+              <header className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-orange-600">
+                    {etiquetaFase({ clave: fase.clave })}
+                  </p>
+                  <h3 className="truncate text-sm font-bold text-slate-800" title={fase.nombre}>
+                    {fase.nombre}
+                  </h3>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                    hechas === fase.actividades.length
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-500"
+                  }`}
+                >
+                  {hechas}/{fase.actividades.length}
+                </span>
+              </header>
+              <ul className="divide-y divide-slate-50">
+                {fase.actividades.map((item) => {
+                  const existe = presentes.has(item.clave);
+                  return (
+                    <li key={item.clave} className="flex items-start gap-2 px-4 py-2">
+                      {existe ? (
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      ) : (
+                        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+                      )}
+                      <span
+                        className={`text-xs leading-snug ${
+                          existe ? "text-slate-700" : "text-rose-600"
+                        }`}
+                      >
+                        {item.nombre}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TarjetaActividad({
   actividad,
   documentos,
@@ -576,6 +841,7 @@ function TarjetaActividad({
   onEliminar,
   onEstado,
   onSubir,
+  onCorreo,
 }: {
   actividad: EdtActividadApi;
   documentos: DocumentoApi[];
@@ -584,6 +850,7 @@ function TarjetaActividad({
   onEliminar: () => void;
   onEstado: (estado: EdtEstado) => void;
   onSubir: () => void;
+  onCorreo: () => void;
 }) {
   const urgencia = calcularUrgencia(actividad.fechaCumplimiento);
   const estado = ESTADO_CFG[actividad.estado];
@@ -619,7 +886,7 @@ function TarjetaActividad({
               {actividad.estado}
             </span>
             <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${urgencia.badge}`}>
-              {urgencia.etiqueta}
+              Alta · {urgencia.etiqueta}
             </span>
           </>
         )}
@@ -659,18 +926,17 @@ function TarjetaActividad({
         </p>
       ) : (
         <div className="mt-2.5">
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div className="relative h-5 overflow-hidden rounded-full bg-slate-100">
             <div
               className={`h-full rounded-full ${urgencia.barra}`}
               style={{ width: `${AVANCE_BARRA[urgencia.nivel]}%` }}
             />
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
-            <span className="inline-flex items-center gap-1">
-              <CalendarClock className="h-3 w-3" />
+            <span className="pointer-events-none absolute inset-y-0 left-1 flex items-center rounded-full bg-white/85 px-1.5 text-[9px] font-semibold text-slate-700">
               {fechaCorta(actividad.fechaCumplimiento)}
             </span>
-            <span className="font-medium">{urgencia.restante}</span>
+            <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center rounded-full bg-white/85 px-1.5 text-[9px] font-semibold text-slate-600">
+              {urgencia.restante}
+            </span>
           </div>
         </div>
       )}
@@ -679,6 +945,24 @@ function TarjetaActividad({
         <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5 text-slate-500">
           {actividad.responsable || "Sin asignar"}
         </span>
+        {actividad.contactoExterno && (
+          <span
+            title={actividad.contactoExterno.organizacion || actividad.contactoExterno.email}
+            className="inline-flex max-w-full items-center gap-1 rounded bg-violet-50 px-1.5 py-0.5 text-violet-700"
+          >
+            <Mail className="h-3 w-3 shrink-0" />
+            <span className="truncate">{actividad.contactoExterno.email}</span>
+          </span>
+        )}
+        {actividad.correoEnviadoEn && (
+          <span
+            title={`Correo enviado el ${actividad.correoEnviadoEn.slice(0, 10)}`}
+            className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700"
+          >
+            <MailCheck className="h-3 w-3" />
+            Correo enviado
+          </span>
+        )}
         {actividad.requiereDocumento && !actividad.noAplica && (
           <span
             className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${
@@ -695,6 +979,21 @@ function TarjetaActividad({
           </span>
         )}
       </div>
+
+      {actividad.formatos.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {actividad.formatos.map((formato) => (
+            <span
+              key={formato.id}
+              title={formato.nombre}
+              className="inline-flex max-w-full items-center gap-1 rounded bg-violet-50 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
+            >
+              <FileText className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{formato.nombre}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {requisitosVisibles.length > 0 && (
         <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-2 py-1.5">
@@ -798,8 +1097,124 @@ function TarjetaActividad({
             Documento
           </button>
         )}
+        {!actividad.noAplica && actividad.contactoExterno && (
+          <button
+            type="button"
+            onClick={onCorreo}
+            title={`Enviar el detalle de la actividad a ${actividad.contactoExterno.email}`}
+            className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 transition hover:bg-violet-100"
+          >
+            <Mail className="h-3 w-3" />
+            Enviar correo
+          </button>
+        )}
       </div>
     </article>
+  );
+}
+
+function ModalCorreo({
+  actividad,
+  onCerrar,
+  onEnviado,
+  onShowToast,
+}: {
+  actividad: EdtActividadApi;
+  onCerrar: () => void;
+  onEnviado: () => Promise<void>;
+  onShowToast: (mensaje: string) => void;
+}) {
+  const [mensaje, setMensaje] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const contacto = actividad.contactoExterno;
+
+  async function enviar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (enviando) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const resultado = await api.enviarCorreoActividad(actividad.id, mensaje.trim() || undefined);
+      onShowToast(`Correo enviado a ${contacto?.email ?? "la persona externa"}.`);
+      await onEnviado();
+      void resultado;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No se pudo enviar el correo.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center">
+      <div className="my-auto w-full max-w-xl rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-base font-bold text-slate-800">Enviar correo de la actividad</h2>
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={enviar} className="space-y-4 px-5 py-5">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-600">
+            <p className="font-semibold text-slate-800">{actividad.nombre}</p>
+            <p className="mt-0.5">
+              Para: {contacto ? `${contacto.nombre} <${contacto.email}>` : "Sin persona externa"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              El asunto incluye un código de la actividad: cuando respondan conservando el asunto,
+              su respuesta y sus archivos se archivan aquí.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="correo-mensaje" className="text-xs font-semibold text-slate-700">
+              Mensaje adicional (opcional)
+            </label>
+            <textarea
+              id="correo-mensaje"
+              rows={4}
+              value={mensaje}
+              onChange={(event) => setMensaje(event.target.value)}
+              className={campoCls}
+              placeholder="Ej. Por favor enviar el acta firmada antes del viernes."
+            />
+          </div>
+
+          {error && (
+            <p
+              role="alert"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+            >
+              {error}
+            </p>
+          )}
+
+          <div className="flex flex-col-reverse justify-end gap-2 pt-1 sm:flex-row">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={enviando || !contacto}
+              className="rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {enviando ? "Enviando…" : "Enviar correo"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -810,7 +1225,10 @@ function ModalActividad({
   fases,
   actividades,
   usuarios,
+  contactos,
   carpetas,
+  formatos,
+  onContactoCreado,
   onCerrar,
   onGuardado,
   onShowToast,
@@ -821,7 +1239,10 @@ function ModalActividad({
   fases: EdtFaseApi[];
   actividades: EdtActividadApi[];
   usuarios: UsuarioAsignable[];
+  contactos: ContactoExternoApi[];
   carpetas: string[];
+  formatos: FormatoApi[];
+  onContactoCreado: (contacto: ContactoExternoApi) => void;
   onCerrar: () => void;
   onGuardado: () => Promise<void>;
   onShowToast: (mensaje: string) => void;
@@ -830,9 +1251,20 @@ function ModalActividad({
   const [descripcion, setDescripcion] = useState(actividad?.descripcion ?? "");
   const [faseId, setFaseId] = useState(actividad?.faseId ?? faseInicial);
   const [tipo, setTipo] = useState<EdtTipoActividad>(actividad?.tipo ?? "Actividad");
-  const [prioridad, setPrioridad] = useState(actividad?.prioridad ?? "Alta");
   const [fecha, setFecha] = useState(actividad?.fechaCumplimiento?.slice(0, 10) ?? "");
-  const [responsableId, setResponsableId] = useState(actividad?.responsableId ?? "");
+  const [asignado, setAsignado] = useState(
+    actividad?.contactoExternoId
+      ? `externo:${actividad.contactoExternoId}`
+      : (actividad?.responsableId ?? ""),
+  );
+  const [mostrarExterno, setMostrarExterno] = useState(false);
+  const [nuevoContacto, setNuevoContacto] = useState({
+    nombre: "",
+    email: "",
+    organizacion: "",
+  });
+  const [creandoContacto, setCreandoContacto] = useState(false);
+  const [errorContacto, setErrorContacto] = useState<string | null>(null);
   const [requiereDocumento, setRequiereDocumento] = useState(
     actividad?.requiereDocumento ?? false,
   );
@@ -840,6 +1272,9 @@ function ModalActividad({
   const [carpeta, setCarpeta] = useState(actividad?.carpeta ?? "");
   const [requisitoIds, setRequisitoIds] = useState<string[]>(
     actividad?.requisitos.map((requisito) => requisito.id) ?? [],
+  );
+  const [formatoIds, setFormatoIds] = useState<string[]>(
+    actividad?.formatos.map((formato) => formato.id) ?? [],
   );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -854,26 +1289,60 @@ function ModalActividad({
     );
   }
 
+  function alternarFormato(id: string) {
+    setFormatoIds((actual) =>
+      actual.includes(id) ? actual.filter((valor) => valor !== id) : [...actual, id],
+    );
+  }
+
+  async function crearContacto() {
+    if (creandoContacto) return;
+    if (!nuevoContacto.nombre.trim() || !nuevoContacto.email.trim()) {
+      return setErrorContacto("Escribe el nombre y el correo de la persona externa.");
+    }
+    setCreandoContacto(true);
+    setErrorContacto(null);
+    try {
+      const { contacto } = await api.crearContactoExterno({
+        nombre: nuevoContacto.nombre.trim(),
+        email: nuevoContacto.email.trim(),
+        organizacion: nuevoContacto.organizacion.trim(),
+      });
+      onContactoCreado(contacto);
+      setAsignado(`externo:${contacto.id}`);
+      setMostrarExterno(false);
+      setNuevoContacto({ nombre: "", email: "", organizacion: "" });
+      onShowToast(`Persona externa agregada: ${contacto.email}.`);
+    } catch (e) {
+      setErrorContacto(e instanceof ApiError ? e.message : "No se pudo crear el contacto.");
+    } finally {
+      setCreandoContacto(false);
+    }
+  }
+
   async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (guardando) return;
     if (!nombre.trim()) return setError("Escribe el nombre de la actividad.");
     if (!faseId) return setError("Selecciona una fase.");
 
-    const usuario = usuarios.find((fila) => fila.id === responsableId);
+    const externoId = asignado.startsWith("externo:") ? asignado.slice("externo:".length) : null;
+    const usuario = usuarios.find((fila) => fila.id === asignado);
     const datos: NuevaEdtActividad = {
       faseId,
       nombre: nombre.trim(),
       descripcion: descripcion.trim(),
       tipo,
-      prioridad,
+      prioridad: "Alta",
       requiereDocumento,
       noAplica,
       carpeta: carpeta || null,
-      responsableId: responsableId || null,
-      responsable: usuario?.nombre ?? null,
+      responsableId: externoId ? null : asignado || null,
+      responsable: externoId ? null : (usuario?.nombre ?? null),
+      contactoExternoId: externoId,
       fechaCumplimiento: fecha || null,
       requisitoIds,
+      formatoIds,
     };
 
     setGuardando(true);
@@ -949,7 +1418,7 @@ function ModalActividad({
               >
                 {fases.map((fase) => (
                   <option key={fase.id} value={fase.id}>
-                    F{fase.orden} · {fase.nombre}
+                    {etiquetaFase(fase)} · {fase.nombre}
                   </option>
                 ))}
               </select>
@@ -976,21 +1445,6 @@ function ModalActividad({
               </select>
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="act-prioridad" className="text-xs font-semibold text-slate-700">
-                Prioridad
-              </label>
-              <select
-                id="act-prioridad"
-                value={prioridad}
-                onChange={(e) => setPrioridad(e.target.value as typeof prioridad)}
-                className={campoCls}
-              >
-                <option value="Alta">Alta</option>
-                <option value="Media">Media</option>
-                <option value="Baja">Baja</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
               <label htmlFor="act-fecha" className="text-xs font-semibold text-slate-700">
                 Fecha de entrega
               </label>
@@ -1008,17 +1462,79 @@ function ModalActividad({
               </label>
               <select
                 id="act-responsable"
-                value={responsableId}
-                onChange={(e) => setResponsableId(e.target.value)}
+                value={asignado}
+                onChange={(e) => setAsignado(e.target.value)}
                 className={campoCls}
               >
                 <option value="">Sin asignar</option>
-                {usuarios.map((usuario) => (
-                  <option key={usuario.id} value={usuario.id}>
-                    {usuario.nombre}
-                  </option>
-                ))}
+                <optgroup label="Equipo">
+                  {usuarios.map((fila) => (
+                    <option key={fila.id} value={fila.id}>
+                      {fila.nombre}
+                    </option>
+                  ))}
+                </optgroup>
+                {contactos.length > 0 && (
+                  <optgroup label="Personas externas">
+                    {contactos.map((contacto) => (
+                      <option key={contacto.id} value={`externo:${contacto.id}`}>
+                        {contacto.nombre} · {contacto.email}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+              <button
+                type="button"
+                onClick={() => setMostrarExterno((valor) => !valor)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C2410C] hover:underline"
+              >
+                <UserPlus className="h-3 w-3" />
+                {mostrarExterno ? "Ocultar" : "Agregar persona externa"}
+              </button>
+              {mostrarExterno && (
+                <div className="space-y-2 rounded-lg border border-violet-200 bg-violet-50/50 p-2">
+                  <input
+                    value={nuevoContacto.nombre}
+                    onChange={(e) =>
+                      setNuevoContacto((actual) => ({ ...actual, nombre: e.target.value }))
+                    }
+                    placeholder="Nombre"
+                    aria-label="Nombre de la persona externa"
+                    className={campoCls}
+                  />
+                  <input
+                    type="email"
+                    value={nuevoContacto.email}
+                    onChange={(e) =>
+                      setNuevoContacto((actual) => ({ ...actual, email: e.target.value }))
+                    }
+                    placeholder="correo@entidad.gov.co"
+                    aria-label="Correo de la persona externa"
+                    className={campoCls}
+                  />
+                  <input
+                    value={nuevoContacto.organizacion}
+                    onChange={(e) =>
+                      setNuevoContacto((actual) => ({ ...actual, organizacion: e.target.value }))
+                    }
+                    placeholder="Entidad u organización (opcional)"
+                    aria-label="Organización de la persona externa"
+                    className={campoCls}
+                  />
+                  {errorContacto && (
+                    <p className="text-[11px] font-medium text-rose-600">{errorContacto}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void crearContacto()}
+                    disabled={creandoContacto}
+                    className="rounded-md bg-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {creandoContacto ? "Guardando…" : "Guardar persona externa"}
+                  </button>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="act-carpeta" className="text-xs font-semibold text-slate-700">
@@ -1093,12 +1609,50 @@ function ModalActividad({
                       <span>
                         <span className="font-medium text-slate-700">{otra.nombre}</span>
                         <span className="ml-1 text-slate-400">
-                          {fase ? `· F${fase.orden}` : ""} · {otra.tipo}
+                          {fase ? `· ${etiquetaFase(fase)}` : ""} · {otra.tipo}
                         </span>
                       </span>
                     </label>
                   );
                 })
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-slate-700">Formatos del módulo Formatos</p>
+            <p className="text-[11px] text-slate-400">
+              Marca los formatos que esta actividad debe diligenciar o entregar. Se crean y editan
+              en el módulo Formatos.
+            </p>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+              {formatos.length === 0 ? (
+                <p className="px-2 py-3 text-center text-[11px] text-slate-400">
+                  No hay formatos activos. Créalos en el módulo Formatos para asignarlos aquí.
+                </p>
+              ) : (
+                formatos.map((formato) => (
+                  <label
+                    key={formato.id}
+                    title={formato.descripcion ?? formato.nombre}
+                    className="flex items-start gap-2 rounded px-1.5 py-1 text-[11px] text-slate-600 hover:bg-white"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formatoIds.includes(formato.id)}
+                      onChange={() => alternarFormato(formato.id)}
+                      className="mt-0.5 h-3.5 w-3.5 accent-[#C2410C]"
+                    />
+                    <span>
+                      <span className="font-medium text-slate-700">{formato.nombre}</span>
+                      {formato.totalRegistros > 0 && (
+                        <span className="ml-1 text-slate-400">
+                          · {formato.totalRegistros} registro(s)
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))
               )}
             </div>
           </div>
@@ -1243,7 +1797,7 @@ function ModalFase({
                 .filter((otra) => otra.id !== fase?.id)
                 .map((otra) => (
                   <option key={otra.id} value={otra.id}>
-                    F{otra.orden} · {otra.nombre}
+                    {etiquetaFase(otra)} · {otra.nombre}
                   </option>
                 ))}
             </select>

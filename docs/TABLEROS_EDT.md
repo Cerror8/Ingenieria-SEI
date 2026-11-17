@@ -135,6 +135,11 @@ El color se aplica al borde izquierdo de la tarjeta, al punto de la columna y al
 | `POST` | `/api/edt/:proyectoId` | Crea actividad y su tarea. |
 | `POST` | `/api/edt/:proyectoId/plantilla` | Siembra el checklist del tipo de contrato. |
 | `GET` | `/api/documentos?edtActividadId=...` | Documentos de una actividad. |
+| `POST` | `/api/edt/actividades/:id/correo` | Envía el correo de la actividad a una persona externa. |
+| `POST` | `/api/edt/correos/sincronizar` | Archiva las respuestas recibidas por correo. |
+
+Las personas externas y el correo bidireccional se explican en
+[CORREO_EXTERNO.md](./CORREO_EXTERNO.md).
 
 ## Verificación local
 

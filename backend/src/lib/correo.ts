@@ -171,6 +171,72 @@ function plantilla({ titulo, intro, detalles = [], cta, nota }: Plantilla): stri
 </html>`;
 }
 
+export type CorreoActividad = {
+  para: string;
+  contacto: string;
+  token: string;
+  referencia: string;
+  abreviatura: string;
+  numeroContrato: string | null;
+  fase: string;
+  actividad: string;
+  descripcion: string;
+  orden: number;
+  fecha: string | null;
+  formatos: string[];
+  mensaje: string;
+};
+
+export function construirCorreoActividad(datos: CorreoActividad): {
+  asunto: string;
+  html: string;
+  texto: string;
+} {
+  const detalleActividad = `${datos.fase} · #${datos.orden} · ${datos.actividad}`;
+  const detalles: Detalle[] = [
+    { etiqueta: "Referencia", valor: datos.referencia },
+    {
+      etiqueta: "Contrato",
+      valor: datos.numeroContrato
+        ? `${datos.abreviatura} · N.º ${datos.numeroContrato}`
+        : datos.abreviatura,
+    },
+    { etiqueta: "Actividad", valor: detalleActividad },
+    { etiqueta: "Entregable", valor: datos.actividad },
+  ];
+  if (datos.descripcion) detalles.push({ etiqueta: "Descripción", valor: datos.descripcion });
+  if (datos.formatos.length) {
+    detalles.push({ etiqueta: "Formato", valor: datos.formatos.join(", ") });
+  }
+  detalles.push({ etiqueta: "Fecha de entrega", valor: formatearFecha(datos.fecha) });
+  if (datos.mensaje) detalles.push({ etiqueta: "Mensaje", valor: datos.mensaje });
+
+  const nota =
+    "Responde a este correo conservando el asunto para que tu respuesta y tus archivos queden registrados automáticamente en la actividad del proyecto. Adjunta los documentos en PDF, Word, Excel o imágenes.";
+
+  return {
+    asunto:
+      `[SEI-ACT:${datos.token}] ${datos.abreviatura} · ${datos.fase} #${datos.orden} - ${datos.actividad}`.slice(
+        0,
+        180,
+      ),
+    texto: `Hola ${datos.contacto}, necesitamos el siguiente entregable del contrato ${datos.referencia}.\n\n` +
+      detalles.map((detalle) => `${detalle.etiqueta}: ${detalle.valor}`).join("\n") +
+      `\n\n${nota}`,
+    html: plantilla({
+      titulo: "Entregable pendiente del contrato",
+      intro: `Hola ${datos.contacto}, necesitamos que nos hagas llegar el siguiente entregable del contrato ${datos.referencia}.`,
+      detalles,
+      nota,
+    }),
+  };
+}
+
+export async function enviarCorreoActividadExterna(datos: CorreoActividad): Promise<boolean> {
+  const contenido = construirCorreoActividad(datos);
+  return enviarCorreo({ para: datos.para, ...contenido });
+}
+
 export function formatearFecha(fecha: string | null): string {
   if (!fecha) return "Sin fecha límite";
   const [anio, mes, dia] = fecha.slice(0, 10).split("-").map(Number);

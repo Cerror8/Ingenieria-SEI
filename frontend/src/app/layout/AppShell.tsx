@@ -22,10 +22,10 @@ import { ProfileView } from "../features/perfil/ProfileView";
 import { UsuariosView } from "../features/usuarios/UsuariosView";
 
 const ETIQUETAS_VISTA: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Resumen proyectos",
   "mi-tablero": "Mi tablero",
-  tableros: "Tableros",
-  projects: "Proyectos",
+  tableros: "Tareas generales",
+  projects: "Área proyectos",
   antecedentes: "Antecedentes",
   informes: "Informes",
   documentos: "Documentos",
@@ -75,10 +75,10 @@ export function AppShell() {
 
   const getBreadcrumb = () => {
     if (view === "create-project" || view === "edit-project") {
-      return [{ label: "Proyectos" }, { label: view === "edit-project" ? "Editar proyecto" : "Nuevo proyecto" }];
+      return [{ label: "Área proyectos" }, { label: view === "edit-project" ? "Editar proyecto" : "Nuevo proyecto" }];
     }
     if (view === "project-detail" && selectedProjectId) {
-      return [{ label: "Proyectos" }, { label: selectedProjectId }];
+      return [{ label: "Área proyectos" }, { label: selectedProjectId }];
     }
     const etiqueta = ETIQUETAS_VISTA[view];
     return etiqueta ? [{ label: etiqueta }] : [];

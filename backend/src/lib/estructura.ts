@@ -13,28 +13,37 @@ export const ESTRUCTURAS: Estructura[] = [
     carpetas: [
       "1.Documentacion tecnica",
       "2.Control de obra",
-      "2.Control de obra/1.Anticipo",
-      "2.Control de obra/2.Cronograma y presupuesto",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion/0.Cotizaciones",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion/0.Facturacion",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion/0.Facturacion/1.Caja menor",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion/0.Facturacion/2.Mano de obra",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion/0.Facturacion/3.Materiales",
-      "2.Control de obra/2.Cronograma y presupuesto/1.Ppto ejecucion/0.Facturacion/4.Maquinaria",
-      "2.Control de obra/3.Registro fotografico",
+      "2.Control de obra/1.Cronograma y presupuesto",
+      "2.Control de obra/1.Cronograma y presupuesto/1.anticipo",
+      "2.Control de obra/1.Cronograma y presupuesto/1.anticipo/0.Cotizaciones",
+      "2.Control de obra/1.Cronograma y presupuesto/1.anticipo/0.Facturacion",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/0.Cotizacion",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/1.Facturacion",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/1.Facturacion/1.Caja menor",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/1.Facturacion/2.Mano de obra",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/1.Facturacion/3.Materiales",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/1.Facturacion/4.Maquinaria",
+      "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/2.Ordenes de compra",
+      "2.Control de obra/1.Cronograma y presupuesto/3. cronograma",
+      "2.Control de obra/2.Registro fotografico",
+      "2.Control de obra/2.Registro fotografico/0. Visita Preeliminar",
+      "2.Control de obra/3.Modificaciones al proyecto",
       "2.Control de obra/4.Bitacora de obra",
-      "2.Control de obra/5.Modificaciones al proyecto",
       "3.Comunicaciones",
       "3.Comunicaciones/1.Enviados",
       "3.Comunicaciones/2.Recibidos",
+      "3.Comunicaciones/3. Internas",
       "4.Calidad",
-      "4.Calidad/0.Formatos",
-      "4.Calidad/1.Comp Calidad",
-      "4.Calidad/2.Comp SST",
-      "4.Calidad/3.Comp Ambiental",
+      "4.Calidad/0.Gerenecia",
+      "4.Calidad/1. Ambiental",
+      "4.Calidad/2. Pmt",
+      "4.Calidad/3. Plan social",
+      "4.Calidad/4. sgsst",
+      "4.Calidad/5.PIE",
       "5.Documentacion contractual",
       "5.Documentacion contractual/0.Contratista",
+      "5.Documentacion contractual/0.Contratista/0.Proceso",
       "5.Documentacion contractual/0.Contratista/1.Legalizacion",
       "5.Documentacion contractual/0.Contratista/2.Polizas",
       "5.Documentacion contractual/0.Contratista/3.Personal",
@@ -343,19 +352,32 @@ export function normalizarCarpeta(valor: unknown): string | null {
   return ruta.slice(0, 300) || null;
 }
 
-// «Control de obra» reordenó sus fases: anticipo salió del presupuesto y se renumeró.
-// Se aplica al validar rutas antiguas (por ejemplo, ZIP exportados antes del cambio).
+// Rutas de versiones anteriores de «Construcción ejecución» que deben resolverse
+// a la estructura vigente del modelo de carpetas. Se aplican en orden y una sola vez.
 const RENOMBRES_CONSTRUCCION: Array<[string, string]> = [
-  ["2.Control de obra/1.Cronograma y presupuesto/1.Ppto ejecucion/0.Anticipo", "2.Control de obra/1.Anticipo"],
-  ["2.Control de obra/1.Cronograma y presupuesto", "2.Control de obra/2.Cronograma y presupuesto"],
-  ["2.Control de obra/2.Registro fotografico", "2.Control de obra/3.Registro fotografico"],
-  ["2.Control de obra/3.Modificaciones al proyecto", "2.Control de obra/5.Modificaciones al proyecto"],
+  ["2.Control de obra/2.Cronograma y presupuesto", "2.Control de obra/1.Cronograma y presupuesto"],
+  ["2.Control de obra/1.Cronograma y presupuesto/1.Ppto ejecucion/0.Anticipo", "2.Control de obra/1.Cronograma y presupuesto/1.anticipo"],
+  ["2.Control de obra/1.Cronograma y presupuesto/1.Ppto ejecucion/0.Cotizaciones", "2.Control de obra/1.Cronograma y presupuesto/1.anticipo/0.Cotizaciones"],
+  ["2.Control de obra/1.Cronograma y presupuesto/1.Ppto ejecucion/0.Facturacion", "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto/1.Facturacion"],
+  ["2.Control de obra/1.Cronograma y presupuesto/1.Ppto ejecucion", "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto"],
+  ["2.Control de obra/1.Anticipo", "2.Control de obra/1.Cronograma y presupuesto/1.anticipo"],
+  ["2.Control de obra/3.Registro fotografico", "2.Control de obra/2.Registro fotografico"],
+  ["2.Control de obra/5.Modificaciones al proyecto", "2.Control de obra/3.Modificaciones al proyecto"],
+  ["4.Calidad/0.Formatos", "4.Calidad"],
+  ["4.Calidad/1.Comp Calidad", "4.Calidad/0.Gerenecia"],
+  ["4.Calidad/2.Comp SST", "4.Calidad/4. sgsst"],
+  ["4.Calidad/3.Comp Ambiental", "4.Calidad/1. Ambiental"],
+  ["3.Comunicaciones/3.Internas", "3.Comunicaciones/3. Internas"],
 ];
 
 export function carpetaConstruccionActual(carpeta: string): string {
+  let actual = carpeta;
   for (const [vieja, nueva] of RENOMBRES_CONSTRUCCION) {
-    if (carpeta === vieja) return nueva;
-    if (carpeta.startsWith(`${vieja}/`)) return `${nueva}${carpeta.slice(vieja.length)}`;
+    if (actual === vieja) {
+      actual = nueva;
+    } else if (actual.startsWith(`${vieja}/`)) {
+      actual = `${nueva}${actual.slice(vieja.length)}`;
+    }
   }
-  return carpeta;
+  return actual;
 }

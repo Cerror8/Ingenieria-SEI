@@ -179,7 +179,7 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
             }}
             className="flex w-full items-center justify-center gap-1 border-t border-gray-100 px-4 py-2.5 text-xs font-semibold text-[#9A3412] transition-colors hover:bg-orange-50"
           >
-            Ir a Tableros
+            Ir a Tareas generales
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>

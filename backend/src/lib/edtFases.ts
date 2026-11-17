@@ -39,22 +39,103 @@ export type FaseEdt = {
 type ProyectoRef = { id: string; nombre: string; liderId: string | null; estructura: string | null };
 
 const CARPETAS: Record<string, string[]> = {
-  legalizacion: ["legalizacion", "documentacion contractual"],
-  polizas: ["polizas"],
-  personal: ["personal"],
-  contratacion: ["documentacion contractual"],
-  liquidacion: ["liquidacion", "documentacion contractual"],
-  informes: ["informes"],
-  "informes-mensual": ["informes/1.mensual", "mensual", "informes"],
-  "informes-semanal": ["informes/2.semanal", "semanal", "informes"],
-  comunicaciones: ["comunicaciones"],
-  tecnica: ["documentacion tecnica"],
-  cronograma: ["cronograma"],
-  registro: ["registro fotografico", "registro"],
-  bitacora: ["bitacora", "control de obra"],
-  calidad: ["calidad", "formatos"],
-  finanzas: ["finanzas"],
-  control: ["control de obra"],
+  legalizacion: [
+    "5.Documentacion contractual/0.Contratista/1.Legalizacion",
+    "1.Documentacion contractual/1.Legalizacion",
+    "legalizacion",
+  ],
+  proceso: [
+    "5.Documentacion contractual/0.Contratista/0.Proceso",
+    "1.Documentacion contractual/1.Legalizacion",
+    "legalizacion",
+  ],
+  polizas: ["5.Documentacion contractual/0.Contratista/2.Polizas", "1.Documentacion contractual/2.Polizas", "polizas"],
+  personal: [
+    "5.Documentacion contractual/0.Contratista/3.Personal",
+    "0.Finanzas/2.Personal",
+    "5.Personal",
+    "personal",
+  ],
+  contratacion: ["5.Documentacion contractual", "1.Documentacion contractual", "contratacion"],
+  liquidacion: [
+    "5.Documentacion contractual/4.Liquidacion",
+    "1.Documentacion contractual/4.Liquidacion",
+    "5.Documentacion contractual",
+    "liquidacion",
+  ],
+  finanzas: [
+    "5.Documentacion contractual/0.Contratista/1.Legalizacion",
+    "0.Finanzas",
+    "finanzas",
+    "legalizacion",
+  ],
+  tecnica: ["1.Documentacion tecnica", "1.Ejecucion/1.Documentacion tecnica", "documentacion tecnica"],
+  calidad: ["4.Calidad", "1.Ejecucion/4.Calidad", "calidad"],
+  "calidad-gerencia": ["4.Calidad/0.Gerenecia", "4.Calidad", "calidad"],
+  "calidad-ambiental": ["4.Calidad/1. Ambiental", "4.Calidad/3.Comp Ambiental", "4.Calidad", "calidad"],
+  "calidad-pmt": ["4.Calidad/2. Pmt", "4.Calidad", "calidad"],
+  "calidad-social": ["4.Calidad/3. Plan social", "4.Calidad", "calidad"],
+  "calidad-sgsst": ["4.Calidad/4. sgsst", "4.Calidad/2.Comp SST", "4.Calidad", "calidad"],
+  "calidad-pie": ["4.Calidad/5.PIE", "4.Calidad", "calidad"],
+  cronograma: [
+    "2.Control de obra/1.Cronograma y presupuesto/3. cronograma",
+    "1.Ejecucion/2.Control de obra/1.Cronograma y presupuesto",
+    "cronograma",
+  ],
+  presupuesto: [
+    "2.Control de obra/1.Cronograma y presupuesto/2. presupuesto",
+    "1.Ejecucion/2.Control de obra/1.Cronograma y presupuesto",
+    "presupuesto",
+  ],
+  anticipo: [
+    "2.Control de obra/1.Cronograma y presupuesto/1.anticipo",
+    "0.Administracion/0.Finanzas/0.Anticipo",
+    "anticipo",
+  ],
+  comunicaciones: ["3.Comunicaciones", "1.Ejecucion/3.Comunicaciones", "comunicaciones"],
+  "comunicaciones-internas": ["3.Comunicaciones/3. Internas", "3.Comunicaciones"],
+  registro: [
+    "2.Control de obra/2.Registro fotografico",
+    "1.Ejecucion/2.Control de obra/2.Registro fotografico",
+    "registro fotografico",
+  ],
+  visita: [
+    "2.Control de obra/2.Registro fotografico/0. Visita Preeliminar",
+    "1.Ejecucion/2.Control de obra/2.Registro fotografico",
+    "registro fotografico",
+  ],
+  bitacora: [
+    "2.Control de obra/4.Bitacora de obra",
+    "1.Ejecucion/2.Control de obra/4.Bitacora de obra",
+    "bitacora",
+  ],
+  informes: ["6.Informes", "1.Ejecucion/6.Informes", "informes"],
+  "informes-mensual": [
+    "6.Informes/1.Mensual",
+    "1.Ejecucion/6.Informes/1.Mensual",
+    "1.Mensual",
+    "informes",
+  ],
+  "informes-semanal": [
+    "6.Informes/2.Semanal",
+    "1.Ejecucion/6.Informes/2.Semanal",
+    "2.Semanal",
+    "informes",
+  ],
+  "informes-ejecutivos": [
+    "6.Informes/3.Ejecutivos",
+    "1.Ejecucion/6.Informes/3.Ejecutivos",
+    "3.Ejecutivos",
+    "informes",
+  ],
+  "actas-reunion": [
+    "5.Documentacion contractual/3.Reunion",
+    "1.Ejecucion/5.Documentacion contractual/3.Reunion",
+    "3.Reunion",
+    "comunicaciones",
+  ],
+  control: ["2.Control de obra", "1.Ejecucion/2.Control de obra", "control de obra"],
+  contractual: ["5.Documentacion contractual", "1.Documentacion contractual", "contratacion"],
 };
 
 function sugerirCarpeta(estructuraId: string | null, semantica?: string): string | null {
@@ -63,16 +144,34 @@ function sugerirCarpeta(estructuraId: string | null, semantica?: string): string
   if (!estructura) return null;
   const claves = CARPETAS[semantica] ?? [semantica];
   for (const clave of claves) {
-    const encontrada = estructura.carpetas.find((ruta) => ruta.toLowerCase().includes(clave));
+    const buscada = clave.toLowerCase();
+    const encontrada = estructura.carpetas.find((ruta) => {
+      const actual = ruta.toLowerCase();
+      return actual === buscada || actual.endsWith(`/${buscada}`);
+    });
     if (encontrada) return encontrada;
   }
   return null;
 }
 
-const FASE_1: Omit<FasePlantilla, "actividades"> = {
-  clave: "fase-1",
-  nombre: "Etapa precontractual",
-  descripcion: "Actividades previas al inicio del contrato: legalización, documentos y socialización.",
+export function etiquetaFase(fase: Pick<FaseEdt, "clave" | "orden">): string {
+  const partes = fase.clave?.match(/^fase-(\d+)(?:-(\d+))?$/);
+  if (partes) return partes[2] ? `Fase ${partes[1]}.${partes[2]}` : `Fase ${partes[1]}`;
+  return `Fase ${fase.orden}`;
+}
+
+// La Fase 1 se parte con los títulos en negrilla de Fases_v_obra.docx /
+// Fases_ve_interventoria.docx: «Legalización de contrato» y «Antes del acta de inicio».
+const FASE_1_1: Omit<FasePlantilla, "actividades"> = {
+  clave: "fase-1-1",
+  nombre: "Legalización de contrato / documentación contractual",
+  descripcion: "Firma, legalización, pólizas, personal y registro presupuestal del contrato.",
+};
+
+const FASE_1_2: Omit<FasePlantilla, "actividades"> = {
+  clave: "fase-1-2",
+  nombre: "Antes del acta de inicio",
+  descripcion: "Presupuesto, documentación técnica, visita, calidad, programación y socialización previas al acta de inicio.",
 };
 
 const FASE_2: Omit<FasePlantilla, "actividades"> = {
@@ -94,10 +193,10 @@ const FASE_3: Omit<FasePlantilla, "actividades"> = {
 // marca de "no aplica" por actividad/requisito (columna edt_actividades.no_aplica).
 const PLANTILLA_OBRA: FasePlantilla[] = [
   {
-    ...FASE_1,
+    ...FASE_1_1,
     actividades: [
       { clave: "obra-f1-legalizacion", nombre: "Legalización del contrato", descripcion: "Firma, legalización y trámites previos al inicio de la obra.", carpeta: "legalizacion" },
-      { clave: "obra-f1-adjudicacion", nombre: "Documentos del proceso de adjudicación o licitación", tipo: "Documento", descripcion: "Propuesta, adjudicación y documentos soporte del proceso.", carpeta: "legalizacion" },
+      { clave: "obra-f1-adjudicacion", nombre: "Documentos del proceso de adjudicación o licitación", tipo: "Documento", descripcion: "Propuesta, adjudicación y documentos soporte del proceso.", carpeta: "proceso" },
       { clave: "obra-f1-contrato", nombre: "Firma de contrato o acta de aceptación", tipo: "Documento", descripcion: "Contrato firmado, acta de aceptación y anexos.", carpeta: "legalizacion" },
       { clave: "obra-f1-rut", nombre: "RUT para consorcio o unión temporal", tipo: "Documento", descripcion: "RUT actualizado cuando el contrato se ejecuta por consorcio o UT.", carpeta: "legalizacion" },
       { clave: "obra-f1-dian", nombre: "Cita DIAN", descripcion: "Cita y soportes tributarios exigidos al contratista.", requiereDocumento: true, carpeta: "legalizacion" },
@@ -108,26 +207,31 @@ const PLANTILLA_OBRA: FasePlantilla[] = [
       { clave: "obra-f1-rp", nombre: "RC – registro presupuestal", tipo: "Documento", descripcion: "Registro de compromiso presupuestal del contrato.", carpeta: "finanzas" },
       { clave: "obra-f1-estampillas", nombre: "Estampillas y pagos", tipo: "Documento", descripcion: "Soportes de estampillas y pagos previos al inicio.", carpeta: "finanzas" },
       { clave: "obra-f1-hojas-vida", nombre: "Hojas de vida del personal", tipo: "Documento", descripcion: "Hojas de vida del personal requerido para la ejecución.", carpeta: "personal" },
-      { clave: "obra-f1-presupuesto", nombre: "Presupuesto con APUs iniciales y cantidades de obra", tipo: "Documento", descripcion: "Presupuesto firmado con APUs iniciales y cantidades de obra para revisión.", carpeta: "contratacion" },
-      { clave: "obra-f1-presupuesto-ejecucion", nombre: "Presupuesto de ejecución", tipo: "Documento", descripcion: "Presupuesto de ejecución del contrato.", carpeta: "contratacion" },
+    ],
+  },
+  {
+    ...FASE_1_2,
+    actividades: [
+      { clave: "obra-f1-presupuesto", nombre: "Presupuesto con APUs iniciales y cantidades de obra", tipo: "Documento", descripcion: "Presupuesto firmado con APUs iniciales y cantidades de obra para revisión.", carpeta: "presupuesto" },
+      { clave: "obra-f1-presupuesto-ejecucion", nombre: "Presupuesto de ejecución", tipo: "Documento", descripcion: "Presupuesto de ejecución del contrato.", carpeta: "presupuesto" },
       { clave: "obra-f1-disenos", nombre: "Diseños iniciales", tipo: "Documento", descripcion: "Diseños iniciales entregados por la entidad.", carpeta: "tecnica" },
       { clave: "obra-f1-especificaciones", nombre: "Especificaciones técnicas", tipo: "Documento", descripcion: "Especificaciones técnicas de obra.", carpeta: "tecnica" },
       { clave: "obra-f1-estudios", nombre: "Estudios e informes", tipo: "Documento", descripcion: "Estudios e informes técnicos de soporte.", carpeta: "tecnica" },
       { clave: "obra-f1-planos", nombre: "Planos", tipo: "Documento", descripcion: "Planos iniciales del proyecto.", carpeta: "tecnica" },
-      { clave: "obra-f1-visita", nombre: "Visita preliminar y registro fotográfico", descripcion: "Visita al sitio con registro fotográfico del estado inicial.", requiereDocumento: true, carpeta: "tecnica" },
-      { clave: "obra-f1-diagnostico", nombre: "Diagnóstico preliminar", tipo: "Documento", descripcion: "Diagnóstico preliminar cuando hay hallazgos.", carpeta: "tecnica" },
-      { clave: "obra-f1-acta-comite", nombre: "Acta de reunión", tipo: "Acta", descripcion: "Acta de reunión del comité o de socialización con la entidad.", carpeta: "comunicaciones" },
-      { clave: "obra-f1-plan-gerencia", nombre: "Plan de gerencia", tipo: "Documento", descripcion: "Plan de gerencia del proyecto.", carpeta: "calidad" },
-      { clave: "obra-f1-plan-ambiental", nombre: "Plan ambiental PMA o PAGA", tipo: "Documento", descripcion: "Plan ambiental PMA o PAGA según aplique.", carpeta: "tecnica" },
-      { clave: "obra-f1-pmt", nombre: "PMT – radicación y resolución de aprobación", tipo: "Documento", descripcion: "Plan de manejo de tránsito radicado y aprobado por la entidad.", carpeta: "tecnica" },
-      { clave: "obra-f1-plan-social", nombre: "Plan social", tipo: "Documento", descripcion: "Plan social del proyecto.", carpeta: "comunicaciones" },
-      { clave: "obra-f1-plan-sgsst", nombre: "Plan SGSST", tipo: "Documento", descripcion: "Plan de seguridad y salud en el trabajo.", carpeta: "personal" },
-      { clave: "obra-f1-pie", nombre: "PIE – plan de inspección y ensayos", tipo: "Documento", descripcion: "Programa de inspección y ensayos de calidad.", carpeta: "calidad" },
+      { clave: "obra-f1-visita", nombre: "Visita preliminar y registro fotográfico", descripcion: "Visita al sitio con registro fotográfico del estado inicial.", requiereDocumento: true, carpeta: "visita" },
+      { clave: "obra-f1-diagnostico", nombre: "Diagnóstico preliminar", tipo: "Documento", descripcion: "Diagnóstico preliminar cuando hay hallazgos.", carpeta: "informes-ejecutivos" },
+      { clave: "obra-f1-acta-comite", nombre: "Acta de reunión", tipo: "Acta", descripcion: "Acta de reunión del comité o de socialización con la entidad.", carpeta: "actas-reunion" },
+      { clave: "obra-f1-plan-gerencia", nombre: "Plan de gerencia", tipo: "Documento", descripcion: "Plan de gerencia del proyecto.", carpeta: "calidad-gerencia" },
+      { clave: "obra-f1-plan-ambiental", nombre: "Plan ambiental PMA o PAGA", tipo: "Documento", descripcion: "Plan ambiental PMA o PAGA según aplique.", carpeta: "calidad-ambiental" },
+      { clave: "obra-f1-pmt", nombre: "PMT – radicación y resolución de aprobación", tipo: "Documento", descripcion: "Plan de manejo de tránsito radicado y aprobado por la entidad.", carpeta: "calidad-pmt" },
+      { clave: "obra-f1-plan-social", nombre: "Plan social", tipo: "Documento", descripcion: "Plan social del proyecto.", carpeta: "calidad-social" },
+      { clave: "obra-f1-plan-sgsst", nombre: "Plan SGSST", tipo: "Documento", descripcion: "Plan de seguridad y salud en el trabajo.", carpeta: "calidad-sgsst" },
+      { clave: "obra-f1-pie", nombre: "PIE – plan de inspección y ensayos", tipo: "Documento", descripcion: "Programa de inspección y ensayos de calidad.", carpeta: "calidad-pie" },
       { clave: "obra-f1-plan-calidad", nombre: "Plan de calidad y PGIO", tipo: "Documento", descripcion: "Planes, carpetas, formatos y listas de chequeo de calidad.", carpeta: "calidad" },
       { clave: "obra-f1-cronograma", nombre: "Programación de obra (Gantt con flujo de fondos)", tipo: "Documento", descripcion: "Cronograma con diagrama Gantt y flujo de fondos mínimo semanal y mensual.", carpeta: "cronograma" },
-      { clave: "obra-f1-plan-inversion", nombre: "Plan de inversión del anticipo", tipo: "Documento", descripcion: "Programación de uso del anticipo o pago anticipado.", carpeta: "finanzas" },
+      { clave: "obra-f1-plan-inversion", nombre: "Plan de inversión del anticipo", tipo: "Documento", descripcion: "Programación de uso del anticipo o pago anticipado.", carpeta: "anticipo" },
       { clave: "obra-f1-licencias", nombre: "Licencias, permisos y políticas", tipo: "Documento", descripcion: "Licencias, permisos y pólizas exigidas para iniciar la obra.", carpeta: "legalizacion" },
-      { clave: "obra-f1-socializacion", nombre: "Socialización del proyecto", descripcion: "Diapositivas, chapolas, perifoneo, radio y redes sociales.", requiereDocumento: true, carpeta: "comunicaciones" },
+      { clave: "obra-f1-socializacion", nombre: "Socialización del proyecto", descripcion: "Diapositivas, chapolas, perifoneo, radio y redes sociales.", requiereDocumento: true, carpeta: "calidad-social" },
       { clave: "obra-f1-actas-vecindad", nombre: "Actas de vecindad, apertura", tipo: "Acta", descripcion: "Levantamiento y definición del estado inicial de los predios vecinos.", carpeta: "comunicaciones" },
     ],
   },
@@ -204,7 +308,7 @@ const PLANTILLA_OBRA: FasePlantilla[] = [
 // interventoría.
 const PLANTILLA_INTERVENTORIA: FasePlantilla[] = [
   {
-    ...FASE_1,
+    ...FASE_1_1,
     actividades: [
       { clave: "int-f1-legalizacion", nombre: "Legalización del contrato de interventoría", descripcion: "Firma, legalización y trámites previos al inicio de la interventoría.", carpeta: "legalizacion" },
       { clave: "int-f1-firma", nombre: "Firma de contrato", tipo: "Documento", descripcion: "Contrato de interventoría firmado y sus anexos.", carpeta: "legalizacion" },
@@ -213,24 +317,29 @@ const PLANTILLA_INTERVENTORIA: FasePlantilla[] = [
       { clave: "int-f1-dian", nombre: "Cita DIAN", descripcion: "Cita y soportes tributarios exigidos al interventor.", requiereDocumento: true, carpeta: "legalizacion" },
       { clave: "int-f1-polizas", nombre: "Póliza inicial de firma de contrato – Anexo 0", tipo: "Documento", descripcion: "Póliza inicial de la interventoría y garantías del contrato de obra.", carpeta: "polizas" },
       { clave: "int-f1-hojas-vida", nombre: "Hojas de vida del personal", tipo: "Documento", descripcion: "Personal requerido para el desarrollo del contrato según anexos técnicos.", carpeta: "personal" },
+    ],
+  },
+  {
+    ...FASE_1_2,
+    actividades: [
       { clave: "int-f1-solicitud-contrato", nombre: "Solicitud del contrato de obra a la entidad", descripcion: "Solicitud formal del contrato de obra y sus anexos.", requiereDocumento: true, carpeta: "comunicaciones" },
       { clave: "int-f1-contrato", nombre: "Contrato de obra", tipo: "Documento", descripcion: "Revisa a obra: contrato y anexos entregados por la entidad.", carpeta: "legalizacion" },
       { clave: "int-f1-solicitud-presupuesto", nombre: "Solicitud de presupuesto con APUs iniciales", descripcion: "Solicitud del presupuesto firmado, APUs iniciales y cantidades de obra para revisión.", requiereDocumento: true, carpeta: "comunicaciones" },
-      { clave: "int-f1-presupuesto", nombre: "Presupuesto y APUs", tipo: "Documento", descripcion: "Revisa a obra: presupuesto de obra con análisis de precios unitarios y cantidades.", carpeta: "contratacion" },
+      { clave: "int-f1-presupuesto", nombre: "Presupuesto y APUs", tipo: "Documento", descripcion: "Revisa a obra: presupuesto de obra con análisis de precios unitarios y cantidades.", carpeta: "presupuesto" },
       { clave: "int-f1-solicitud-disenos", nombre: "Solicitud de diseños iniciales", descripcion: "Solicitud de estudios, diseños y especificaciones técnicas.", requiereDocumento: true, carpeta: "comunicaciones" },
       { clave: "int-f1-disenos", nombre: "Diseños y estudios iniciales", tipo: "Documento", descripcion: "Revisa a obra: estudios, diseños y especificaciones técnicas.", carpeta: "tecnica" },
       { clave: "int-f1-revision-disenos", nombre: "Revisión de diseños: observaciones y correcciones", descripcion: "Etapa de observaciones y correcciones entre contratista de obra e interventoría.", requiereDocumento: true, carpeta: "tecnica" },
-      { clave: "int-f1-visita", nombre: "Visita preliminar e informe de diagnóstico", descripcion: "Reconocimiento de campo con registro fotográfico y acta de reunión; diagnóstico cuando hay hallazgos.", requiereDocumento: true, carpeta: "tecnica" },
+      { clave: "int-f1-visita", nombre: "Visita preliminar e informe de diagnóstico", descripcion: "Reconocimiento de campo con registro fotográfico y acta de reunión; diagnóstico cuando hay hallazgos.", requiereDocumento: true, carpeta: "visita" },
       { clave: "int-f1-solicitud-calidad", nombre: "Solicitud del plan de calidad", descripcion: "Solicitud de componentes de calidad, SST y ambiental, con carpetas, formatos y checklist.", requiereDocumento: true, carpeta: "comunicaciones" },
       { clave: "int-f1-plan-calidad", nombre: "Plan de calidad, SST y ambiental (PGIO)", tipo: "Documento", descripcion: "Revisa a obra: programa de ensayos, planes, formatos y listas de chequeo.", carpeta: "calidad" },
       { clave: "int-f1-solicitud-cronograma", nombre: "Solicitud de la programación de obra", descripcion: "Solicitud del cronograma en diagrama Gantt con fechas mínimas semanales y mensuales.", requiereDocumento: true, carpeta: "comunicaciones" },
       { clave: "int-f1-cronograma", nombre: "Programación de obra (Gantt)", tipo: "Documento", descripcion: "Revisa a obra: cronograma de ejecución con actividades y fechas.", carpeta: "cronograma" },
       { clave: "int-f1-verificacion-licencias", nombre: "Verificación de licencias, permisos y pólizas", descripcion: "Revisión de licencias, permisos y pólizas exigidas para iniciar la obra.", requiereDocumento: true, carpeta: "legalizacion" },
       { clave: "int-f1-licencias", nombre: "Licencias, permisos y pólizas", tipo: "Documento", descripcion: "Soportes de licencias, permisos y pólizas del contrato de obra.", carpeta: "legalizacion" },
-      { clave: "int-f1-plan-inversion", nombre: "Plan de inversión del anticipo", tipo: "Documento", descripcion: "Programación de uso del anticipo o pago anticipado.", carpeta: "finanzas" },
+      { clave: "int-f1-plan-inversion", nombre: "Plan de inversión del anticipo", tipo: "Documento", descripcion: "Programación de uso del anticipo o pago anticipado.", carpeta: "anticipo" },
       { clave: "int-f1-socializacion", nombre: "Socialización del proyecto", descripcion: "Chapolas, perifoneo, cadenas de WhatsApp, oficios y actas de vecindad.", requiereDocumento: true, carpeta: "comunicaciones" },
       { clave: "int-f1-actas-vecindad", nombre: "Actas de vecindad", tipo: "Acta", descripcion: "Estado actual de viviendas, edificaciones y vías que colindan con el proyecto.", carpeta: "comunicaciones" },
-      { clave: "int-f1-acta-comite", nombre: "Acta de reunión de comité", tipo: "Acta", descripcion: "Acta de reunión del comité del proyecto.", carpeta: "comunicaciones" },
+      { clave: "int-f1-acta-comite", nombre: "Acta de reunión de comité", tipo: "Acta", descripcion: "Acta de reunión del comité del proyecto.", carpeta: "actas-reunion" },
       { clave: "int-f1-cdp", nombre: "CDP", tipo: "Documento", descripcion: "Certificado de disponibilidad presupuestal.", carpeta: "finanzas" },
       { clave: "int-f1-rp", nombre: "RP", tipo: "Documento", descripcion: "Registro presupuestal de compromiso.", carpeta: "finanzas" },
     ],
@@ -313,8 +422,21 @@ const COLUMNA_POR_ESTADO: Record<string, string> = {
   "No realizado": "por-hacer",
 };
 
-function etiquetaActividad(fase: FaseEdt, tipo: string): string {
-  return `F${fase.orden} · ${tipo}`.slice(0, 60);
+function etiquetaActividad(fase: Pick<FaseEdt, "clave" | "orden">, tipo: string): string {
+  return `${etiquetaFase(fase)} · ${tipo}`.slice(0, 60);
+}
+
+function etapaDeClave(clave: string | null, orden: number): number {
+  const partes = clave?.match(/^fase-(\d+)/);
+  return Math.min(3, partes ? Number(partes[1]) : orden);
+}
+
+function carpetaPertenece(estructuraId: string | null, carpeta: string | null): boolean {
+  if (!carpeta) return false;
+  const estructura = estructuraId ? estructuraPorId(estructuraId) : null;
+  if (!estructura) return false;
+  const actual = carpeta.toLowerCase();
+  return estructura.carpetas.some((ruta) => ruta.toLowerCase() === actual);
 }
 
 async function proyectoRef(db: Consulta, proyectoId: string): Promise<ProyectoRef> {
@@ -332,18 +454,25 @@ export async function crearTableroFase(
   proyecto: ProyectoRef,
   fase: FaseEdt,
 ): Promise<string> {
-  const { rows: existentes } = await db.query<{ id: string }>(
-    "SELECT id FROM tableros WHERE fase_id = $1 LIMIT 1",
+  const { rows: existentes } = await db.query<{ id: string; nombre: string }>(
+    "SELECT id, nombre FROM tableros WHERE fase_id = $1 LIMIT 1",
     [fase.id],
   );
-  if (existentes[0]) return existentes[0].id;
+  const nombre = `${etiquetaFase(fase)} · ${fase.nombre}`.slice(0, 120);
+  if (existentes[0]) {
+    // Sólo se reetiqueta el nombre automático; respeta renombres manuales.
+    if (/^F\d+ · /.test(existentes[0].nombre) && existentes[0].nombre !== nombre) {
+      await db.query("UPDATE tableros SET nombre = $2 WHERE id = $1", [existentes[0].id, nombre]);
+    }
+    return existentes[0].id;
+  }
 
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO tableros (nombre, descripcion, proyecto_id, fase_id, tipo, creado_por)
      VALUES ($1, $2, $3, $4, 'Fase', $5)
      RETURNING id`,
     [
-      `F${fase.orden} · ${fase.nombre}`.slice(0, 120),
+      nombre,
       `Tablero automático de la fase "${fase.nombre}" del proyecto ${proyecto.id}.`,
       proyecto.id,
       fase.id,
@@ -413,10 +542,11 @@ export async function sincronizarTareasDeActividad(db: Consulta, actividadId: st
     responsableId: string | null;
     tipo: string;
     faseOrden: number;
+    faseClave: string | null;
   }>(
     `SELECT a.actividad AS nombre, a.descripcion, a.estado, a.prioridad,
             a.fecha_cumplimiento AS fecha, a.responsable, a.responsable_id AS "responsableId",
-            a.tipo, COALESCE(f.orden, a.etapa) AS "faseOrden"
+            a.tipo, COALESCE(f.orden, a.etapa) AS "faseOrden", f.clave AS "faseClave"
        FROM edt_actividades a
        LEFT JOIN edt_fases f ON f.id = a.fase_id
       WHERE a.id = $1`,
@@ -462,7 +592,7 @@ export async function sincronizarTareasDeActividad(db: Consulta, actividadId: st
       actividad.fecha,
       actividad.responsable,
       actividad.responsableId,
-      `F${actividad.faseOrden} · ${actividad.tipo}`.slice(0, 60),
+      etiquetaActividad({ clave: actividad.faseClave, orden: actividad.faseOrden }, actividad.tipo),
       actividad.estado,
     ],
   );
@@ -484,27 +614,101 @@ export async function asegurarFasesProyecto(
   tipoContrato: TipoContrato,
 ): Promise<FaseEdt[]> {
   const proyecto = await proyectoRef(db, proyectoId);
+  const plantilla = plantillaDe(tipoContrato);
   let fases = await fasesDeProyecto(db, proyectoId);
-  if (!fases.length) {
-    const base = plantillaDe(tipoContrato).map((fase) => ({
-      clave: fase.clave,
-      nombre: fase.nombre,
-      descripcion: fase.descripcion,
-    }));
-    let anterior: string | null = null;
-    for (const [indice, fase] of base.entries()) {
-      const insertada: { id: string }[] = (
-        await db.query<{ id: string }>(
-          `INSERT INTO edt_fases
-             (proyecto_id, nombre, descripcion, clave, orden, es_principal, depende_de_fase_id)
-           VALUES ($1, $2, $3, $4, $5, true, $6)
-           RETURNING id`,
-          [proyectoId, fase.nombre, fase.descripcion, fase.clave, indice + 1, anterior],
-        )
-      ).rows;
-      anterior = insertada[0].id;
-    }
+
+  // Modelos anteriores tenían una sola Fase 1. Se renombra a su primer subtítulo.
+  if (
+    fases.some((fase) => fase.clave === "fase-1") &&
+    !fases.some((fase) => fase.clave === "fase-1-1")
+  ) {
+    await db.query(
+      "UPDATE edt_fases SET clave = 'fase-1-1' WHERE proyecto_id = $1 AND clave = 'fase-1'",
+      [proyectoId],
+    );
     fases = await fasesDeProyecto(db, proyectoId);
+  }
+
+  const porClave = new Map(fases.map((fase) => [fase.clave, fase]));
+  for (const [indice, fase] of plantilla.entries()) {
+    const orden = indice + 1;
+    const existente = porClave.get(fase.clave);
+    if (existente) {
+      if (
+        existente.nombre !== fase.nombre ||
+        existente.descripcion !== fase.descripcion ||
+        existente.orden !== orden ||
+        !existente.esPrincipal
+      ) {
+        await db.query(
+          `UPDATE edt_fases
+              SET nombre = $3, descripcion = $4, orden = $5, es_principal = true
+            WHERE proyecto_id = $1 AND clave = $2`,
+          [proyectoId, fase.clave, fase.nombre, fase.descripcion, orden],
+        );
+      }
+      continue;
+    }
+
+    await db.query(
+      `INSERT INTO edt_fases
+         (proyecto_id, nombre, descripcion, clave, orden, es_principal)
+       VALUES ($1, $2, $3, $4, $5, true)`,
+      [proyectoId, fase.nombre, fase.descripcion, fase.clave, orden],
+    );
+  }
+
+  fases = await fasesDeProyecto(db, proyectoId);
+  const ordenadas = plantilla
+    .map((fase) => fases.find((actual) => actual.clave === fase.clave))
+    .filter((fase): fase is FaseEdt => Boolean(fase));
+  for (const [indice, fase] of ordenadas.entries()) {
+    const depende = indice === 0 ? null : ordenadas[indice - 1].id;
+    if (fase.dependeDeFaseId !== depende) {
+      await db.query("UPDATE edt_fases SET depende_de_fase_id = $2 WHERE id = $1", [
+        fase.id,
+        depende,
+      ]);
+    }
+  }
+
+  // Reubica actividades ya sembradas: la Fase 1 pasó de una a dos fases.
+  const { rows: sembradas } = await db.query<{
+    id: string;
+    plantillaClave: string;
+    faseId: string | null;
+    orden: number;
+    carpeta: string | null;
+  }>(
+    `SELECT id, plantilla_clave AS "plantillaClave", fase_id AS "faseId", orden, carpeta
+       FROM edt_actividades WHERE proyecto_id = $1 AND plantilla_clave IS NOT NULL`,
+    [proyectoId],
+  );
+  const sembradaPorClave = new Map(sembradas.map((fila) => [fila.plantillaClave, fila]));
+  const fasesPorClave = new Map(fases.map((fase) => [fase.clave, fase]));
+  const carpetasValidas = new Set(
+    (proyecto.estructura ? (estructuraPorId(proyecto.estructura)?.carpetas ?? []) : []).map((ruta) =>
+      ruta.toLowerCase(),
+    ),
+  );
+  for (const fasePlantilla of plantilla) {
+    const fase = fasesPorClave.get(fasePlantilla.clave);
+    if (!fase) continue;
+    for (const [indice, item] of fasePlantilla.actividades.entries()) {
+      const actual = sembradaPorClave.get(item.clave);
+      if (!actual) continue;
+      const carpetaSugerida = sugerirCarpeta(proyecto.estructura, item.carpeta);
+      const conservarCarpeta =
+        actual.carpeta != null && carpetasValidas.has(actual.carpeta.toLowerCase());
+      const carpeta = conservarCarpeta ? actual.carpeta : carpetaSugerida ?? actual.carpeta;
+      if (actual.faseId === fase.id && actual.orden === indice + 1 && carpeta === actual.carpeta) {
+        continue;
+      }
+      await db.query(
+        "UPDATE edt_actividades SET fase_id = $2, orden = $3, carpeta = $4 WHERE id = $1",
+        [actual.id, fase.id, indice + 1, carpeta],
+      );
+    }
   }
 
   // Las actividades anteriores al modelo por fases se conservan y se ubican
@@ -514,7 +718,18 @@ export async function asegurarFasesProyecto(
         SET fase_id = f.id
        FROM edt_fases f
       WHERE a.proyecto_id = $1 AND a.fase_id IS NULL
-        AND f.proyecto_id = $1 AND f.es_principal AND f.orden = LEAST(3, a.etapa)`,
+        AND f.proyecto_id = $1
+        AND f.clave = CASE LEAST(3, a.etapa)
+          WHEN 1 THEN 'fase-1-1'
+          WHEN 2 THEN 'fase-2'
+          ELSE 'fase-3'
+        END`,
+    [proyectoId],
+  );
+
+  // La prioridad de las actividades del EDT es fija; el color expresa la urgencia.
+  await db.query(
+    "UPDATE edt_actividades SET prioridad = 'Alta' WHERE proyecto_id = $1 AND prioridad <> 'Alta'",
     [proyectoId],
   );
 
@@ -552,12 +767,21 @@ export async function sembrarChecklist(
     if (!fase) continue;
 
     for (const [indice, item] of fasePlantilla.actividades.entries()) {
-      const { rows: existentes } = await db.query<{ id: string }>(
-        "SELECT id FROM edt_actividades WHERE proyecto_id = $1 AND plantilla_clave = $2",
+      const carpetaSugerida = sugerirCarpeta(proyecto.estructura, item.carpeta);
+      const { rows: existentes } = await db.query<{ id: string; carpeta: string | null }>(
+        "SELECT id, carpeta FROM edt_actividades WHERE proyecto_id = $1 AND plantilla_clave = $2",
         [proyectoId, item.clave],
       );
       if (existentes[0]) {
-        actividadPorClave.set(item.clave, existentes[0].id);
+        const actual = existentes[0];
+        actividadPorClave.set(item.clave, actual.id);
+        const carpeta = carpetaPertenece(proyecto.estructura, actual.carpeta)
+          ? actual.carpeta
+          : carpetaSugerida;
+        await db.query(
+          "UPDATE edt_actividades SET fase_id = $2, orden = $3, carpeta = $4 WHERE id = $1",
+          [actual.id, fase.id, indice + 1, carpeta],
+        );
         continue;
       }
 
@@ -573,13 +797,13 @@ export async function sembrarChecklist(
         [
           proyectoId,
           fase.id,
-          Math.min(3, fase.orden),
+          etapaDeClave(fase.clave, fase.orden),
           item.nombre,
           item.descripcion ?? "",
           tipo,
           item.clave,
           requiereDocumento,
-          sugerirCarpeta(proyecto.estructura, item.carpeta),
+          carpetaSugerida,
           indice + 1,
         ],
       );
@@ -630,11 +854,22 @@ export async function sembrarChecklist(
   for (const actividad of actividades) {
     const fase = actividad.faseId ? fasePorId.get(actividad.faseId) : null;
     if (!fase) continue;
-    const { rows: tarea } = await db.query(
-      "SELECT 1 FROM tareas_tablero WHERE edt_actividad_id = $1 LIMIT 1",
+    const tableroId = await crearTableroFase(db, proyecto, fase);
+    const { rows: tarea } = await db.query<{ id: string }>(
+      "SELECT id FROM tareas_tablero WHERE edt_actividad_id = $1 LIMIT 1",
       [actividad.id],
     );
-    if (tarea[0]) continue;
+    if (tarea[0]) {
+      // Reubica la tarea si la actividad cambió de subtítulo y fija la prioridad.
+      await db.query(
+        `UPDATE tareas_tablero
+            SET tablero_id = $2, prioridad = 'Alta', etiqueta = $3
+          WHERE id = $1
+            AND (tablero_id <> $2 OR prioridad <> 'Alta' OR etiqueta <> $3)`,
+        [tarea[0].id, tableroId, etiquetaActividad(fase, actividad.tipo)],
+      );
+      continue;
+    }
     await crearTareaActividad(db, proyecto, fase, actividad);
     tareasCreadas += 1;
   }

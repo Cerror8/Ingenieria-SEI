@@ -3,6 +3,7 @@ import { Router } from "express";
 import { pool } from "../db.js";
 import { ah } from "../http.js";
 import { avisarRecordatorios, correoConfigurado, type RecordatorioTarea } from "../lib/correo.js";
+import { imapConfigurado, sincronizarCorreosEntrantes } from "../lib/correoEntrante.js";
 import { almacenDeRespaldos, crearRespaldo } from "../lib/respaldo.js";
 import { avisarRecordatoriosWhatsApp, whatsappConfigurado } from "../lib/whatsapp.js";
 
@@ -98,6 +99,27 @@ cron.get(
       correosEnviados: enviados,
       whatsappEnviados: porWhatsApp,
     });
+  }),
+);
+
+cron.get(
+  "/correos",
+  ah(async (req, res) => {
+    if (!autorizado(req.get("authorization"))) {
+      res.status(401).json({ error: "No autorizado" });
+      return;
+    }
+
+    if (!imapConfigurado()) {
+      res.status(503).json({ error: "La recepción de correo (IMAP) no está configurada." });
+      return;
+    }
+
+    const resultado = await sincronizarCorreosEntrantes();
+    console.log(
+      `[cron] correos · ${resultado.revisados} revisados · ${resultado.registrados} registrados · ${resultado.documentos} documentos`,
+    );
+    res.json({ ok: true, ...resultado });
   }),
 );
 
