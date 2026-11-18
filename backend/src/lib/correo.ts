@@ -12,6 +12,7 @@ type Correo = {
   asunto: string;
   html: string;
   texto: string;
+  responderA?: string;
 };
 
 type Detalle = { etiqueta: string; valor: string };
@@ -83,7 +84,7 @@ function obtenerTransporte(config: NonNullable<ReturnType<typeof configSmtp>>): 
   return transporte;
 }
 
-export async function enviarCorreo({ para, asunto, html, texto }: Correo): Promise<boolean> {
+export async function enviarCorreo({ para, asunto, html, texto, responderA }: Correo): Promise<boolean> {
   const config = configSmtp();
   if (!config) return false;
 
@@ -94,6 +95,7 @@ export async function enviarCorreo({ para, asunto, html, texto }: Correo): Promi
     await obtenerTransporte(config).sendMail({
       from: `"Ingeniería SEI" <${config.remitente}>`,
       to: destinatarios.join(", "),
+      replyTo: responderA,
       subject: asunto,
       text: texto,
       html,
@@ -103,6 +105,18 @@ export async function enviarCorreo({ para, asunto, html, texto }: Correo): Promi
     console.error("[correo] No se pudo enviar:", e instanceof Error ? e.message : e);
     return false;
   }
+}
+
+// Gmail acepta direcciones con etiqueta (usuario+etiqueta@gmail.com) en el mismo
+// buzón. La etiqueta lleva el id de la actividad para reconocer la respuesta
+// aunque el asunto se haya editado.
+export function direccionRespuestaActividad(token: string): string | null {
+  const config = configSmtp();
+  if (!config) return null;
+  const usuario = config.auth.user;
+  if (!/@gmail\.com$/i.test(usuario)) return null;
+  const etiqueta = `seiact-${token}`;
+  return usuario.replace(/@gmail\.com$/i, `+${etiqueta}@gmail.com`);
 }
 
 function escapar(valor: string): string {
@@ -216,10 +230,7 @@ export function construirCorreoActividad(datos: CorreoActividad): {
 
   return {
     asunto:
-      `[SEI-ACT:${datos.token}] ${datos.abreviatura} · ${datos.fase} #${datos.orden} - ${datos.actividad}`.slice(
-        0,
-        180,
-      ),
+      `SEI ${datos.abreviatura} · ${datos.fase} #${datos.orden} - ${datos.actividad}`.slice(0, 180),
     texto: `Hola ${datos.contacto}, necesitamos el siguiente entregable del contrato ${datos.referencia}.\n\n` +
       detalles.map((detalle) => `${detalle.etiqueta}: ${detalle.valor}`).join("\n") +
       `\n\n${nota}`,
@@ -234,7 +245,11 @@ export function construirCorreoActividad(datos: CorreoActividad): {
 
 export async function enviarCorreoActividadExterna(datos: CorreoActividad): Promise<boolean> {
   const contenido = construirCorreoActividad(datos);
-  return enviarCorreo({ para: datos.para, ...contenido });
+  return enviarCorreo({
+    para: datos.para,
+    ...contenido,
+    responderA: direccionRespuestaActividad(datos.token) ?? undefined,
+  });
 }
 
 export function formatearFecha(fecha: string | null): string {

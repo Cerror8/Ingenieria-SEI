@@ -11,6 +11,7 @@ export type Usuario = {
   whatsappOptIn: boolean;
   proveedor: Proveedor;
   rol: Rol;
+  totpHabilitado: boolean;
   ultimoAcceso: string | null;
 };
 

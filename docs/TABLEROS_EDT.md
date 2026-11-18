@@ -68,6 +68,24 @@ La pestaña **EDT** muestra las fases como tableros, no como acordeones ni despl
 
 Las tres fases principales se pueden **renombrar** pero no eliminar. Las fases adicionales guardan `depende_de_fase_id` y se muestran como tableros conectados a la fase anterior.
 
+### Vista general del EDT
+
+El botón **Vista general** alterna entre los tableros de fase y una vista de solo lectura
+con todas las fases y actividades. Cada actividad conserva su estado real:
+
+| Estado | Presentación |
+|---|---|
+| `Completado` | Verde con visto. Es el único que se muestra como realizado. |
+| `En ejecución` | Ámbar con reloj. |
+| `No realizado` | Rojo con equis. |
+| `No aplica` | Gris punteado. |
+| `Pendiente` | Gris (actividad de la plantilla que aún no está sembrada en el proyecto). |
+
+El encabezado muestra `N de M realizadas` y el aviso `X/Y cargadas`. El botón
+**Descargar PDF** genera un mapa conceptual en A3 horizontal con `jspdf` (carga diferida,
+no pesa en el bundle principal): caja raíz del proyecto, cuatro carriles de fase con
+conectores, actividades coloreadas por estado, leyenda y conteo de completadas.
+
 ## Mi tablero
 
 `GET /api/mi-tablero` devuelve `tareasProyecto` (tareas de tablero asignadas), `tareasPersonales` (tareas propias) y `proyectos` (proyectos con tareas del usuario).
@@ -95,6 +113,7 @@ La sincronización es bidireccional y se apoya en `backend/src/lib/avance.ts`:
 - La carga desde **Documentos** también puede asociar `edtActividadId`.
 - `GET /api/documentos?edtActividadId=...` filtra los documentos de una actividad.
 - El documento queda visible en los dos lugares: en la tarjeta de la actividad y en **Documentos** con la ruta de su carpeta.
+- El detalle de la tarea del tablero muestra la sección **Documentos de la actividad**, con copias de correo enviado, respuestas archivadas y adjuntos, cada uno con enlace de descarga y estado.
 - La carpeta debe pertenecer a la estructura documental del proyecto; si la actividad tenía carpeta sugerida, se usa esa.
 - Los documentos obligatorios alimentan las reglas de completado y de aprobación.
 

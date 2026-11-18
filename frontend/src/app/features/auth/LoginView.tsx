@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck } from "lucide-react";
+import logoSei from "../../../assets/brand/logo-sei.png";
 import { api, ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -38,14 +39,22 @@ function GoogleIcon() {
   );
 }
 
+const campoCls =
+  "w-full rounded-lg border border-[#E4E4E4] bg-[#FAFAFA] py-2.5 pl-10 pr-3 text-sm text-[#1B1B1B] outline-none transition placeholder:text-[#B3B2B2] focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15";
+
 export function LoginView() {
-  const { iniciarSesion } = useAuth();
+  const { iniciarSesion, verificar2fa } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+
+  const [paso, setPaso] = useState<"credenciales" | "codigo">(() =>
+    params.get("paso") === "2fa" ? "codigo" : "credenciales",
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verPassword, setVerPassword] = useState(false);
+  const [codigo, setCodigo] = useState("");
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -60,7 +69,12 @@ export function LoginView() {
     setEnviando(true);
 
     try {
-      await iniciarSesion(email, password);
+      const resultado = await iniciarSesion(email, password);
+      if (resultado.requiere2fa) {
+        setCodigo("");
+        setPaso("codigo");
+        return;
+      }
       navigate("/", { replace: true });
     } catch (e) {
       setErrorLocal(
@@ -71,162 +85,270 @@ export function LoginView() {
     }
   }
 
+  async function onVerificar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorLocal(null);
+    setEnviando(true);
+
+    try {
+      await verificar2fa(codigo);
+      navigate("/", { replace: true });
+    } catch (e) {
+      setErrorLocal(
+        e instanceof ApiError ? e.message : "No se pudo verificar el código. Inténtalo de nuevo.",
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-[42%_58%]">
-        {/* Panel lateral */}
-        <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#1F2937] px-10 py-12 text-white lg:flex">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#EA580C]/10" />
-          <div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-white/5" />
+    <div className="min-h-screen bg-[#F5F5F4] lg:grid lg:grid-cols-[45%_55%]">
+      {/* Panel de marca */}
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#1B1B1B] px-10 py-12 lg:flex">
+        <div
+          aria-hidden="true"
+          className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[22px] border-[#F39200]/15"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full border-[26px] border-white/5"
+        />
 
-          <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-black tracking-tight text-[#FDBA74] shadow-sm">
+        <div className="relative">
+          <div className="inline-flex rounded-2xl bg-white px-5 py-4 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.65)]">
+            <img
+              src={logoSei}
+              alt="Sebastián Escandón · Ingeniero Civil"
+              className="h-24 w-auto"
+            />
+          </div>
+
+          <h1 className="mt-9 text-4xl font-black leading-[1.05] tracking-tight text-white">
+            Ingeniería
+            <span className="ml-2 text-[#F39200]">SEI</span>
+          </h1>
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/55">
+            Planificación, contratación, supervisión y control de proyectos de ingeniería civil.
+          </p>
+        </div>
+
+        <div className="relative space-y-4">
+          <div className="h-1 w-16 rounded-full bg-[#F39200]" />
+          <div className="flex flex-wrap gap-2">
+            {["Proyectos", "EDT", "Presupuesto", "Tableros", "Documentos"].map((modulo) => (
+              <span
+                key={modulo}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/60"
+              >
+                {modulo}
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-white/35">
+            Sebastián Escandón Ingeniero Civil · Pasto, Nariño
+          </p>
+        </div>
+      </aside>
+
+      {/* Formulario */}
+      <main className="flex min-h-screen items-center justify-center bg-white px-6 py-10 sm:px-12">
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-8 flex items-center justify-between lg:hidden">
+            <img
+              src={logoSei}
+              alt="Sebastián Escandón · Ingeniero Civil"
+              className="h-16 w-auto"
+            />
+            <span className="rounded-full bg-[#FFF3E2] px-3 py-1 text-[11px] font-black tracking-wide text-[#B45309]">
               SEI
-            </div>
-            <h1 className="mt-8 text-4xl font-black leading-[1.05] tracking-tight">
-              Ingeniería
-              <br />
-              <span className="text-[#EA580C]">SEI</span>
-            </h1>
-            <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/60">
-               Acceso a Ingeniería SEI
-            </p>
+            </span>
           </div>
 
-          <div className="relative space-y-4">
-            <div className="h-px w-14 bg-[#EA580C]" />
-            <p className="text-sm font-semibold text-white/90">Ingeniería Civil</p>
-            <p className="text-xs text-white/45">Planificación, contratación, supervisión y control</p>
-          </div>
-
-          <p className="relative text-[11px] text-white/35">Sebastian Escandon Ingeniero Civil 
-          · Pasto, Nariño</p>
-        </aside>
-
-        {/* Formulario */}
-        <main className="flex items-center justify-center px-6 py-10 sm:px-12 sm:py-14">
-          <div className="mx-auto w-full max-w-md">
-            <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 text-[11px] font-black tracking-tight text-[#C2410C]">
-                SEI
+          {paso === "codigo" ? (
+            <>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFF3E2] text-[#B45309]">
+                <ShieldCheck className="h-6 w-6" />
               </div>
-              <div>
-                <p className="text-sm font-black leading-tight text-slate-800">Ingeniería SEI</p>
-                <p className="text-[11px] text-slate-500">Acceso al sistema</p>
-              </div>
-            </div>
+              <h2 className="mt-4 text-2xl font-bold tracking-tight text-[#1B1B1B]">
+                Verificación en dos pasos
+              </h2>
+              <p className="mt-1.5 text-sm text-[#706F6F]">
+                Escribe el código de 6 dígitos de tu aplicación autenticadora. También puedes usar
+                uno de tus códigos de respaldo.
+              </p>
 
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Iniciar sesión</h2>
-            <p className="mt-1.5 text-sm text-slate-500">
-              Ingresa con tus credenciales para continuar.
-            </p>
-
-            <form className="mt-8 space-y-4" onSubmit={onSubmit}>
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="text-xs font-semibold text-slate-700">
-                  Correo 
-                </label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="username"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="usuario@gmail.com"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/60 py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
-                  />
+              <form className="mt-8 space-y-4" onSubmit={onVerificar}>
+                <div className="space-y-1.5">
+                  <label htmlFor="codigo" className="text-xs font-semibold text-[#3F3F3F]">
+                    Código de verificación
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B3B2B2]" />
+                    <input
+                      id="codigo"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      required
+                      value={codigo}
+                      onChange={(e) => setCodigo(e.target.value.replace(/[^0-9A-Za-z-]/g, ""))}
+                      placeholder="123 456"
+                      maxLength={12}
+                      className={`${campoCls} tracking-[0.35em]`}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="password" className="text-xs font-semibold text-slate-700">
-                  Contraseña
-                </label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    id="password"
-                    type={verPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/60 py-2.5 pl-10 pr-11 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setVerPassword((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                    aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                {mensajeError && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
                   >
-                    {verPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                    {mensajeError}
+                  </p>
+                )}
 
-              <div className="flex items-center justify-between text-[11px]">
-                <a
-                  href="mailto:soporte@unicesmag.edu.co"
-                  className="font-semibold text-[#C2410C] hover:text-[#9A3412] hover:underline"
+                <button
+                  type="submit"
+                  disabled={enviando || codigo.trim().length < 6}
+                  className="w-full rounded-lg bg-[#F39200] py-2.5 text-sm font-bold text-[#1B1B1B] shadow-sm transition hover:bg-[#DE8500] focus:outline-none focus:ring-4 focus:ring-[#F39200]/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  ¿Olvidaste tu contraseña?
-                </a>
-                <span className="inline-flex items-center gap-1 font-semibold text-slate-500">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#EA580C]" />
-                  
-                </span>
-              </div>
-
-              {mensajeError && (
-                <p
-                  role="alert"
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
-                >
-                  {mensajeError}
-                </p>
-              )}
+                  {enviando ? "Verificando…" : "Verificar e ingresar"}
+                </button>
+              </form>
 
               <button
-                type="submit"
-                disabled={enviando}
-                className="w-full rounded-lg bg-[#C2410C] py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#9A3412] focus:outline-none focus:ring-4 focus:ring-orange-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => {
+                  setErrorLocal(null);
+                  setCodigo("");
+                  setPaso("credenciales");
+                }}
+                className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#706F6F] transition hover:text-[#1B1B1B]"
               >
-                {enviando ? "Ingresando…" : "Iniciar sesión"}
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Volver al inicio de sesión
               </button>
-            </form>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold tracking-tight text-[#1B1B1B]">Iniciar sesión</h2>
+              <p className="mt-1.5 text-sm text-[#706F6F]">
+                Ingresa con tus credenciales para continuar.
+              </p>
 
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">o</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
+              <form className="mt-8 space-y-4" onSubmit={onSubmit}>
+                <div className="space-y-1.5">
+                  <label htmlFor="email" className="text-xs font-semibold text-[#3F3F3F]">
+                    Correo
+                  </label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B3B2B2]" />
+                    <input
+                      id="email"
+                      type="email"
+                      autoComplete="username"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="usuario@gmail.com"
+                      className={campoCls}
+                    />
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = api.urlGoogle;
-              }}
-              className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-orange-500/10"
-            >
-              <GoogleIcon />
-              Acceder con Google
-            </button>
+                <div className="space-y-1.5">
+                  <label htmlFor="password" className="text-xs font-semibold text-[#3F3F3F]">
+                    Contraseña
+                  </label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B3B2B2]" />
+                    <input
+                      id="password"
+                      type={verPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••"
+                      className={`${campoCls} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setVerPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-[#B3B2B2] transition hover:bg-[#F1F1F1] hover:text-[#706F6F]"
+                      aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    >
+                      {verPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
 
-            <p className="mt-6 text-center text-xs text-slate-500">
-              ¿No tienes cuenta?{" "}
-              <Link to="/registro" className="font-semibold text-[#C2410C] hover:underline">
-                Solicita acceso
-              </Link>
-            </p>
+                <div className="flex items-center justify-between text-[11px]">
+                  <a
+                    href="mailto:soporte@unicesmag.edu.co"
+                    className="font-semibold text-[#B45309] hover:text-[#92400E] hover:underline"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </a>
+                  <span className="inline-flex items-center gap-1 font-semibold text-[#B3B2B2]">
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#F39200]" />
+                    Acceso protegido
+                  </span>
+                </div>
 
-            <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-400">
-              ¿Necesitas ayuda? Contacta a la oficina de software.
-            </p>
-          </div>
-        </main>
+                {mensajeError && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+                  >
+                    {mensajeError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={enviando}
+                  className="w-full rounded-lg bg-[#F39200] py-2.5 text-sm font-bold text-[#1B1B1B] shadow-sm transition hover:bg-[#DE8500] focus:outline-none focus:ring-4 focus:ring-[#F39200]/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {enviando ? "Ingresando…" : "Iniciar sesión"}
+                </button>
+              </form>
+
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-[#ECECEC]" />
+                <span className="text-[11px] font-medium uppercase tracking-wide text-[#B3B2B2]">
+                  o
+                </span>
+                <div className="h-px flex-1 bg-[#ECECEC]" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = api.urlGoogle;
+                }}
+                className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-[#E4E4E4] bg-white py-2.5 text-sm font-semibold text-[#3F3F3F] transition hover:bg-[#FAFAFA] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
+              >
+                <GoogleIcon />
+                Acceder con Google
+              </button>
+
+              <p className="mt-6 text-center text-xs text-[#706F6F]">
+                ¿No tienes cuenta?{" "}
+                <Link to="/registro" className="font-semibold text-[#B45309] hover:underline">
+                  Solicita acceso
+                </Link>
+              </p>
+
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-[#B3B2B2]">
+                ¿Necesitas ayuda? Contacta a la oficina de software.
+              </p>
+            </>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

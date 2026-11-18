@@ -238,24 +238,24 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                 <div>
                   <h3 className="text-sm font-bold text-gray-800 mb-3">Información del proyecto</h3>
                   <div className="space-y-0 rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-50">
-                    {[
-                      { label: "Nombre corto", value: project.nombreCorto || "—" },
-                      { label: "N.º de contrato", value: project.numeroContrato || "—" },
+                    {([
+                      { label: "Nombre corto", value: project.nombreCorto || "—", fila: "bg-orange-50/60", valor: "text-[#C2410C] font-extrabold text-base" },
+                      { label: "N.º de contrato", value: project.numeroContrato || "—", fila: "bg-indigo-50/60", valor: "font-mono text-indigo-700 font-bold" },
                       { label: "Entidad contratante", value: project.entidadContratante || "—" },
                       { label: "Entidad contratista", value: project.entidadContratista || "—" },
                       { label: "Organizadores", value: project.organizadores || "—" },
                       { label: "Responsable", value: project.responsible },
-                      { label: "Línea / área", value: project.line },
+                      { label: "Línea / área", value: project.line, fila: "bg-sky-50/60", valor: "text-sky-700 font-bold" },
                       { label: "Tipo de contrato", value: project.tipoContrato },
                       { label: "Área responsable", value: project.dependency },
-                      { label: "Fecha de asignación", value: project.fechaAsignacion },
-                      { label: "Valor total", value: fmt(project.budget) },
+                      { label: "Fecha de asignación", value: project.fechaAsignacion, fila: "bg-amber-50/60", valor: "text-amber-700 font-bold" },
+                      { label: "Valor total", value: fmt(project.budget), fila: "bg-emerald-50/60", valor: "text-emerald-700 font-extrabold text-base" },
                       { label: "Creado por", value: project.creadoPor || "Sin registro" },
                       { label: "Fecha de creación", value: project.creadoEn },
-                    ].map(r => (
-                      <div key={r.label} className="flex gap-3 px-4 py-2.5">
+                    ] as Array<{ label: string; value: string; fila?: string; valor?: string }>).map(r => (
+                      <div key={r.label} className={`flex gap-3 px-4 py-2.5 ${r.fila ?? ""}`}>
                         <span className="w-32 text-xs font-semibold text-gray-400 flex-shrink-0">{r.label}</span>
-                        <span className="text-sm text-gray-900">{r.value}</span>
+                        <span className={`text-sm text-gray-900 ${r.valor ?? ""}`}>{r.value}</span>
                       </div>
                     ))}
                   </div>

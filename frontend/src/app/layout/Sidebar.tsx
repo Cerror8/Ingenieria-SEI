@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
+import logoSei from "../../assets/brand/logo-sei.png";
 import { useAuth } from "../auth/AuthProvider";
 import { NAV_ENTRIES } from "../constants";
 
@@ -72,12 +73,12 @@ export function Sidebar({
           }`}
         >
           <div className={`flex items-center gap-3 ${collapsed ? "lg:justify-center" : ""}`}>
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[10px] font-black tracking-tight text-[#FDBA74] shadow-sm">
-              SEI
+            <div className="flex h-10 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white px-1 shadow-sm">
+              <img src={logoSei} alt="Ingeniería SEI" className="h-8 w-auto max-w-full" />
             </div>
             <div className={collapsed ? "lg:hidden" : ""}>
               <p className="text-xs font-black leading-tight tracking-wide text-white">INGENIERÍA</p>
-              <p className="text-xs font-black leading-tight tracking-wide text-[#FDBA74]">SEI</p>
+              <p className="text-xs font-black leading-tight tracking-wide text-[#F39200]">SEI</p>
             </div>
           </div>
 
@@ -110,7 +111,7 @@ export function Sidebar({
                     collapsed ? "lg:justify-center lg:px-2" : ""
                   } ${
                     activo
-                      ? "bg-[#C2410C] text-white shadow-sm"
+                      ? "bg-[#F39200] text-[#1B1B1B] shadow-sm"
                       : "text-white/55 hover:bg-white/10 hover:text-white/85"
                   }`}
                 >
@@ -138,7 +139,7 @@ export function Sidebar({
                     collapsed ? "lg:justify-center lg:px-2" : ""
                   } ${
                     activo
-                      ? "bg-[#C2410C] text-white shadow-sm"
+                      ? "bg-[#F39200] text-[#1B1B1B] shadow-sm"
                       : "text-white/55 hover:bg-white/10 hover:text-white/85"
                   }`}
                 >
@@ -163,7 +164,7 @@ export function Sidebar({
                         onClick={() => ir(hijo.id)}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${
                           currentView === hijo.id
-                            ? "bg-[#C2410C] text-white shadow-sm"
+                            ? "bg-[#F39200] text-[#1B1B1B] shadow-sm"
                             : "text-white/55 hover:bg-white/10 hover:text-white/85"
                         }`}
                       >

@@ -10,6 +10,7 @@ import { carpetaSubidas } from "../lib/carpetas.js";
 import {
   construirCorreoActividad,
   correoConfigurado,
+  direccionRespuestaActividad,
   enviarCorreo,
 } from "../lib/correo.js";
 import { imapConfigurado, sincronizarCorreosEntrantes } from "../lib/correoEntrante.js";
@@ -892,12 +893,19 @@ edt.post(
       mensaje: datosCorreo.mensaje ?? "",
     });
 
-    const enviado = await enviarCorreo({ para: contacto.email, ...contenido });
+    const responderA = direccionRespuestaActividad(actividad.id);
+    const asunto = responderA ? contenido.asunto : `${contenido.asunto} [SEI-ACT:${actividad.id}]`;
+    const enviado = await enviarCorreo({
+      para: contacto.email,
+      ...contenido,
+      asunto,
+      responderA: responderA ?? undefined,
+    });
     if (!enviado) throw new HttpError(502, "No se pudo enviar el correo.");
 
     const usuario = res.locals.usuario as UsuarioSesion;
     const html = Buffer.from(contenido.html, "utf8");
-    const nombreArchivo = `Correo enviado - ${contenido.asunto}`.slice(0, 200);
+    const nombreArchivo = `Correo enviado - ${asunto}`.slice(0, 200);
     const clave = await guardarBuffer(
       html,
       `${nombreArchivo}.html`,
@@ -947,7 +955,7 @@ edt.post(
 
     res.json({
       ok: true,
-      asunto: contenido.asunto,
+      asunto,
       enviadoEn: actualizadas[0]?.correoEnviadoEn ?? null,
       documentoId: documentoRows[0]?.id ?? null,
     });

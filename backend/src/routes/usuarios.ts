@@ -25,6 +25,7 @@ const actualizarSchema = z.object({
 const CAMPOS_USUARIO = `
   u.id, u.email, u.nombre, u.foto_url AS "fotoUrl", u.proveedor, u.rol, u.activo,
   u.pendiente_aprobacion AS "pendienteAprobacion",
+  (u.totp_habilitado_en IS NOT NULL) AS "totpHabilitado",
   u.ultimo_acceso AS "ultimoAcceso", u.creado_en AS "creadoEn"
 `;
 
@@ -217,6 +218,35 @@ usuarios.post(
     });
 
     res.json({ usuario: { ...rows[0], tareasAsignadas: 0, tareasCompletadas: 0 } });
+  }),
+);
+
+usuarios.post(
+  "/:id/2fa/reset",
+  ah(async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    const actor = res.locals.usuario as UsuarioSesion;
+
+    const { rows } = await pool.query<{ nombre: string }>(
+      `UPDATE usuarios
+          SET totp_secret = NULL, totp_habilitado_en = NULL, totp_codigos = NULL
+        WHERE id = $1
+        RETURNING nombre`,
+      [id],
+    );
+    if (!rows[0]) throw new HttpError(404, "Usuario no encontrado");
+
+    await pool.query("DELETE FROM desafios_2fa WHERE usuario_id = $1", [id]);
+
+    await registrarAuditoria({
+      usuario: actor.nombre,
+      accion: "Actualización",
+      entidad: "Usuario",
+      registro: rows[0].nombre,
+      nuevo: "Verificación en dos pasos restablecida por un administrador",
+    });
+
+    res.json({ ok: true });
   }),
 );
 

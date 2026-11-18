@@ -11,6 +11,7 @@
     "db:restore": "node scripts/restaurar-respaldo.mjs"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "@vercel/blob": "^2.9.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -26,6 +27,7 @@
     "multer": "^2.5.0",
     "nodemailer": "^7.0.13",
     "pg": "8.13.1",
+    "qrcode": "^1.5.4",
     "zod": "3.23.8"
   },
   "devDependencies": {

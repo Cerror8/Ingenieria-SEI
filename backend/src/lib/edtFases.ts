@@ -223,6 +223,7 @@ const PLANTILLA_OBRA: FasePlantilla[] = [
       { clave: "obra-f1-acta-comite", nombre: "Acta de reunión", tipo: "Acta", descripcion: "Acta de reunión del comité o de socialización con la entidad.", carpeta: "actas-reunion" },
       { clave: "obra-f1-plan-gerencia", nombre: "Plan de gerencia", tipo: "Documento", descripcion: "Plan de gerencia del proyecto.", carpeta: "calidad-gerencia" },
       { clave: "obra-f1-plan-ambiental", nombre: "Plan ambiental PMA o PAGA", tipo: "Documento", descripcion: "Plan ambiental PMA o PAGA según aplique.", carpeta: "calidad-ambiental" },
+      { clave: "obra-f1-plan-riesgo", nombre: "Plan de gestión de riesgo", tipo: "Documento", descripcion: "Identificación de riesgos, análisis, valoración y plan de tratamiento del contrato.", carpeta: "calidad" },
       { clave: "obra-f1-pmt", nombre: "PMT – radicación y resolución de aprobación", tipo: "Documento", descripcion: "Plan de manejo de tránsito radicado y aprobado por la entidad.", carpeta: "calidad-pmt" },
       { clave: "obra-f1-plan-social", nombre: "Plan social", tipo: "Documento", descripcion: "Plan social del proyecto.", carpeta: "calidad-social" },
       { clave: "obra-f1-plan-sgsst", nombre: "Plan SGSST", tipo: "Documento", descripcion: "Plan de seguridad y salud en el trabajo.", carpeta: "calidad-sgsst" },
@@ -317,6 +318,7 @@ const PLANTILLA_INTERVENTORIA: FasePlantilla[] = [
       { clave: "int-f1-dian", nombre: "Cita DIAN", descripcion: "Cita y soportes tributarios exigidos al interventor.", requiereDocumento: true, carpeta: "legalizacion" },
       { clave: "int-f1-polizas", nombre: "Póliza inicial de firma de contrato – Anexo 0", tipo: "Documento", descripcion: "Póliza inicial de la interventoría y garantías del contrato de obra.", carpeta: "polizas" },
       { clave: "int-f1-hojas-vida", nombre: "Hojas de vida del personal", tipo: "Documento", descripcion: "Personal requerido para el desarrollo del contrato según anexos técnicos.", carpeta: "personal" },
+      { clave: "int-f1-plan-riesgo", nombre: "Plan de gestión de riesgo", tipo: "Documento", descripcion: "Riesgos del contrato de obra e interventoría con su valoración y tratamiento.", carpeta: "calidad" },
     ],
   },
   {

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  FileText,
   MessageSquare,
   Paperclip,
   RotateCcw,
@@ -12,7 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api, type EdtActividadApi, type TableroApi } from "../../api/client";
+import { api, type DocumentoApi, type EdtActividadApi, type TableroApi } from "../../api/client";
 import type {
   AdjuntoTarea,
   ComentarioTarea,
@@ -110,6 +111,7 @@ export function TareaDetalle({
   const [devolviendo, setDevolviendo] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [edtActividades, setEdtActividades] = useState<EdtActividadApi[]>([]);
+  const [documentosActividad, setDocumentosActividad] = useState<DocumentoApi[]>([]);
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const esAdmin = usuario.rol === "admin";
@@ -174,6 +176,25 @@ export function TareaDetalle({
       cancelado = true;
     };
   }, [tarea.proyectoId]);
+
+  useEffect(() => {
+    if (!tarea.edtActividadId) {
+      setDocumentosActividad([]);
+      return;
+    }
+    let cancelado = false;
+    void api
+      .documentos(undefined, undefined, tarea.edtActividadId)
+      .then(({ documentos }) => {
+        if (!cancelado) setDocumentosActividad(documentos);
+      })
+      .catch(() => {
+        if (!cancelado) setDocumentosActividad([]);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [tarea.edtActividadId, tarea.id]);
 
   useEffect(() => {
     const cerrarEscape = (evento: KeyboardEvent) => {
@@ -783,6 +804,65 @@ export function TareaDetalle({
                   PDF, Word, Excel, PowerPoint, imágenes o texto · hasta 20 MB.
                 </p>
               </section>
+
+              {tarea.edtActividadId && (
+                <section>
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <FileText className="h-3.5 w-3.5" />
+                    Documentos de la actividad ({documentosActividad.length})
+                  </h3>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Correos enviados a la persona externa y respuestas recibidas con sus adjuntos.
+                  </p>
+                  <ul className="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                    {documentosActividad.map((documento) => (
+                      <li
+                        key={documento.id}
+                        className="flex items-center gap-2 rounded-lg border border-slate-100 bg-white px-2.5 py-2"
+                      >
+                        <FileText className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+                        <div className="min-w-0 flex-1">
+                          <a
+                            href={api.documentoArchivoUrl(documento.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block truncate text-[11px] font-semibold text-[#9A3412] hover:underline"
+                          >
+                            {documento.nombre}
+                          </a>
+                          <p className="text-[10px] text-slate-400">
+                            {documento.fecha} · {documento.usuario}
+                            {documento.archivoTamano ? ` · ${peso(documento.archivoTamano)}` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${
+                            documento.estado === "Aprobado"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : documento.estado === "Rechazado"
+                                ? "border-rose-200 bg-rose-50 text-rose-700"
+                                : "border-amber-200 bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {documento.estado}
+                        </span>
+                        <a
+                          href={api.documentoArchivoUrl(documento.id, true)}
+                          aria-label={`Descargar ${documento.nombre}`}
+                          className="rounded p-1 text-slate-400 transition hover:bg-slate-50 hover:text-[#C2410C]"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </a>
+                      </li>
+                    ))}
+                    {!documentosActividad.length && (
+                      <li className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] text-slate-400">
+                        Sin documentos vinculados todavía.
+                      </li>
+                    )}
+                  </ul>
+                </section>
+              )}
             </div>
           )}
         </div>

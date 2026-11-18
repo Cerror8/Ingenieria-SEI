@@ -86,11 +86,21 @@ async function ejecutar(): Promise<Resultado> {
     const bloqueo = await cliente.getMailboxLock("INBOX");
     try {
       const desde = new Date(Date.now() - DIAS_ATRAS * 24 * 3600 * 1000);
-      const encontrados = await cliente.search({ subject: "SEI-ACT", since: desde }, { uid: true });
-      const recientes = (Array.isArray(encontrados) ? encontrados : []).slice(-MAX_MENSAJES);
-      if (!recientes.length) return resultado;
+      const [porAsunto, porDestino] = await Promise.all([
+        cliente.search({ subject: "SEI-ACT", since: desde }, { uid: true }),
+        cliente.search({ to: "seiact-", since: desde }, { uid: true }),
+      ]);
+      const uids = [
+        ...new Set([
+          ...(Array.isArray(porAsunto) ? porAsunto : []),
+          ...(Array.isArray(porDestino) ? porDestino : []),
+        ]),
+      ]
+        .sort((a, b) => a - b)
+        .slice(-MAX_MENSAJES);
+      if (!uids.length) return resultado;
 
-      for await (const mensaje of cliente.fetch(recientes, {
+      for await (const mensaje of cliente.fetch(uids, {
         uid: true,
         envelope: true,
         bodyStructure: true,
@@ -128,9 +138,7 @@ async function procesarMensaje(
   mensaje: FetchMessageObject,
 ): Promise<number | null> {
   const asunto = mensaje.envelope?.subject ?? "";
-  const token = /\[SEI-ACT:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i.exec(
-    asunto,
-  )?.[1];
+  const token = tokenDelMensaje(mensaje);
   if (!token) return null;
 
   const remitente = (mensaje.envelope?.from?.[0]?.address ?? "").toLowerCase();
@@ -252,6 +260,28 @@ async function procesarMensaje(
 
   await marcarLeido(cliente, mensaje.uid);
   return documentos;
+}
+
+// El id de la actividad viaja en la etiqueta del buzón (respuesta al
+// destinatario usuario+seiact-<id>@gmail.com) o, para correos anteriores, en el
+// asunto entre corchetes.
+function tokenDelMensaje(mensaje: FetchMessageObject): string | null {
+  const asunto = mensaje.envelope?.subject ?? "";
+  const delAsunto =
+    /\[SEI-ACT:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i.exec(
+      asunto,
+    )?.[1];
+  if (delAsunto) return delAsunto;
+
+  const destinatarios = [...(mensaje.envelope?.to ?? []), ...(mensaje.envelope?.cc ?? [])];
+  for (const destinatario of destinatarios) {
+    const delDestino =
+      /\+seiact-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})@/i.exec(
+        destinatario.address ?? "",
+      )?.[1];
+    if (delDestino) return delDestino;
+  }
+  return null;
 }
 
 function partesAdjuntas(nodo: MessageStructureObject | undefined): MessageStructureObject[] {

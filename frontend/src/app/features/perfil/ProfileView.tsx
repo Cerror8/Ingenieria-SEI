@@ -1,14 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   BadgeCheck,
+  Check,
+  Copy,
   Image as ImageIcon,
   KeyRound,
   Mail,
   Phone,
+  QrCode,
+  RefreshCw,
   Save,
   ShieldCheck,
+  ShieldOff,
   UserRound,
 } from "lucide-react";
+import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import type { Rol } from "../../types";
 
@@ -54,6 +60,127 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
   const [claveRepite, setClaveRepite] = useState("");
   const [guardandoClave, setGuardandoClave] = useState(false);
   const [errorClave, setErrorClave] = useState<string | null>(null);
+
+  const [estado2fa, setEstado2fa] = useState<{ habilitado: boolean; codigosRestantes: number } | null>(
+    null,
+  );
+  const [config2fa, setConfig2fa] = useState<{
+    secreto: string;
+    urlOtpauth: string;
+    qr: string;
+  } | null>(null);
+  const [codigo2fa, setCodigo2fa] = useState("");
+  const [clave2fa, setClave2fa] = useState("");
+  const [codigosNuevos, setCodigosNuevos] = useState<string[] | null>(null);
+  const [error2fa, setError2fa] = useState<string | null>(null);
+  const [ocupado2fa, setOcupado2fa] = useState(false);
+  const [modo2fa, setModo2fa] = useState<"inactivo" | "desactivar" | "regenerar">("inactivo");
+  const [copiado, setCopiado] = useState<"secreto" | "codigos" | null>(null);
+
+  useEffect(() => {
+    if (!usuario?.id) return;
+    let activo = true;
+    api
+      .estado2fa()
+      .then(({ habilitado, codigosRestantes }) => {
+        if (activo) setEstado2fa({ habilitado, codigosRestantes });
+      })
+      .catch(() => {
+        if (activo) setEstado2fa({ habilitado: usuario.totpHabilitado, codigosRestantes: 0 });
+      });
+    return () => {
+      activo = false;
+    };
+  }, [usuario?.id, usuario?.totpHabilitado]);
+
+  async function copiar(texto: string, tipo: "secreto" | "codigos") {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(tipo);
+      window.setTimeout(() => setCopiado(null), 2000);
+    } catch {
+      setError2fa("No se pudo copiar al portapapeles. Selecciona y copia manualmente.");
+    }
+  }
+
+  async function iniciar2fa() {
+    if (!usuario) return;
+    setError2fa(null);
+    setOcupado2fa(true);
+    try {
+      const config = await api.iniciar2fa(usuario.proveedor === "local" ? clave2fa : undefined);
+      setConfig2fa(config);
+      setClave2fa("");
+      setCodigosNuevos(null);
+    } catch (e) {
+      setError2fa(e instanceof Error ? e.message : "No se pudo iniciar la configuración.");
+    } finally {
+      setOcupado2fa(false);
+    }
+  }
+
+  async function activar2fa() {
+    setError2fa(null);
+    setOcupado2fa(true);
+    try {
+      const { codigos } = await api.activar2fa(codigo2fa);
+      setEstado2fa({ habilitado: true, codigosRestantes: codigos.length });
+      setCodigosNuevos(codigos);
+      setConfig2fa(null);
+      setCodigo2fa("");
+      onShowToast("Verificación en dos pasos activada.");
+    } catch (e) {
+      setError2fa(e instanceof Error ? e.message : "No se pudo activar la verificación.");
+    } finally {
+      setOcupado2fa(false);
+    }
+  }
+
+  async function desactivar2fa() {
+    if (!usuario) return;
+    setError2fa(null);
+    setOcupado2fa(true);
+    try {
+      await api.desactivar2fa({
+        password: usuario.proveedor === "local" ? clave2fa : undefined,
+        codigo: codigo2fa,
+      });
+      setEstado2fa({ habilitado: false, codigosRestantes: 0 });
+      setModo2fa("inactivo");
+      setCodigosNuevos(null);
+      setClave2fa("");
+      setCodigo2fa("");
+      onShowToast("Verificación en dos pasos desactivada.");
+    } catch (e) {
+      setError2fa(e instanceof Error ? e.message : "No se pudo desactivar la verificación.");
+    } finally {
+      setOcupado2fa(false);
+    }
+  }
+
+  async function regenerarCodigos() {
+    if (!usuario) return;
+    setError2fa(null);
+    setOcupado2fa(true);
+    try {
+      const { codigos } = await api.regenerarCodigos2fa({
+        password: usuario.proveedor === "local" ? clave2fa : undefined,
+        codigo: codigo2fa,
+      });
+      setCodigosNuevos(codigos);
+      setEstado2fa((actual) =>
+        actual ? { habilitado: true, codigosRestantes: codigos.length } : actual,
+      );
+      setModo2fa("inactivo");
+      setClave2fa("");
+      setCodigo2fa("");
+      onShowToast("Códigos de respaldo regenerados.");
+    } catch (e) {
+      setError2fa(e instanceof Error ? e.message : "No se pudieron regenerar los códigos.");
+    } finally {
+      setOcupado2fa(false);
+    }
+  }
 
   useEffect(() => {
     setNombre(usuario?.nombre ?? "");
@@ -438,6 +565,265 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                 cuenta de Google.
               </p>
             )}
+
+            <div className="mt-6 border-t border-gray-100 pt-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-400">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Verificación en dos pasos
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                    Pide un código temporal de tu aplicación autenticadora (Google Authenticator,
+                    Authy, 1Password) cada vez que inicies sesión.
+                  </p>
+                </div>
+                {estado2fa && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      estado2fa.habilitado
+                        ? "border-green-200 bg-green-50 text-green-700"
+                        : "border-slate-200 bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {estado2fa.habilitado ? "Activa" : "Inactiva"}
+                  </span>
+                )}
+              </div>
+
+              {codigosNuevos && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] font-semibold text-amber-800">
+                      Guarda estos códigos de respaldo. Cada uno sirve una sola vez y no se volverán a
+                      mostrar.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void copiar(codigosNuevos.join("\n"), "codigos")}
+                      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-amber-300 px-2 py-1 text-[10px] font-bold text-amber-800 transition hover:bg-amber-100"
+                    >
+                      {copiado === "codigos" ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                      {copiado === "codigos" ? "Copiado" : "Copiar"}
+                    </button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 font-mono text-xs text-amber-900">
+                    {codigosNuevos.map((item) => (
+                      <span key={item} className="rounded bg-white/70 px-2 py-1">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!estado2fa ? (
+                <p className="mt-3 text-[11px] text-gray-400">Consultando estado…</p>
+              ) : estado2fa.habilitado ? (
+                <div className="mt-4 space-y-3">
+                  <p className="text-[11px] text-gray-500">
+                    {estado2fa.codigosRestantes} código
+                    {estado2fa.codigosRestantes === 1 ? "" : "s"} de respaldo disponible
+                    {estado2fa.codigosRestantes === 1 ? "" : "s"}.
+                  </p>
+
+                  {modo2fa === "inactivo" ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError2fa(null);
+                          setCodigosNuevos(null);
+                          setModo2fa("regenerar");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Regenerar códigos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError2fa(null);
+                          setCodigosNuevos(null);
+                          setModo2fa("desactivar");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                      >
+                        <ShieldOff className="h-3.5 w-3.5" />
+                        Desactivar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+                      <p className="text-[11px] font-semibold text-gray-600">
+                        {modo2fa === "desactivar"
+                          ? "Confirma con tu contraseña y un código actual."
+                          : "Confirma con tu contraseña y un código actual para generar códigos nuevos."}
+                      </p>
+                      {usuario.proveedor === "local" && (
+                        <input
+                          type="password"
+                          value={clave2fa}
+                          onChange={(e) => setClave2fa(e.target.value)}
+                          placeholder="Contraseña actual"
+                          autoComplete="current-password"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                        />
+                      )}
+                      <input
+                        value={codigo2fa}
+                        onChange={(e) =>
+                          setCodigo2fa(e.target.value.replace(/[^0-9A-Za-z-]/g, ""))
+                        }
+                        placeholder="Código de 6 dígitos o código de respaldo"
+                        maxLength={12}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                      />
+                      {error2fa && (
+                        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                          {error2fa}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={ocupado2fa || codigo2fa.trim().length < 6}
+                          onClick={() => void (modo2fa === "desactivar" ? desactivar2fa() : regenerarCodigos())}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            modo2fa === "desactivar"
+                              ? "bg-red-600 hover:bg-red-700"
+                              : "bg-[#C2410C] hover:bg-[#9A3412]"
+                          }`}
+                        >
+                          {ocupado2fa
+                            ? "Procesando…"
+                            : modo2fa === "desactivar"
+                              ? "Desactivar 2FA"
+                              : "Generar códigos"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModo2fa("inactivo");
+                            setClave2fa("");
+                            setCodigo2fa("");
+                            setError2fa(null);
+                          }}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : config2fa ? (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-col gap-4 sm:flex-row">
+                    <img
+                      src={config2fa.qr}
+                      alt="Código QR para configurar la verificación en dos pasos"
+                      className="h-40 w-40 flex-shrink-0 rounded-lg border border-gray-200 bg-white p-1"
+                    />
+                    <div className="min-w-0 space-y-2">
+                      <p className="text-[11px] leading-relaxed text-gray-500">
+                        Escanea el código con tu aplicación autenticadora. Si no puedes escanearlo,
+                        agrega esta clave manualmente:
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <code className="min-w-0 flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 font-mono text-[11px] text-gray-700">
+                          {config2fa.secreto}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => void copiar(config2fa.secreto, "secreto")}
+                          className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-gray-200 px-2 py-1.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-50"
+                        >
+                          {copiado === "secreto" ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                          {copiado === "secreto" ? "Copiada" : "Copiar"}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        Después de escanear, escribe el código actual que muestra la aplicación.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      value={codigo2fa}
+                      onChange={(e) => setCodigo2fa(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="Código de 6 dígitos"
+                      inputMode="numeric"
+                      maxLength={6}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10 sm:max-w-[220px]"
+                    />
+                    <button
+                      type="button"
+                      disabled={ocupado2fa || codigo2fa.length < 6}
+                      onClick={() => void activar2fa()}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#C2410C] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      {ocupado2fa ? "Activando…" : "Activar 2FA"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfig2fa(null);
+                        setCodigo2fa("");
+                        setError2fa(null);
+                      }}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+
+                  {error2fa && (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                      {error2fa}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {usuario.proveedor === "local" && (
+                    <input
+                      type="password"
+                      value={clave2fa}
+                      onChange={(e) => setClave2fa(e.target.value)}
+                      placeholder="Contraseña actual"
+                      autoComplete="current-password"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10 sm:max-w-sm"
+                    />
+                  )}
+                  {error2fa && (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                      {error2fa}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={ocupado2fa}
+                    onClick={() => void iniciar2fa()}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <QrCode className="h-3.5 w-3.5" />
+                    {ocupado2fa ? "Preparando…" : "Configurar verificación en dos pasos"}
+                  </button>
+                </div>
+              )}
+            </div>
           </section>
         </div>
       </div>

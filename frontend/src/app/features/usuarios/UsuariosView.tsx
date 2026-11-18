@@ -215,6 +215,30 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
     }
   }
 
+  async function reiniciar2fa(u: UsuarioAdmin) {
+    if (
+      !window.confirm(
+        `¿Restablecer la verificación en dos pasos de ${u.nombre}? La persona deberá configurarla de nuevo.`,
+      )
+    ) {
+      return;
+    }
+
+    setOcupado(u.id);
+    setAviso(null);
+    try {
+      await api.reiniciar2faUsuario(u.id);
+      setUsuarios((prev) =>
+        prev.map((item) => (item.id === u.id ? { ...item, totpHabilitado: false } : item)),
+      );
+      onShowToast(`Verificación en dos pasos restablecida para ${u.nombre}.`);
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "No se pudo restablecer la verificación.");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
   async function crearUsuario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!nuevo.nombre.trim() || !nuevo.email.trim() || nuevo.password.length < 8) return;
@@ -398,7 +422,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
           <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60">
-                {["Usuario", "Rol", "Estado", "Tareas", "Último acceso", "Alta"].map((h) => (
+                {["Usuario", "Rol", "Estado", "Tareas", "2FA", "Último acceso", "Alta"].map((h) => (
                   <th
                     key={h}
                     className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500"
@@ -509,6 +533,27 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
                           />
                         </div>
                       </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {u.totpHabilitado ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-green-700">
+                            <ShieldCheck className="h-3 w-3" />
+                            Activa
+                          </span>
+                          <button
+                            type="button"
+                            disabled={ocupado === u.id}
+                            onClick={() => void reiniciar2fa(u)}
+                            title="Restablecer la verificación en dos pasos"
+                            className="rounded-md border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Restablecer
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-medium text-gray-400">Sin 2FA</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
                       {fechaHora(u.ultimoAcceso)}

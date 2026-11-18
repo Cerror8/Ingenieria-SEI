@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
-  Archive, BookOpen, Edit2, Eye, FolderOpen, MoreVertical, Plus, RotateCcw, Search, Trash2, X,
+  Activity, Archive, BookOpen, CheckCircle2, Edit2, Eye, FolderKanban, FolderOpen, MoreVertical,
+  Plus, RotateCcw, Search, Trash2, TrendingUp, X,
 } from "lucide-react";
 import { api, mapProyecto } from "../../../api/client";
 import { useAuth } from "../../../auth/AuthProvider";
 import { fmt } from "../../../lib/format";
 import { StatusBadge, Bar2 } from "../../../components/shared";
 import { CargandoModule } from "../../../components/DataState";
-import { STATUS_CFG } from "../../../constants";
 import type { Project } from "../../../types";
 
 type Props = {
@@ -17,6 +17,21 @@ type Props = {
   onEditProject: (id: string) => void;
   onDocumentsProject: (id: string) => void;
 };
+
+const ESTADO_TABS = [
+  { id: "Todos", label: "Todos" },
+  { id: "En formulación", label: "Formulación" },
+  { id: "En ejecución", label: "En ejecución" },
+  { id: "Suspendido", label: "Suspendido" },
+  { id: "Finalizado", label: "Finalizado" },
+  { id: "Cerrado", label: "Cerrado" },
+] as const;
+
+function coincideEstado(estado: string, filtro: string) {
+  if (filtro === "Todos") return true;
+  if (filtro === "En ejecución") return estado.startsWith("En ejecución");
+  return estado === filtro;
+}
 
 export function ProjectsListView({
   onSelectProject,
@@ -93,10 +108,24 @@ export function ProjectsListView({
     const coincideTexto = [p.id, p.name, p.nombreCorto, p.numeroContrato, p.organizadores, p.entidadContratante]
       .some(valor => (valor ?? "").toLocaleLowerCase("es").includes(consulta));
     return coincideTexto
-      && (statusFilter === "Todos" || p.status === statusFilter)
+      && coincideEstado(p.status, statusFilter)
       && (lineFilter === "Todas" || p.line === lineFilter)
       && (responsibleFilter === "Todos" || p.responsible === responsibleFilter);
   });
+  const resumen = useMemo(() => {
+    const activos = proyectos.filter(p => p.status.startsWith("En ejecución")).length;
+    const finalizados = proyectos.filter(p => p.status === "Finalizado" || p.status === "Cerrado").length;
+    const avance = proyectos.length
+      ? Math.round(proyectos.reduce((suma, p) => suma + p.progress, 0) / proyectos.length)
+      : 0;
+    return { total: proyectos.length, activos, finalizados, avance };
+  }, [proyectos]);
+  const conteos = useMemo(
+    () => Object.fromEntries(
+      ESTADO_TABS.map(tab => [tab.id, proyectos.filter(p => coincideEstado(p.status, tab.id)).length]),
+    ) as Record<string, number>,
+    [proyectos],
+  );
   const hayFiltros = search.trim() !== "" || statusFilter !== "Todos" || lineFilter !== "Todas" || responsibleFilter !== "Todos";
   const limpiarFiltros = () => {
     setSearch("");
@@ -112,22 +141,53 @@ export function ProjectsListView({
       {paraEliminar && usuario?.rol === "admin" && (
         <DeleteProjectDialog proyecto={paraEliminar} onClose={() => setParaEliminar(null)} onDeleted={eliminado} />
       )}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Proyectos de Ingeniería SEI</h1>
-          <p className="mt-0.5 text-sm text-gray-500">{proyectos.length} proyectos registrados</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {usuario?.rol === "admin" && (
-            <button type="button" onClick={() => void crearEjemplo()} disabled={creandoEjemplo} title="Crea un proyecto guía con datos realistas, sin documentos ni actividades vinculadas" className="inline-flex items-center justify-center gap-2 rounded-lg border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 shadow-sm transition-colors hover:bg-orange-50 disabled:cursor-wait disabled:opacity-60">
-              <BookOpen className="h-4 w-4" />{creandoEjemplo ? "Creando ejemplo…" : "Proyecto de ejemplo"}
+      <section className="sei-fade-up relative overflow-hidden rounded-2xl bg-[#1B1B1B] px-5 py-6 text-white shadow-sm sm:px-7">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[#F39200]/15" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-white/5" />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F39200]/40 bg-[#F39200]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#FDBA74]">
+              <FolderKanban className="h-3 w-3" /> Área proyectos
+            </span>
+            <h1 className="mt-3 text-2xl font-black leading-tight tracking-tight sm:text-3xl">
+              Proyectos de Ingeniería SEI
+            </h1>
+            <p className="mt-1.5 max-w-xl text-sm text-white/60">
+              Planificación, contratación, supervisión y control en un solo lugar.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {usuario?.rol === "admin" && (
+              <button type="button" onClick={() => void crearEjemplo()} disabled={creandoEjemplo} title="Crea un proyecto guía con datos realistas, sin documentos ni actividades vinculadas" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-60">
+                <BookOpen className="h-4 w-4" />{creandoEjemplo ? "Creando ejemplo…" : "Proyecto de ejemplo"}
+              </button>
+            )}
+            <button type="button" onClick={onCreateProject} disabled={!usuario} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-bold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B] disabled:opacity-60">
+              <Plus className="h-4 w-4" />Nuevo proyecto
             </button>
-          )}
-          <button type="button" onClick={onCreateProject} disabled={!usuario} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412] disabled:opacity-60">
-            <Plus className="h-4 w-4" />Nuevo proyecto
-          </button>
+          </div>
         </div>
-      </div>
+        <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Proyectos", valor: resumen.total, icon: FolderKanban },
+            { label: "En ejecución", valor: resumen.activos, icon: Activity },
+            { label: "Finalizados", valor: resumen.finalizados, icon: CheckCircle2 },
+            { label: "Avance promedio", valor: `${resumen.avance}%`, icon: TrendingUp },
+          ].map((item, indice) => (
+            <div
+              key={item.label}
+              style={{ animationDelay: `${80 + indice * 60}ms` }}
+              className="sei-pop rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5"
+            >
+              <div className="flex items-center gap-2">
+                <item.icon className="h-3.5 w-3.5 text-[#FDBA74]" />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">{item.label}</p>
+              </div>
+              <p className="mt-1 text-xl font-black leading-none text-white">{item.valor}</p>
+            </div>
+          ))}
+        </div>
+      </section>
       {aviso && <p role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{aviso}</p>}
       {error && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -138,7 +198,35 @@ export function ProjectsListView({
       {cargando && <p role="status" className="text-xs text-gray-500">Actualizando proyectos…</p>}
 
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-wrap gap-1.5 rounded-xl bg-slate-100/70 p-1" role="tablist" aria-label="Filtrar proyectos por estado">
+          {ESTADO_TABS.map(tab => {
+            const activo = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activo}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                  activo
+                    ? "bg-white text-[#9A3412] shadow-sm"
+                    : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                }`}
+              >
+                {tab.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                    activo ? "bg-orange-100 text-[#9A3412]" : "bg-slate-200/80 text-slate-500"
+                  }`}
+                >
+                  {conteos[tab.id] ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0">
             <label htmlFor="buscar-proyectos" className="mb-1.5 block text-xs font-semibold text-gray-700">Buscar proyectos</label>
             <div className="relative">
@@ -147,13 +235,6 @@ export function ProjectsListView({
                 onChange={e => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
             </div>
-          </div>
-          <div>
-            <label htmlFor="filtrar-estado-proyectos" className="mb-1.5 block text-xs font-semibold text-gray-700">Estado</label>
-            <select id="filtrar-estado-proyectos" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20">
-              <option value="Todos">Todos los estados</option>
-              {Object.keys(STATUS_CFG).map(estado => <option key={estado} value={estado}>{estado}</option>)}
-            </select>
           </div>
           <div>
             <label htmlFor="filtrar-linea-proyectos" className="mb-1.5 block text-xs font-semibold text-gray-700">Línea / área</label>
@@ -179,7 +260,7 @@ export function ProjectsListView({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm" aria-busy={cargando}>
+      <div className="sei-fade-up overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm" aria-busy={cargando}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1050px] text-sm">
             <thead>
@@ -214,11 +295,15 @@ export function ProjectsListView({
                   </td>
                   <td className="whitespace-nowrap px-4 py-3"><span className="font-mono text-xs font-black text-orange-700">{p.id}</span></td>
                   <td className="px-4 py-3">
-                    <p className="min-w-[160px] max-w-[260px] break-words text-sm font-bold text-gray-900">{p.nombreCorto || p.name}</p>
+                    <p className="min-w-[160px] max-w-[260px] break-words text-sm font-black text-[#9A3412]">{p.nombreCorto || p.name}</p>
                     {p.nombreCorto && <p className="mt-1 max-w-[260px] break-words text-xs text-gray-500">{p.name}</p>}
                   </td>
-                  <td className="px-4 py-3 text-xs font-semibold text-gray-800">{p.numeroContrato || "No registrado"}</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-gray-800">{p.line}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-block rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 font-mono text-xs font-bold text-indigo-700">{p.numeroContrato || "No registrado"}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-block rounded border border-sky-100 bg-sky-50 px-1.5 py-0.5 text-xs font-bold text-sky-700">{p.line}</span>
+                  </td>
                   <td className="px-4 py-3 text-xs text-gray-600">{p.responsible}</td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                   <td className="px-4 py-3">
@@ -227,8 +312,8 @@ export function ProjectsListView({
                       <span className="flex-shrink-0 text-xs font-bold text-gray-700">{p.progress}%</span>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-gray-900">{fmt(p.budget)}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-gray-800">{p.endDate}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs font-black text-emerald-700">{fmt(p.budget)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-amber-700">{p.endDate}</td>
                 </tr>
               ))}
             </tbody>

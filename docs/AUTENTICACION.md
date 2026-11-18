@@ -11,6 +11,8 @@ Las cuentas nuevas no entran directamente. Quien usa el formulario público de r
 
 Ambas vías terminan en el mismo mecanismo de sesión: un token aleatorio en cookie `httpOnly` y su hash SHA-256 en la base de datos.
 
+Cada cuenta puede activar además la **verificación en dos pasos (2FA TOTP)** desde **Mi perfil**. Cuando está activa, la contraseña o Google solo inician un *desafío*; la sesión se crea únicamente al validar el código de la aplicación autenticadora o un código de respaldo.
+
 ## Variables de entorno
 
 Archivo `backend/.env` (parte de `backend/.env.example`):
@@ -37,13 +39,21 @@ El frontend solo requiere `VITE_API_URL` (ver `frontend/.env.example`), por defe
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/api/auth/login` | Login local. Límite: 10 intentos cada 15 minutos por IP. Responde `403` si la cuenta está pendiente o inactiva. |
+| `POST` | `/api/auth/login` | Login local. Límite: 10 intentos cada 15 minutos por IP. Responde `403` si la cuenta está pendiente o inactiva. Si la cuenta tiene 2FA responde `{ "requiere2fa": true }` sin abrir sesión. |
+| `POST` | `/api/auth/2fa` | Canjea el desafío 2FA: `{ codigo }` (código TOTP o de respaldo). Límite: 12 intentos cada 15 minutos. |
 | `POST` | `/api/auth/registro` | Solicitud de acceso `{ email, nombre, password }`. Crea la cuenta inactiva y pendiente; límite de 5 solicitudes por hora e IP. |
 | `GET` | `/api/auth/google` | Inicia el flujo OAuth y redirige a Google. |
-| `GET` | `/api/auth/google/callback` | Valida `state` y el ID token. Si la cuenta ya fue aprobada abre sesión; si es desconocida la crea pendiente y vuelve al login sin sesión. |
+| `GET` | `/api/auth/google/callback` | Valida `state` y el ID token. Si la cuenta ya fue aprobada abre sesión (o pide 2FA); si es desconocida la crea pendiente y vuelve al login sin sesión. |
 | `GET` | `/api/auth/me` | Devuelve el usuario de la sesión actual o `401`. |
-| `PATCH` | `/api/auth/me` | Actualiza `nombre` y `fotoUrl` del perfil propio. |
-| `POST` | `/api/auth/logout` | Elimina la sesión y borra la cookie. |
+| `PATCH` | `/api/auth/me` | Actualiza `nombre`, `fotoUrl`, `telefono` y `whatsappOptIn` del perfil propio. |
+| `PATCH` | `/api/auth/me/correo` | Cambia el correo de acceso local: `{ email, password }`. |
+| `PATCH` | `/api/auth/me/password` | Cambia la contraseña local: `{ actual, nueva }`. |
+| `GET` | `/api/auth/2fa` | Estado 2FA de la cuenta: `{ habilitado, codigosRestantes }`. |
+| `POST` | `/api/auth/2fa/iniciar` | Genera secreto TOTP pendiente y QR: `{ password? }` (obligatorio en cuentas locales). |
+| `POST` | `/api/auth/2fa/activar` | Confirma el secreto pendiente con `{ codigo }` y devuelve los 8 códigos de respaldo en claro (única vez). |
+| `POST` | `/api/auth/2fa/desactivar` | Desactiva 2FA: `{ password?, codigo }`. |
+| `POST` | `/api/auth/2fa/codigos` | Regenera los códigos de respaldo: `{ password?, codigo }`. |
+| `POST` | `/api/auth/logout` | Elimina la sesión, el desafío 2FA y borra las cookies. |
 | `GET` | `/api/salud` | Estado del servicio. |
 
 Respuesta de usuario:
@@ -57,6 +67,7 @@ Respuesta de usuario:
     "fotoUrl": "https://...",
     "proveedor": "google",
     "rol": "usuario",
+    "totpHabilitado": false,
     "ultimoAcceso": "2026-11-04T19:14:00.000Z"
   }
 }
@@ -79,6 +90,7 @@ Endpoints de administración (montados en `/api/usuarios`):
 | `PATCH` | `/api/usuarios/:id` | **admin** | Actualiza `nombre`, `rol` y/o `activo`. Al activar una cuenta se limpia la marca de pendiente. |
 | `POST` | `/api/usuarios/:id/aprobar` | **admin** | Aprueba una solicitud: `{ rol?: "usuario" }`; activa, limpia la marca y asigna el rol. |
 | `DELETE` | `/api/usuarios/:id/solicitud` | **admin** | Rechaza y elimina una solicitud pendiente. |
+| `POST` | `/api/usuarios/:id/2fa/reset` | **admin** | Restablece la verificación en dos pasos: borra secreto, códigos y desafíos. Uso previsto cuando la persona perdió el dispositivo y los códigos; debe configurarla de nuevo. |
 
 Reglas de protección:
 
@@ -131,8 +143,11 @@ Si con `ALLOWED_DOMAIN` vacío una cuenta personal sigue sin poder entrar, revis
 - Expiración de sesión configurable y limpieza al cerrar sesión.
 - Validación del parámetro `state` de OAuth contra una cookie de corta duración.
 - Verificación del ID token de Google con `google-auth-library` y auditoría del `client_id`.
-- Límite de intentos en el login local y de solicitudes en el registro.
+- Límite de intentos en el login local, en el canje 2FA y de solicitudes en el registro.
 - Las cuentas nuevas quedan inactivas y pendientes hasta la aprobación de un administrador; el login valida ambos estados antes de crear la sesión.
+- 2FA TOTP implementado con HMAC-SHA1 y comparación en tiempo constante (`crypto.timingSafeEqual`); tolerancia de ±1 paso y desafíos de 5 minutos con máximo 5 intentos.
+- Códigos de respaldo de un solo uso: solo se almacena su hash SHA-256 y se consumen al validarse.
+- Ninguna sesión se crea antes de superar el segundo factor; el desafío vive en cookie `httpOnly` independiente.
 - Validación de cuerpo con zod y consultas parametrizadas con `pg`.
 
 ## Flujo de Google
@@ -149,11 +164,69 @@ Frontend                 Backend                         Google
    ├────────────────────────>│  cookie rap_sid (si aplica)  │
 ```
 
-Si la cuenta de Google no existe, se crea con `activo = false` y `pendiente_aprobacion = true`, no se emite cookie de sesión y el navegador vuelve a `/login?error=pendiente`. Cuando el administrador la aprueba, el siguiente acceso con Google ya abre sesión normal. Una cuenta existente pero inactiva vuelve con `error=inactivo`.
+Si la cuenta de Google no existe, se crea con `activo = false` y `pendiente_aprobacion = true`, no se emite cookie de sesión y el navegador vuelve a `/login?error=pendiente`. Cuando el administrador la aprueba, el siguiente acceso con Google ya abre sesión normal. Una cuenta existente pero inactiva vuelve con `error=inactivo`. Si la cuenta aprobada tiene 2FA activo, el callback crea el desafío y redirige a `/login?paso=2fa`.
+
+## Verificación en dos pasos (2FA TOTP)
+
+### Esquema
+
+La migración es idempotente y se aplica con `npm run db:init` (archivo `database/init/01_schema.sql`):
+
+```sql
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_habilitado_en TIMESTAMPTZ;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_codigos TEXT[];
+
+CREATE TABLE IF NOT EXISTS desafios_2fa (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expira_en TIMESTAMPTZ NOT NULL,
+  intentos INT NOT NULL DEFAULT 0,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+- `totp_secret`: secreto base32 de 20 bytes emitido al configurar. Se guarda en claro porque el servidor debe calcular códigos; cualquier cambio de cifrado exige gestionar una clave externa.
+- `totp_habilitado_en`: `NULL` mientras no se confirme el primer código; con fecha indica 2FA activo.
+- `totp_codigos`: solo hashes SHA-256 de los códigos de respaldo (8 por defecto); cada uso consume uno.
+- `desafios_2fa`: desafíos de login pendientes; se guarda el hash del token, la expiración (5 minutos) y el contador de intentos (máximo 5).
+
+### Activación desde Mi perfil
+
+1. El usuario escribe su contraseña actual (las cuentas de Google no la tienen y quedan exentas).
+2. El backend genera un secreto pendiente, un QR (`qrcode`) y el URI `otpauth://`; el secreto se muestra también en texto para carga manual.
+3. La persona escanea el QR y escribe el código de 6 dígitos actual.
+4. Al validarlo se fija `totp_habilitado_en`, se generan y muestran una única vez 8 códigos de respaldo (`XXXX-XXXX`) y se registra el cambio en auditoría.
+
+Desde la misma sección se pueden **regenerar** los códigos o **desactivar** 2FA; ambas acciones exigen la contraseña local y un código válido.
+
+### Inicio de sesión con 2FA
+
+```
+POST /auth/login
+  ├─ credenciales inválidas o cuenta pendiente/inactiva → error
+  └─ credenciales válidas + 2FA activo
+       ├─ crea fila en desafios_2fa y cookie httpOnly rap_2fa (5 min)
+       └─ { "requiere2fa": true }        ← sin cookie de sesión
+
+POST /auth/2fa { codigo }
+  ├─ valida desafío, expiración, intentos y estado de la cuenta
+  ├─ acepta TOTP (±1 paso de 30 s) o código de respaldo de un solo uso
+  ├─ elimina el desafío y la cookie rap_2fa
+  └─ crea la sesión (rap_sid) y devuelve el usuario
+```
+
+El código TOTP es de 6 dígitos, periodo de 30 segundos y ventana de tolerancia de un paso. El endpoint de canje tiene su propio límite (12 intentos cada 15 minutos). Con Google el flujo es idéntico, salvo que el desafío se crea en el callback y la persona llega a `/login?paso=2fa`.
+
+### Recuperación
+
+- **Códigos de respaldo**: 8 códigos de un solo uso entregados al activar o regenerar. Se aceptan en el mismo campo del código TOTP (con o sin guion).
+- **Restablecimiento por administrador**: en **Usuarios**, la columna **2FA** muestra el estado y el botón **Restablecer** borra secreto, códigos y desafíos. La persona configura 2FA de nuevo en su siguiente acceso. La acción queda auditada.
 
 ## Perfil personalizado
 
-Cada usuario puede cambiar su nombre y foto desde **Mi perfil**. Al guardar se marca `perfil_editado = true`; en los siguientes accesos con Google, el callback conserva esos valores en lugar de sobrescribirlos con los de la cuenta de Google. El correo y el rol se administran fuera del formulario y no son editables por el usuario.
+Cada usuario puede cambiar su nombre, foto, teléfono de WhatsApp y la verificación en dos pasos desde **Mi perfil**. Al guardar se marca `perfil_editado = true`; en los siguientes accesos con Google, el callback conserva esos valores en lugar de sobrescribirlos con los de la cuenta de Google. El rol solo lo administra un `admin`; el correo y la contraseña se cambian en **Seguridad de la cuenta** (cuentas locales).
 
 ## Administrador local
 
@@ -172,6 +245,20 @@ Para cambiar la contraseña de desarrollo, actualiza `ADMIN_PASSWORD` y elimina 
 | `inactivo` | La cuenta existe pero está desactivada por un administrador. |
 | `google` | Error al canjear el código o verificar el token. |
 
-## Recursos pendientes
+## Marca y paleta oficial
 
-- Marca provisional: el login, el registro, la barra lateral y la carga usan un monograma **SEI** en texto, con la paleta naranja/gris/blanco del sistema, a la espera de la imagen definitiva.
+El login, el registro, la barra lateral y la pantalla de carga usan el logo oficial de **Sebastián Escandón · Ingeniero Civil**:
+
+- `frontend/src/assets/brand/logo-sei.png`: logo completo (emblema + texto), usado en el panel del login, el registro y la barra lateral.
+- `frontend/src/assets/brand/emblema-sei.png`: solo el emblema, usado en la pantalla de carga.
+
+Colores oficiales, definidos en `frontend/src/styles/theme.css` (variables `--brand-*` y tokens de tema):
+
+| Color | Hex | Uso |
+|-------|-----|-----|
+| Naranja | `#F39200` | Elementos activos, acentos y botón principal (texto `#1B1B1B`). |
+| Gris medio | `#706F6F` | Texto secundario y detalles. |
+| Gris claro | `#B3B2B2` | Bordes y superficies suaves. |
+| Tinta | `#1B1B1B` | Texto principal y panel de marca. |
+
+El botón principal usa naranja con texto oscuro porque el blanco sobre `#F39200` no alcanza contraste AA. Los tonos `#C2410C` y `#B45309` se conservan para texto pequeño y estados heredados.

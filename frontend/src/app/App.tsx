@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import emblemaSei from "../assets/brand/emblema-sei.png";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { LoginView } from "./features/auth/LoginView";
 import { RegistroView } from "./features/auth/RegistroView";
@@ -8,11 +9,11 @@ import { AppShell } from "./layout/AppShell";
 function PantallaCarga() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-200 bg-orange-50 text-sm font-black tracking-tight text-[#C2410C] shadow-sm">
-        SEI
+      <div className="flex h-16 w-24 items-center justify-center rounded-xl border border-[#ECECEC] bg-white shadow-sm">
+        <img src={emblemaSei} alt="Ingeniería SEI" className="h-10 w-auto" />
       </div>
       <div className="h-1 w-32 overflow-hidden rounded-full bg-slate-200">
-        <div className="h-full w-1/2 animate-pulse rounded-full bg-[#C2410C]" />
+        <div className="h-full w-1/2 animate-pulse rounded-full bg-[#F39200]" />
       </div>
       <p className="text-xs font-medium text-slate-500">Verificando sesión…</p>
     </div>

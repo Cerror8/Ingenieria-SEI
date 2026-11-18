@@ -56,6 +56,24 @@ CREATE TABLE IF NOT EXISTS sesiones (
 CREATE INDEX IF NOT EXISTS ix_sesiones_usuario ON sesiones (usuario_id);
 CREATE INDEX IF NOT EXISTS ix_sesiones_expira ON sesiones (expira_en);
 
+-- Segundo factor (TOTP, RFC 6238). El secreto se guarda en base32 y los
+-- códigos de respaldo como hashes SHA-256 de un solo uso.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_habilitado_en TIMESTAMPTZ;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_codigos TEXT[];
+
+-- Retos temporales entre la contraseña (o Google) y el código de 6 dígitos.
+CREATE TABLE IF NOT EXISTS desafios_2fa (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expira_en  TIMESTAMPTZ NOT NULL,
+  intentos   INT NOT NULL DEFAULT 0,
+  creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_desafios_2fa_expira ON desafios_2fa (expira_en);
+
 CREATE OR REPLACE FUNCTION app.touch_actualizado_en() RETURNS trigger AS $$
 BEGIN
   NEW.actualizado_en = now();

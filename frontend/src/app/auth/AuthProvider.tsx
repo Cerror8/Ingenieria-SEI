@@ -13,7 +13,8 @@ import type { Usuario } from "../types";
 type ContextoAuth = {
   usuario: Usuario | null;
   cargando: boolean;
-  iniciarSesion: (email: string, password: string) => Promise<void>;
+  iniciarSesion: (email: string, password: string) => Promise<{ requiere2fa: boolean }>;
+  verificar2fa: (codigo: string) => Promise<void>;
   cerrarSesion: () => Promise<void>;
   actualizarPerfil: (datos: {
     nombre: string;
@@ -52,7 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const iniciarSesion = useCallback(async (email: string, password: string) => {
-    const { usuario: autenticado } = await api.iniciarSesion(email, password);
+    const resultado = await api.iniciarSesion(email, password);
+    if (resultado.usuario) {
+      setUsuario(resultado.usuario);
+      return { requiere2fa: false };
+    }
+    return { requiere2fa: true };
+  }, []);
+
+  const verificar2fa = useCallback(async (codigo: string) => {
+    const { usuario: autenticado } = await api.verificar2fa(codigo);
     setUsuario(autenticado);
   }, []);
 
@@ -88,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       usuario,
       cargando,
       iniciarSesion,
+      verificar2fa,
       cerrarSesion,
       actualizarPerfil,
       cambiarCorreo,
@@ -97,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       usuario,
       cargando,
       iniciarSesion,
+      verificar2fa,
       cerrarSesion,
       actualizarPerfil,
       cambiarCorreo,

@@ -6,6 +6,7 @@ import {
   CircleDashed,
   ClipboardList,
   Clock,
+  Download,
   FileText,
   FileUp,
   Layers,
@@ -23,6 +24,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import type { EstadoMapa } from "../../lib/edtMapaPdf";
 import {
   api,
   ApiError,
@@ -452,7 +454,12 @@ export function EdtTab({
           </p>
         </div>
       ) : vistaGeneral ? (
-        <VistaGeneralEdt plantilla={edt?.plantillaEdt ?? []} actividades={actividades} />
+        <VistaGeneralEdt
+          proyecto={edt?.proyecto.nombre ?? "Proyecto"}
+          plantilla={edt?.plantillaEdt ?? []}
+          actividades={actividades}
+          onShowToast={onShowToast}
+        />
       ) : (
         <>
           <div className="rounded-lg border border-slate-200 bg-white px-1 py-0.5">
@@ -730,22 +737,65 @@ function Resumen({
 }
 
 function VistaGeneralEdt({
+  proyecto,
   plantilla,
   actividades,
+  onShowToast,
 }: {
+  proyecto: string;
   plantilla: EdtPlantillaApi[];
   actividades: EdtActividadApi[];
+  onShowToast: (mensaje: string) => void;
 }) {
-  const presentes = new Set(
-    actividades
-      .map((actividad) => actividad.plantillaClave)
-      .filter((clave): clave is string => Boolean(clave)),
-  );
+  const [generando, setGenerando] = useState(false);
+  const porClave = useMemo(() => {
+    const mapa = new Map<string, EdtActividadApi>();
+    for (const actividad of actividades) {
+      if (actividad.plantillaClave) mapa.set(actividad.plantillaClave, actividad);
+    }
+    return mapa;
+  }, [actividades]);
+
+  const estadoDe = (clave: string): EstadoMapa => {
+    const actividad = porClave.get(clave);
+    if (!actividad) return "Pendiente";
+    if (actividad.noAplica) return "No aplica";
+    return actividad.estado;
+  };
+
   const total = plantilla.reduce((suma, fase) => suma + fase.actividades.length, 0);
-  const obtenidas = plantilla.reduce(
-    (suma, fase) => suma + fase.actividades.filter((item) => presentes.has(item.clave)).length,
+  const realizadas = plantilla.reduce(
+    (suma, fase) =>
+      suma + fase.actividades.filter((item) => estadoDe(item.clave) === "Completado").length,
     0,
   );
+  const conActividad = plantilla.reduce(
+    (suma, fase) => suma + fase.actividades.filter((item) => porClave.has(item.clave)).length,
+    0,
+  );
+
+  async function descargarPdf() {
+    setGenerando(true);
+    try {
+      const { descargarMapaConceptualEdt } = await import("../../lib/edtMapaPdf");
+      await descargarMapaConceptualEdt(
+        proyecto,
+        plantilla.map((fase) => ({
+          etiqueta: etiquetaFase({ clave: fase.clave }),
+          nombre: fase.nombre,
+          actividades: fase.actividades.map((item) => ({
+            nombre: item.nombre,
+            estado: estadoDe(item.clave),
+          })),
+        })),
+      );
+      onShowToast("Mapa conceptual descargado en PDF.");
+    } catch (e) {
+      onShowToast(e instanceof Error ? e.message : "No se pudo generar el PDF.");
+    } finally {
+      setGenerando(false);
+    }
+  }
 
   if (!plantilla.length) {
     return (
@@ -763,23 +813,38 @@ function VistaGeneralEdt({
         <div>
           <p className="text-sm font-bold text-slate-800">Vista general del EDT</p>
           <p className="text-[11px] text-slate-500">
-            Plantilla del contrato con cada actividad: ✓ presente en el proyecto, ✗ falta cargarla.
+            Solo las actividades completadas se muestran en verde; el resto conserva su estado real
+            ({conActividad}/{total} cargadas).
           </p>
         </div>
-        <span
-          className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
-            obtenidas === total
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-orange-200 bg-orange-50 text-[#C2410C]"
-          }`}
-        >
-          {obtenidas}/{total} obtenidas
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+              realizadas === total
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-orange-200 bg-orange-50 text-[#C2410C]"
+            }`}
+          >
+            {realizadas}/{total} realizadas
+          </span>
+          <button
+            type="button"
+            onClick={() => void descargarPdf()}
+            disabled={generando}
+            title="Descarga las fases y sus actividades como mapa conceptual en PDF"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#9A3412] disabled:cursor-wait disabled:opacity-60"
+          >
+            <Download className={`h-4 w-4 ${generando ? "animate-pulse" : ""}`} />
+            {generando ? "Generando…" : "Descargar PDF"}
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
         {plantilla.map((fase) => {
-          const hechas = fase.actividades.filter((item) => presentes.has(item.clave)).length;
+          const hechas = fase.actividades.filter(
+            (item) => estadoDe(item.clave) === "Completado",
+          ).length;
           return (
             <section
               key={fase.clave}
@@ -806,19 +871,11 @@ function VistaGeneralEdt({
               </header>
               <ul className="divide-y divide-slate-50">
                 {fase.actividades.map((item) => {
-                  const existe = presentes.has(item.clave);
+                  const estado = estadoDe(item.clave);
                   return (
                     <li key={item.clave} className="flex items-start gap-2 px-4 py-2">
-                      {existe ? (
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      ) : (
-                        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
-                      )}
-                      <span
-                        className={`text-xs leading-snug ${
-                          existe ? "text-slate-700" : "text-rose-600"
-                        }`}
-                      >
+                      <IconoEstado estado={estado} />
+                      <span className={`text-xs leading-snug ${ESTILO_ESTADO[estado].texto}`}>
                         {item.nombre}
                       </span>
                     </li>
@@ -831,6 +888,27 @@ function VistaGeneralEdt({
       </div>
     </div>
   );
+}
+
+const ESTILO_ESTADO: Record<EstadoMapa, { texto: string }> = {
+  Completado: { texto: "text-emerald-800 font-semibold" },
+  "En ejecución": { texto: "text-amber-800" },
+  "No realizado": { texto: "text-rose-700" },
+  "No aplica": { texto: "text-slate-400 line-through" },
+  Pendiente: { texto: "text-slate-500" },
+};
+
+function IconoEstado({ estado }: { estado: EstadoMapa }) {
+  if (estado === "Completado") {
+    return <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />;
+  }
+  if (estado === "En ejecución") {
+    return <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />;
+  }
+  if (estado === "No realizado") {
+    return <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />;
+  }
+  return <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />;
 }
 
 function TarjetaActividad({

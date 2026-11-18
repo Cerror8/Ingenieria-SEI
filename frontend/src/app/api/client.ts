@@ -703,7 +703,28 @@ export const mapActividad = (a: ActividadApi): GanttActivity => ({
 
 export const api = {
   iniciarSesion: (email: string, password: string) =>
-    request<{ usuario: Usuario }>("/auth/login", { method: "POST", body: { email, password } }),
+    request<{ usuario?: Usuario; requiere2fa?: boolean }>("/auth/login", {
+      method: "POST",
+      body: { email, password },
+    }),
+  verificar2fa: (codigo: string) =>
+    request<{ usuario: Usuario }>("/auth/2fa", { method: "POST", body: { codigo } }),
+  estado2fa: () =>
+    request<{ habilitado: boolean; codigosRestantes: number }>("/auth/2fa"),
+  iniciar2fa: (password?: string) =>
+    request<{ secreto: string; urlOtpauth: string; qr: string }>("/auth/2fa/iniciar", {
+      method: "POST",
+      body: { password },
+    }),
+  activar2fa: (codigo: string) =>
+    request<{ ok: boolean; codigos: string[] }>("/auth/2fa/activar", {
+      method: "POST",
+      body: { codigo },
+    }),
+  desactivar2fa: (datos: { password?: string; codigo: string }) =>
+    request<{ ok: boolean }>("/auth/2fa/desactivar", { method: "POST", body: datos }),
+  regenerarCodigos2fa: (datos: { password?: string; codigo: string }) =>
+    request<{ codigos: string[] }>("/auth/2fa/codigos", { method: "POST", body: datos }),
   cerrarSesion: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
   registrar: (datos: { nombre: string; email: string; password: string }) =>
     request<{ solicitud: { id: string; email: string; nombre: string } }>("/auth/registro", {
@@ -1200,6 +1221,10 @@ export const api = {
   rechazarSolicitud: (id: string) =>
     request<{ ok: boolean }>(`/usuarios/${encodeURIComponent(id)}/solicitud`, {
       method: "DELETE",
+    }),
+  reiniciar2faUsuario: (id: string) =>
+    request<{ ok: boolean }>(`/usuarios/${encodeURIComponent(id)}/2fa/reset`, {
+      method: "POST",
     }),
 
   notificaciones: () =>

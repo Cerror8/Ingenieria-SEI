@@ -15,16 +15,19 @@ export type UsuarioSesion = {
   whatsappOptIn: boolean;
   proveedor: "google" | "local";
   rol: "admin" | "usuario";
+  totpHabilitado: boolean;
   ultimoAcceso: string | null;
 };
 
 const CAMPOS_USUARIO = `
   u.id, u.email, u.nombre, u.foto_url AS "fotoUrl", u.telefono,
   u.whatsapp_opt_in AS "whatsappOptIn", u.proveedor, u.rol,
+  (u.totp_habilitado_en IS NOT NULL) AS "totpHabilitado",
   u.ultimo_acceso AS "ultimoAcceso"
 `;
 
-const hashToken = (token: string) => crypto.createHash("sha256").update(token).digest("hex");
+export const hashToken = (token: string) =>
+  crypto.createHash("sha256").update(token).digest("hex");
 
 const opcionesCookie = () => ({
   httpOnly: true,

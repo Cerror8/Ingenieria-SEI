@@ -1,6 +1,6 @@
 # Ingeniería SEI · 
 
-Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (administrador local o cuenta de Google) y, una vez dentro, se trabaja sobre los módulos de dashboard, mi tablero, tableros, calendario, proyectos, seguimiento, antecedentes, informes, documentos y usuarios.
+Página web para Ingeniería Civil. El acceso se realiza con correo y contraseña o con una cuenta de Google, con verificación en dos pasos (TOTP) opcional por cuenta; una vez dentro se trabaja sobre los módulos de dashboard, mi tablero, tableros, calendario, proyectos, seguimiento, antecedentes, informes, documentos y usuarios.
 
 ## Stack
 
@@ -9,7 +9,7 @@ Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (ad
 | Frontend | React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · Lucide · Recharts |
 | Backend | Node + Express 4 · TypeScript · pg · zod · bcryptjs · multer · google-auth-library |
 | Base de datos | PostgreSQL 16 en Docker local (puerto host **5433**); Neon/Supabase en Vercel |
-| Autenticación | Sesión opaca en cookie `httpOnly` + OAuth 2.0 con Google |
+| Autenticación | Sesión opaca en cookie `httpOnly` + OAuth 2.0 con Google + 2FA TOTP opcional |
 
 ## Estructura
 
@@ -25,7 +25,7 @@ Página web para Ingeniería Civil. El acceso se realiza con el login RAP-16 (ad
 │       │   ├── constants.ts Navegación y configuración visual
 │       │   ├── lib/        Utilidades de formato
 │       │   ├── features/
-│       │   │   ├── auth/         Login RAP-16 y solicitud de acceso
+│       │   │   ├── auth/         Login, 2FA y solicitud de acceso
 │       │   │   ├── dashboard/    Panel general
 │       │   │   ├── mi-tablero/   Tablero personal por usuario
 │       │   │   ├── tableros/     Tablero de trabajo estilo Monday
@@ -220,7 +220,8 @@ Limitaciones de Vercel que conviene tener presentes:
 
 - La API usa **helmet**: `X-Content-Type-Options`, `Referrer-Policy`, HSTS, `Cross-Origin-*` y `X-Powered-By` desactivado.
 - El frontend servido por Vercel aplica **CSP** y cabeceras adicionales desde `vercel.json`: scripts propios, estilos inline, imágenes `https:`/`blob:`, `connect-src` para Vercel Blob y `frame-src blob:` para la vista previa de PDF, más `frame-ancestors 'none'`.
-- Límites por IP con `express-rate-limit`: **1000 peticiones / 15 min** para `/api`, **10 intentos de login / 15 min** y **5 registros / hora**.
+- Límites por IP con `express-rate-limit`: **1000 peticiones / 15 min** para `/api`, **10 intentos de login / 15 min**, **12 canjes 2FA / 15 min** y **5 registros / hora**.
+- **Verificación en dos pasos (TOTP)** opcional por cuenta, administrable desde **Mi perfil**: código de 6 dígitos compatible con Google Authenticator, Authy o 1Password, 8 códigos de respaldo de un solo uso y restablecimiento por parte de un administrador desde **Usuarios**. La sesión no se crea hasta validar el segundo factor. Detalle en [`docs/AUTENTICACION.md`](docs/AUTENTICACION.md).
 - Los archivos exigen sesión, se validan tipo y tamaño en el servidor y los secretos viven solo en variables de entorno.
 
 
@@ -240,7 +241,7 @@ Limitaciones de Vercel que conviene tener presentes:
 - **Documentos:** repositorio documental con filtros por proyecto, carpeta y categoría, y carga real de archivos (PDF, Word, Excel, PowerPoint, imágenes y texto hasta 20 MB). Al elegir un proyecto se despliega su plantilla de carpetas con el conteo de documentos (incluidas las vacías), igual que en la ficha del proyecto. Los archivos se guardan en `backend/uploads/` (o Vercel Blob si está conectado) y los metadatos en PostgreSQL; ver y descargar exige sesión activa.
 - **Formatos:** valores de referencia que se cargan como archivo (Excel, CSV, PDF o imagen) con vista previa en el navegador. El administrador puede **analizar** una hoja de un Excel/CSV para extraer su tabla: detecta la fila de cabecera (o se elige a mano), propaga celdas combinadas, deduplica etiquetas y guarda columnas y filas en la base. Con esas columnas se **crean formatos** (o con campos propios) y, al diligenciar, cualquier usuario puede **prellenar** los campos desde una fila de la tabla analizada, completar lo que falte y guardar el registro; el historial queda asociado al formato.
 - **Calendario:** mes navegable que muestra las fechas límite de las tareas de proyecto asignadas, las **tareas personales** con fecha y la agenda personal de cada usuario (reuniones y eventos propios, de día completo o con horario). Permite crear, editar y eliminar eventos (doble clic en un día abre el formulario); las tareas se consultan pero no se modifican desde aquí.
-- **Perfil y notificaciones:** menú de usuario con acceso al perfil (nombre y foto personalizables, conservados aunque se vuelva a entrar con Google) y cierre de sesión. La campana lista las tareas vencidas o que vencen en los próximos 7 días, ordenadas por fecha y prioridad: cada persona ve **sus tareas asignadas** y el administrador ve las de **todo el equipo**.
+- **Perfil y notificaciones:** menú de usuario con acceso al perfil (nombre, foto, teléfono de WhatsApp y **verificación en dos pasos**, conservados aunque se vuelva a entrar con Google), cambio de correo y contraseña en cuentas locales, y cierre de sesión. La campana lista las tareas vencidas o que vencen en los próximos 7 días, ordenadas por fecha y prioridad: cada persona ve **sus tareas asignadas** y el administrador ve las de **todo el equipo**.
 
 La interfaz es responsiva: debajo de `lg` la barra lateral se abre como panel deslizante con botón hamburguesa y, en escritorio, se puede retraer a solo iconos con el botón de la cabecera (el estado se recuerda en el navegador). Las tablas se desplazan horizontalmente y los formularios pasan a una columna.
 
