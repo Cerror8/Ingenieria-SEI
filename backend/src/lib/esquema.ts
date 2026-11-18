@@ -423,6 +423,21 @@ export function asegurarEsquema(): Promise<void> {
       await pool.query(
         "CREATE INDEX IF NOT EXISTS ix_desembolsos_proyecto ON desembolsos (proyecto_id, fecha)",
       );
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS proyecto_avance_cortes (
+          id BIGSERIAL PRIMARY KEY,
+          proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+          fecha_corte DATE NOT NULL,
+          avance_real INTEGER NOT NULL CHECK (avance_real BETWEEN 0 AND 100),
+          ejecucion_real INTEGER NOT NULL CHECK (ejecucion_real BETWEEN 0 AND 100),
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+          UNIQUE (proyecto_id, fecha_corte)
+        )
+      `);
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS ix_proyecto_avance_cortes
+           ON proyecto_avance_cortes (proyecto_id, fecha_corte)`,
+      );
       // Sin default al agregarla: así las filas existentes no quedan marcadas como "actualizadas" hoy.
       await pool.query("ALTER TABLE valores_referencia ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ");
       await pool.query(

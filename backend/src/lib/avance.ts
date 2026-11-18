@@ -1,4 +1,5 @@
 import { pool, type Db } from "../db.js";
+import { registrarCorteAvance } from "./curvaS.js";
 
 type Consulta = typeof pool | Db;
 
@@ -89,6 +90,7 @@ export async function recalcularAvanceProyecto(
       [proyectoId, avance, origen],
     );
   }
+  await registrarCorteAvance(db, proyectoId);
   return { avance, origen };
 }
 

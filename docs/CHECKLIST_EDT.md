@@ -2,7 +2,7 @@
 
 Fuentes:
 
-- `Fases_v_obra.docx` (v1.1 – 30 ene 2026).
+- `Fases_v_obra.docx` (actualizado el 18 nov 2026).
 - `Fases_ve_interventoria.docx` (v1.1 – 30 ene 2026).
 - Formato `SAC-PI031 · EDT interventoría y consultoría` (referencia de campos y estados).
 
@@ -10,16 +10,17 @@ El checklist deja de ser una única plantilla fija y pasa a depender del **tipo 
 
 | Tipo | Fases | Actividades sembradas |
 |---|---|---|
-| Obra | 3 principales | 33 + 33 + 13 = **79** |
-| Interventoría | 3 principales | 27 + 28 + 14 = **69** |
+| Obra | 4 (la 1 se parte en 1.1 y 1.2) | 12 + 22 + 35 + 13 = **82** |
+| Interventoría | 4 (la 1 se parte en 1.1 y 1.2) | 8 + 20 + 28 + 14 = **70** |
 
 La plantilla de Obra se transcribió de la versión actualizada de `Fases_v_obra.docx`; la de Interventoría es su espejo de revisión (`Fases_ve_interventoria.docx` v1.1), con las solicitudes, revisiones y avales del interventor.
 
-Las tres fases principales son siempre las mismas y se crean con el proyecto:
+Las fases principales salen del Word y se crean con el proyecto:
 
-1. `fase-1` — Etapa precontractual (legalización, documentos y socialización).
-2. `fase-2` — Etapa contractual (ejecución, actas, informes y control).
-3. `fase-3` — Cierre de proyecto (recibo final, liquidación y cierre documental).
+1. `fase-1-1` — Legalización de contrato / documentación contractual.
+2. `fase-1-2` — Antes del acta de inicio (presupuesto, técnica, visita, calidad, programación y socialización).
+3. `fase-2` — Etapa contractual (ejecución, actas, informes y control).
+4. `fase-3` — Cierre de proyecto (recibo final, liquidación y cierre documental).
 
 Se pueden **renombrar**, pero no eliminar. También se pueden agregar fases adicionales, que quedan enlazadas a la fase anterior mediante `depende_de_fase_id` y conservan su propio tablero.
 
@@ -49,11 +50,12 @@ La interfaz muestra estos bloqueos en la tarjeta: **REQUISITOS PREVIOS**, **Falt
 
 ## Sembrado
 
-- `POST /api/proyectos` crea el proyecto, asegura las tres fases y siembra el checklist del tipo de contrato dentro de la misma transacción. Si falla el sembrado, no queda un proyecto a medio configurar.
+- `POST /api/proyectos` crea el proyecto, asegura las fases de la plantilla y siembra el checklist del tipo de contrato dentro de la misma transacción. Si falla el sembrado, no queda un proyecto a medio configurar.
 - `POST /api/edt/:proyectoId/plantilla` vuelve a ejecutar el sembrado para proyectos existentes.
 - El sembrado es **idempotente**: identifica cada actividad por `plantilla_clave` (`obra-f1-contrato`, `int-f2-acta-inicio`, etc.) y no duplica las que ya existen.
 - Al sembrar se crean también el tablero de cada fase y la tarea vinculada de cada actividad.
 - La plantilla sugiere la carpeta documental según la estructura del proyecto. El usuario puede cambiarla a otra carpeta válida.
+- Al volver a sembrar se conserva la carpeta elegida, salvo que la plantilla apunte ahora a una subcarpeta más específica de la carpeta actual. Esa regla migra «4.Calidad» hacia «4.Calidad/6. Plan de gestion de riesgo» en los proyectos de obra ya existentes, sin sobrescribir una carpeta distinta escogida a mano.
 
 ## Checklist documental desde Documentos
 
@@ -85,7 +87,7 @@ Estados válidos: `Completado`, `En ejecución`, `No realizado`.
   - `Completado` → `completado`
 - Cambiar la columna de la tarea a `completado` en el tablero también completa la actividad del EDT; devolverla a otra columna reabre la actividad. La sincronización es bidireccional.
 - El avance del proyecto se recalcula con `recalcularAvanceProyecto` después de crear, editar, eliminar o sembrar actividades.
-- Las tres fases principales se pueden renombrar; los tres estados del formato SAC-PI031 se mantienen.
+- Las cuatro fases principales se pueden renombrar; los tres estados del formato SAC-PI031 se mantienen.
 
 ## API
 
@@ -106,6 +108,7 @@ Estados válidos: `Completado`, `En ejecución`, `No realizado`.
 - Las solicitudes de la interventoría (contrato, presupuesto, diseños, plan de calidad, cronograma, licencias) se conservan como actividades con documento obligatorio, reflejando su rol de solicitar y avalar.
 - Los pasos puramente administrativos se fusionaron cuando el Word los repetía en varias fases (por ejemplo, legalización, pólizas y hojas de vida en la etapa precontractual).
 - Se añadieron documentos de control presupuestal (CDP, RP y plan de inversión del anticipo) porque el Word los menciona como soportes de las actas.
+- La versión del 18 nov 2026 del Word de obra agregó el **Plan de gestión de riesgo** con carpeta propia (`4.Calidad/6. Plan de gestion de riesgo`) y separó del anticipo las **cotizaciones** y la **facturación**, cada una con su carpeta de la estructura.
 - El detalle completo de la arquitectura de tableros, documentos y urgencias está en `docs/TABLEROS_EDT.md`.
 
 ## Requisitos en rojo del Word

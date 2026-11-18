@@ -425,6 +425,7 @@ function DeleteProjectDialog({ proyecto, onClose, onDeleted }: {
   const [cargando, setCargando] = useState(true);
   const [intento, setIntento] = useState(0);
   const [confirmacion, setConfirmacion] = useState("");
+  const [forzar, setForzar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -448,7 +449,9 @@ function DeleteProjectDialog({ proyecto, onClose, onDeleted }: {
   }, [proyecto.id, intento]);
 
   const sinVinculos = preparacion?.puedeEliminar === true && RELACIONADOS.every(([key]) => preparacion.relacionados[key] === 0);
-  const permitido = usuario?.rol === "admin" && !cargando && !eliminando && sinVinculos && confirmacion === proyecto.id;
+  const cascada = !sinVinculos && forzar;
+  const puedeConfirmar = sinVinculos || cascada;
+  const permitido = usuario?.rol === "admin" && !cargando && !eliminando && puedeConfirmar && confirmacion === proyecto.id;
   const eliminar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!permitido || eliminandoRef.current) return;
@@ -456,7 +459,7 @@ function DeleteProjectDialog({ proyecto, onClose, onDeleted }: {
     setEliminando(true);
     setError(null);
     try {
-      await api.eliminarProyecto(proyecto.id, confirmacion);
+      await api.eliminarProyecto(proyecto.id, confirmacion, cascada);
       onDeleted(proyecto.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo eliminar el proyecto. La lista se conserva.");
@@ -472,7 +475,7 @@ function DeleteProjectDialog({ proyecto, onClose, onDeleted }: {
         <h2 id="eliminar-proyecto-titulo" className="text-lg font-bold text-gray-900">Eliminar proyecto</h2>
         <button type="button" onClick={onClose} disabled={eliminando} autoFocus title={`Cerrar eliminación de ${proyecto.id}`} aria-label={`Cerrar eliminación de ${proyecto.id}`} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-60"><X className="h-4 w-4" /></button>
       </div>
-      <p id="eliminar-proyecto-descripcion" className="mt-2 break-words text-sm text-gray-600"><strong>{proyecto.id}</strong> — {proyecto.nombreCorto || proyecto.name}. Esta acción es permanente y sólo se permite para proyectos sin registros vinculados.</p>
+      <p id="eliminar-proyecto-descripcion" className="mt-2 break-words text-sm text-gray-600"><strong>{proyecto.id}</strong> — {proyecto.nombreCorto || proyecto.name}. Esta acción es permanente. Si el proyecto tiene registros vinculados, podrás borrarlos en cascada con una confirmación adicional.</p>
       {cargando && <p role="status" className="mt-4 text-sm text-gray-500">Comprobando registros vinculados…</p>}
       {preparacion && (
         <>
@@ -481,20 +484,35 @@ function DeleteProjectDialog({ proyecto, onClose, onDeleted }: {
               <div key={key} className="rounded-lg bg-gray-50 p-3"><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 text-lg font-bold text-gray-900">{preparacion.relacionados[key]}</dd></div>
             ))}
           </dl>
-          {!sinVinculos && <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">No se puede eliminar este proyecto: tiene vínculos o el servidor no permite su eliminación. No se borrará ningún registro relacionado.</p>}
+          {!sinVinculos && (
+            <div className="mt-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <p role="status">Este proyecto tiene registros vinculados. Puedes borrarlo igualmente: se eliminarán en cascada los documentos, informes, actividades del EDT y del Gantt, tareas de tablero e indicadores del proyecto.</p>
+              <label className="flex items-start gap-2 text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={forzar}
+                  disabled={eliminando}
+                  onChange={(event) => { setForzar(event.target.checked); setConfirmacion(""); }}
+                  className="mt-0.5 accent-[#C2410C]"
+                />
+                <span>Entiendo que esta acción borra también los registros relacionados y no se puede deshacer.</span>
+              </label>
+              {forzar && <p className="text-[11px] text-amber-700">Los archivos físicos de los documentos no se borran del almacenamiento.</p>}
+            </div>
+          )}
         </>
       )}
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {!cargando && (error || !sinVinculos) && <button type="button" disabled={eliminando} onClick={() => setIntento(i => i + 1)} className="mt-3 text-sm font-semibold text-orange-700 underline disabled:opacity-60">Volver a comprobar vínculos</button>}
+      {!cargando && (error || !puedeConfirmar) && <button type="button" disabled={eliminando} onClick={() => { setForzar(false); setConfirmacion(""); setIntento(i => i + 1); }} className="mt-3 text-sm font-semibold text-orange-700 underline disabled:opacity-60">Volver a comprobar vínculos</button>}
       <form onSubmit={eliminar} className="mt-4 space-y-4" aria-busy={eliminando}>
         <div>
           <label htmlFor="confirmacion-eliminar-proyecto" className="mb-1.5 block break-words text-sm font-semibold text-gray-700">Escriba exactamente {proyecto.id} para confirmar</label>
-          <input id="confirmacion-eliminar-proyecto" value={confirmacion} onChange={event => setConfirmacion(event.target.value)} disabled={!sinVinculos || cargando || eliminando} autoComplete="off" spellCheck={false} aria-describedby="confirmacion-eliminar-ayuda" className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-gray-100" />
+          <input id="confirmacion-eliminar-proyecto" value={confirmacion} onChange={event => setConfirmacion(event.target.value)} disabled={!puedeConfirmar || cargando || eliminando} autoComplete="off" spellCheck={false} aria-describedby="confirmacion-eliminar-ayuda" className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-gray-100" />
           <p id="confirmacion-eliminar-ayuda" className="mt-1 text-xs text-gray-500">Debe coincidir el código completo, incluidas mayúsculas y guiones, sin espacios adicionales.</p>
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={eliminando} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">Cancelar</button>
-          <button type="submit" disabled={!permitido} className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="h-4 w-4" />{eliminando ? "Eliminando…" : "Eliminar definitivamente"}</button>
+          <button type="submit" disabled={!permitido} className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="h-4 w-4" />{eliminando ? "Eliminando…" : cascada ? "Eliminar con cascada" : "Eliminar definitivamente"}</button>
         </div>
       </form>
     </dialog>

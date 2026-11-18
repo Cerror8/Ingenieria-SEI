@@ -19,7 +19,6 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
-  Target,
   Trash2,
   UserPlus,
   X,
@@ -1070,21 +1069,6 @@ function TarjetaActividad({
               <FileText className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate">{formato.nombre}</span>
             </span>
-          ))}
-        </div>
-      )}
-
-      {actividad.indicadores.length > 0 && (
-        <div className="mt-1.5 space-y-1 rounded-lg border border-sky-100 bg-sky-50/60 px-2 py-1.5">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-sky-500">
-            Indicadores que dependen de esta actividad
-          </p>
-          {actividad.indicadores.map((indicador) => (
-            <p key={indicador.id} className="flex items-center gap-1 text-[10px] text-sky-800">
-              <Target className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{indicador.nombre}</span>
-              <span className="ml-auto shrink-0 font-mono text-[9px] text-sky-400">{indicador.id}</span>
-            </p>
           ))}
         </div>
       )}

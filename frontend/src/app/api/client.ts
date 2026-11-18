@@ -408,25 +408,41 @@ export type NuevoDesembolso = {
   numeroActa?: string | null;
 };
 
-export type NuevoIndicador = {
-  nombre: string;
-  meta: string;
-  avance?: string;
-  cumplimiento?: number;
-  estado?: IndicatorStatus;
-  responsable?: string;
-  fecha: string;
-  origen?: "Manual" | "EDT";
-  edtFaseId?: string | null;
-  actividadesIds?: string[];
-};
-
 export type DetalleProyectoApi = {
   proyecto: ProyectoApi;
-  indicadores: IndicadorApi[];
   documentos: DocumentoApi[];
   actividades: ActividadApi[];
   desembolsos: DesembolsoApi[];
+};
+
+export type CurvaSPuntoApi = {
+  fecha: string;
+  avanceProgramado: number;
+  avanceReal: number | null;
+  ejecucionProgramada: number;
+  ejecucionReal: number | null;
+};
+
+export type CurvaSApi = {
+  proyecto: {
+    id: string;
+    fechaInicio: string;
+    fechaFin: string;
+    presupuesto: number;
+    avance: number;
+    ejecucionPct: number;
+  };
+  fuenteProgramacion: "Gantt" | "Lineal";
+  puntos: CurvaSPuntoApi[];
+  resumen: {
+    avanceProgramadoHoy: number;
+    avanceRealHoy: number;
+    desviacionAvance: number;
+    ejecucionProgramadaHoy: number;
+    ejecucionRealHoy: number;
+    desviacionEjecucion: number;
+    diasEquivalentes: number;
+  };
 };
 
 export type ValorReferenciaApi = {
@@ -772,6 +788,7 @@ export const api = {
 
   proyectos: () => request<{ proyectos: ProyectoApi[] }>("/proyectos"),
   proyecto: (id: string) => request<DetalleProyectoApi>(`/proyectos/${encodeURIComponent(id)}`),
+  curvaS: (id: string) => request<CurvaSApi>(`/proyectos/${encodeURIComponent(id)}/curva-s`),
   crearProyectoEjemplo: () =>
     request<{ proyecto: ProyectoApi; creado: boolean }>("/proyectos/ejemplo", { method: "POST" }),
   crearProyecto: (datos: NuevoProyecto) =>
@@ -780,8 +797,11 @@ export const api = {
     request<{ proyecto: ProyectoApi }>(`/proyectos/${encodeURIComponent(id)}`, { method: "PATCH", body: datos }),
   prepararEliminacionProyecto: (id: string) =>
     request<EliminacionProyectoApi>(`/proyectos/${encodeURIComponent(id)}/eliminacion`),
-  eliminarProyecto: (id: string, confirmacion: string) =>
-    request<{ ok: boolean }>(`/proyectos/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirmacion } }),
+  eliminarProyecto: (id: string, confirmacion: string, forzar = false) =>
+    request<{ ok: boolean }>(`/proyectos/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      body: forzar ? { confirmacion, forzar: true } : { confirmacion },
+    }),
 
   proyectoValores: (proyectoId: string) =>
     request<{
@@ -841,20 +861,6 @@ export const api = {
   estructura: (id: string) =>
     request<{ estructura: EstructuraApi }>(`/estructuras/${encodeURIComponent(id)}`),
 
-  indicadores: (proyectoId?: string) =>
-    request<{ indicadores: IndicadorApi[] }>(`/indicadores${query({ proyectoId })}`),
-  crearIndicador: (proyectoId: string, datos: NuevoIndicador) =>
-    request<{ indicador: IndicadorApi }>("/indicadores", {
-      method: "POST",
-      body: { proyectoId, ...datos },
-    }),
-  actualizarIndicador: (id: string, datos: Partial<NuevoIndicador>) =>
-    request<{ indicador: IndicadorApi }>(`/indicadores/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: datos,
-    }),
-  eliminarIndicador: (id: string) =>
-    request<{ ok: boolean }>(`/indicadores/${encodeURIComponent(id)}`, { method: "DELETE" }),
   documentos: (proyectoId?: string, tipo?: string, edtActividadId?: string) =>
     request<{ documentos: DocumentoApi[] }>(
       `/documentos${query({ proyectoId, tipo, edtActividadId })}`,

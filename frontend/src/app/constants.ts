@@ -58,6 +58,10 @@ export type NavGroup = {
 
 export type NavEntry = ({ type: "item" } & NavItem) | ({ type: "group" } & NavGroup);
 
+// Módulo Antecedentes en pausa: se oculta del menú y de las pestañas del
+// proyecto, pero la vista y su API siguen disponibles para reactivarlo.
+export const ANTECEDENTES_VISIBLE = false;
+
 export const NAV_ENTRIES: NavEntry[] = [
   { type: "item", id: "dashboard", label: "Resumen proyectos", icon: LayoutDashboard },
   { type: "item", id: "tableros",  label: "Tareas generales", icon: SquareKanban  },
@@ -69,7 +73,9 @@ export const NAV_ENTRIES: NavEntry[] = [
     children: [
       { id: "projects",     label: "Ver proyectos", icon: Briefcase  },
       { id: "seguimiento",  label: "Seguimiento",   icon: Activity   },
-      { id: "antecedentes", label: "Antecedentes",  icon: BookOpen   },
+      ...(ANTECEDENTES_VISIBLE
+        ? [{ id: "antecedentes", label: "Antecedentes", icon: BookOpen }]
+        : []),
       { id: "informes",     label: "Informes",      icon: FileText   },
       { id: "documentos",   label: "Documentos",    icon: FolderOpen },
     ],
@@ -84,9 +90,8 @@ export const PROJ_TABS = [
   { id: "edt",          label: "EDT"                },
   { id: "gantt",        label: "Gantt"              },
   { id: "presupuesto",  label: "Presupuesto"        },
-  { id: "indicadores",  label: "Indicadores"        },
   { id: "documentos",   label: "Documentos"         },
-  { id: "antecedentes", label: "Antecedentes"       },
+  ...(ANTECEDENTES_VISIBLE ? [{ id: "antecedentes", label: "Antecedentes" }] : []),
   { id: "informes",     label: "Informes"           },
   { id: "auditoria",    label: "Auditoría"          },
 ];

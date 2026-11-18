@@ -66,7 +66,7 @@ La pestaña **EDT** muestra las fases como tableros, no como acordeones ni despl
 - Bloqueos visibles: **REQUISITOS PREVIOS**, **Falta documento** y el aviso de carga obligatoria.
 - Las columnas de fase tienen scroll vertical propio (estilo Jira): cinco tarjetas visibles y el resto hacia abajo.
 
-Las tres fases principales se pueden **renombrar** pero no eliminar. Las fases adicionales guardan `depende_de_fase_id` y se muestran como tableros conectados a la fase anterior.
+Las cuatro fases principales (la Fase 1 se parte en «Legalización de contrato» y «Antes del acta de inicio») se pueden **renombrar** pero no eliminar. Las fases adicionales guardan `depende_de_fase_id` y se muestran como tableros conectados a la fase anterior.
 
 ### Vista general del EDT
 

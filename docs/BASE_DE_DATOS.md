@@ -173,7 +173,7 @@ CREATE INDEX IF NOT EXISTS ix_indicadores_actividades_actividad
   ON app.indicadores_actividades (actividad_id);
 ```
 
-`GET /api/edt/:id` devuelve en cada actividad la lista `indicadores` (id y nombre) que la referencian, para mostrarlas en la tarjeta del EDT.
+`GET /api/edt/:id` devuelve en cada actividad la lista `indicadores` (id y nombre) que la referencian, aunque hoy no se muestra en la pestaña EDT del proyecto.
 
 Al arrancar, `backend/src/lib/esquema.ts` aplica estas mismas modificaciones de forma idempotente sobre bases ya existentes.
 
@@ -218,6 +218,26 @@ Informes generados: `fecha`, `tipo`, `periodo`, `proyecto` (código o `Todos`), 
 #### `app.actividades`
 
 Cronograma tipo Gantt por proyecto: `nombre`, `responsable`, `mes_inicio`/`mes_fin` (1–12), `avance`, `estado` (`Pendiente`, `En curso`, `Completada`, `Retrasada`) y `hito`.
+
+#### `app.proyecto_avance_cortes`
+
+Una fila por proyecto y día con el avance técnico y la ejecución presupuestal reales de ese corte. La curva S programada no se guarda: se calcula en vivo con las actividades del Gantt, y el histórico real sale de esta tabla.
+
+```sql
+CREATE TABLE IF NOT EXISTS app.proyecto_avance_cortes (
+  id             BIGSERIAL PRIMARY KEY,
+  proyecto_id    TEXT NOT NULL REFERENCES app.proyectos(id) ON DELETE CASCADE,
+  fecha_corte    DATE NOT NULL,
+  avance_real    INTEGER NOT NULL CHECK (avance_real BETWEEN 0 AND 100),
+  ejecucion_real INTEGER NOT NULL CHECK (ejecucion_real BETWEEN 0 AND 100),
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (proyecto_id, fecha_corte)
+);
+CREATE INDEX IF NOT EXISTS ix_proyecto_avance_cortes
+  ON app.proyecto_avance_cortes (proyecto_id, fecha_corte);
+```
+
+La API registra un corte (upsert por `proyecto_id` y `fecha_corte` con la fecha de Bogotá) al crear o editar un proyecto y cada vez que se recalcula el avance desde EDT, Gantt o tareas. Así el histórico se construye solo con el uso normal del sistema.
 
 #### `app.auditoria`
 
@@ -285,9 +305,9 @@ El checklist EDT se organiza por fases y cada actividad puede convertirse en una
 | `id` | `UUID` | PK |
 | `proyecto_id` | `TEXT` | FK a `proyectos`, `ON DELETE CASCADE` |
 | `nombre` / `descripcion` | `TEXT` | Nombre visible y propósito de la fase |
-| `clave` | `TEXT` | `fase-1`, `fase-2` o `fase-3` en las principales |
+| `clave` | `TEXT` | `fase-1-1`, `fase-1-2`, `fase-2` o `fase-3` en las principales |
 | `orden` | `INTEGER` | Orden del tablero |
-| `es_principal` | `BOOLEAN` | Las tres fases base no se pueden eliminar |
+| `es_principal` | `BOOLEAN` | Las cuatro fases base no se pueden eliminar |
 | `depende_de_fase_id` | `UUID` | Fase anterior a la que se conecta una fase adicional |
 
 Índice `ix_edt_fases_proyecto` sobre `(proyecto_id, orden)` y único parcial `ux_edt_fases_clave` sobre `(proyecto_id, clave)` cuando la clave no es nula.

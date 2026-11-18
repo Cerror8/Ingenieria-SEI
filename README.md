@@ -236,7 +236,7 @@ Limitaciones de Vercel que conviene tener presentes:
 - **Usuarios:** módulo exclusivo del rol `admin`. Incluye una bandeja de **solicitudes pendientes** para cuentas creadas con el formulario de registro o con Google que aún no fueron aprobadas: el administrador elige el rol y aprueba o rechaza cada solicitud. La tabla principal lista las cuentas con proveedor (local o Google), rol, estado activo/inactivo, último acceso y avance de tareas. Permite crear cuentas locales con contraseña, cambiar el rol (`admin` o `usuario`) y activar o desactivar cuentas. El sistema impide que un administrador se quite a sí mismo el rol o se desactive, y que se elimine el último administrador activo.
 - **Proyectos:** listado y detalle alimentados por la API; creación guiada de cinco pasos que registra el proyecto, permite elegir un **líder del proyecto** y vuelve a abrir su detalle. El líder puede asignar tareas del proyecto y aprobar o devolver sus entregas.
 - **Seguimiento:** tarjetas de avance técnico y presupuestal por proyecto activo.
-- **Antecedentes:** proyectos finalizados agrupados por línea y documentos del repositorio con búsqueda y filtros.
+- **Antecedentes:** módulo en pausa; su entrada del menú y su pestaña en el proyecto están ocultas (`ANTECEDENTES_VISIBLE` en `frontend/src/app/constants.ts`). La vista, la ruta y la API siguen en el código para reactivarlo.
 - **Informes:** generación mediante el modal de informe (queda registrada en la base) e historial de informes desde la API.
 - **Documentos:** repositorio documental con filtros por proyecto, carpeta y categoría, y carga real de archivos (PDF, Word, Excel, PowerPoint, imágenes y texto hasta 20 MB). Al elegir un proyecto se despliega su plantilla de carpetas con el conteo de documentos (incluidas las vacías), igual que en la ficha del proyecto. Los archivos se guardan en `backend/uploads/` (o Vercel Blob si está conectado) y los metadatos en PostgreSQL; ver y descargar exige sesión activa.
 - **Formatos:** valores de referencia que se cargan como archivo (Excel, CSV, PDF o imagen) con vista previa en el navegador. El administrador puede **analizar** una hoja de un Excel/CSV para extraer su tabla: detecta la fila de cabecera (o se elige a mano), propaga celdas combinadas, deduplica etiquetas y guarda columnas y filas en la base. Con esas columnas se **crean formatos** (o con campos propios) y, al diligenciar, cualquier usuario puede **prellenar** los campos desde una fila de la tabla analizada, completar lo que falte y guardar el registro; el historial queda asociado al formato.
@@ -261,7 +261,9 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `GET` | `/api/salud` | Verificación de conexión a la base |
 | `GET` | `/api/dashboard` | KPIs y series del panel |
 | `GET` | `/api/proyectos` · `GET /api/proyectos/:id` | Listado y detalle |
+| `GET` | `/api/proyectos/:id/curva-s` | Curva S: avance técnico y ejecución presupuestal programados frente a los reales |
 | `POST` | `/api/proyectos` | Crea un proyecto |
+| `DELETE` | `/api/proyectos/:id` | **admin** · Elimina el proyecto confirmando su código; con `forzar: true` borra también los registros relacionados en cascada |
 | `GET` | `/api/indicadores` | Indicadores (filtro `?proyectoId=`) |
 | `POST` | `/api/indicadores` | Crea un indicador; `origen` `EDT` (por defecto) con `edtFaseId` y `actividadesIds` opcional, o `Manual` |
 | `PATCH` | `/api/indicadores/:id` | Edita un indicador, incluido el origen, la fase y las actividades del EDT |

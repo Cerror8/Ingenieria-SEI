@@ -77,6 +77,11 @@ const CARPETAS: Record<string, string[]> = {
   "calidad-social": ["4.Calidad/3. Plan social", "4.Calidad", "calidad"],
   "calidad-sgsst": ["4.Calidad/4. sgsst", "4.Calidad/2.Comp SST", "4.Calidad", "calidad"],
   "calidad-pie": ["4.Calidad/5.PIE", "4.Calidad", "calidad"],
+  "calidad-riesgo": [
+    "4.Calidad/6. Plan de gestion de riesgo",
+    "4.Calidad",
+    "calidad",
+  ],
   cronograma: [
     "2.Control de obra/1.Cronograma y presupuesto/3. cronograma",
     "1.Ejecucion/2.Control de obra/1.Cronograma y presupuesto",
@@ -90,6 +95,16 @@ const CARPETAS: Record<string, string[]> = {
   anticipo: [
     "2.Control de obra/1.Cronograma y presupuesto/1.anticipo",
     "0.Administracion/0.Finanzas/0.Anticipo",
+    "anticipo",
+  ],
+  "anticipo-cotizaciones": [
+    "2.Control de obra/1.Cronograma y presupuesto/1.anticipo/0.Cotizaciones",
+    "2.Control de obra/1.Cronograma y presupuesto/1.anticipo",
+    "anticipo",
+  ],
+  "anticipo-facturacion": [
+    "2.Control de obra/1.Cronograma y presupuesto/1.anticipo/0.Facturacion",
+    "2.Control de obra/1.Cronograma y presupuesto/1.anticipo",
     "anticipo",
   ],
   comunicaciones: ["3.Comunicaciones", "1.Ejecucion/3.Comunicaciones", "comunicaciones"],
@@ -223,8 +238,8 @@ const PLANTILLA_OBRA: FasePlantilla[] = [
       { clave: "obra-f1-acta-comite", nombre: "Acta de reunión", tipo: "Acta", descripcion: "Acta de reunión del comité o de socialización con la entidad.", carpeta: "actas-reunion" },
       { clave: "obra-f1-plan-gerencia", nombre: "Plan de gerencia", tipo: "Documento", descripcion: "Plan de gerencia del proyecto.", carpeta: "calidad-gerencia" },
       { clave: "obra-f1-plan-ambiental", nombre: "Plan ambiental PMA o PAGA", tipo: "Documento", descripcion: "Plan ambiental PMA o PAGA según aplique.", carpeta: "calidad-ambiental" },
-      { clave: "obra-f1-plan-riesgo", nombre: "Plan de gestión de riesgo", tipo: "Documento", descripcion: "Identificación de riesgos, análisis, valoración y plan de tratamiento del contrato.", carpeta: "calidad" },
       { clave: "obra-f1-pmt", nombre: "PMT – radicación y resolución de aprobación", tipo: "Documento", descripcion: "Plan de manejo de tránsito radicado y aprobado por la entidad.", carpeta: "calidad-pmt" },
+      { clave: "obra-f1-plan-riesgo", nombre: "Plan de gestión de riesgo", tipo: "Documento", descripcion: "Identificación, análisis, valoración, tratamiento y seguimiento de los riesgos del contrato.", carpeta: "calidad-riesgo" },
       { clave: "obra-f1-plan-social", nombre: "Plan social", tipo: "Documento", descripcion: "Plan social del proyecto.", carpeta: "calidad-social" },
       { clave: "obra-f1-plan-sgsst", nombre: "Plan SGSST", tipo: "Documento", descripcion: "Plan de seguridad y salud en el trabajo.", carpeta: "calidad-sgsst" },
       { clave: "obra-f1-pie", nombre: "PIE – plan de inspección y ensayos", tipo: "Documento", descripcion: "Programa de inspección y ensayos de calidad.", carpeta: "calidad-pie" },
@@ -247,7 +262,9 @@ const PLANTILLA_OBRA: FasePlantilla[] = [
         carpeta: "contratacion",
         requisitos: ["obra-f1-contrato", "obra-f1-polizas", "obra-f1-rp", "obra-f1-plan-inversion", "obra-f1-cronograma", "obra-f1-disenos", "obra-f1-licencias", "obra-f1-presupuesto"],
       },
-      { clave: "obra-f2-anticipo", nombre: "Validación de anticipo o pago anticipado", tipo: "Acta", descripcion: "Soporte del desembolso y su aplicación según el plan de inversión.", carpeta: "finanzas", requisitos: ["obra-f2-acta-inicio"] },
+      { clave: "obra-f2-anticipo", nombre: "Validación de anticipo o pago anticipado", tipo: "Acta", descripcion: "Soporte del desembolso y su aplicación según el plan de inversión.", carpeta: "anticipo", requisitos: ["obra-f2-acta-inicio"] },
+      { clave: "obra-f2-anticipo-cotizaciones", nombre: "Cotizaciones del anticipo", tipo: "Documento", descripcion: "Cotizaciones que soportan la inversión del anticipo o del pago anticipado.", carpeta: "anticipo-cotizaciones", requisitos: ["obra-f2-acta-inicio"] },
+      { clave: "obra-f2-anticipo-facturacion", nombre: "Facturación del anticipo", tipo: "Documento", descripcion: "Facturas y soportes de pago del anticipo o del pago anticipado.", carpeta: "anticipo-facturacion", requisitos: ["obra-f2-acta-inicio"] },
       { clave: "obra-f2-polizas-anexo", nombre: "Actualización de pólizas (anexo según acta)", tipo: "Documento", descripcion: "Actualización de garantías asociada a cada acta.", carpeta: "polizas", requisitos: ["obra-f2-acta-inicio"] },
       { clave: "obra-f2-comunicaciones", nombre: "Comunicaciones con anexos", tipo: "Documento", descripcion: "Comunicaciones enviadas, recibidas e internas del proyecto.", carpeta: "comunicaciones" },
       { clave: "obra-f2-documentos-contractuales", nombre: "Documentos contractuales", tipo: "Documento", descripcion: "Actas de reunión, suspensión, reinicio, modificación, prórroga, adición, balance y avance.", carpeta: "contratacion" },
@@ -278,7 +295,7 @@ const PLANTILLA_OBRA: FasePlantilla[] = [
       { clave: "obra-f2-reinicio", nombre: "Acta de reinicio", tipo: "Acta", descripcion: "Acta de reinicio de la obra.", carpeta: "contratacion", requisitos: ["obra-f2-suspension"] },
       { clave: "obra-f2-adicion", nombre: "Acta de adición en dinero", tipo: "Acta", descripcion: "Acta de adición presupuestal cuando aplique.", carpeta: "contratacion" },
       { clave: "obra-f2-prorroga", nombre: "Acta de prórroga en tiempo", tipo: "Acta", descripcion: "Acta de prórroga en tiempo cuando aplique.", carpeta: "contratacion" },
-      { clave: "obra-f2-pago-anticipado", nombre: "Acta de pago anticipado", tipo: "Acta", descripcion: "Acta de pago anticipado cuando aplique.", carpeta: "finanzas" },
+      { clave: "obra-f2-pago-anticipado", nombre: "Acta de pago anticipado", tipo: "Acta", descripcion: "Acta de pago anticipado cuando aplique.", carpeta: "anticipo" },
     ],
   },
   {
@@ -439,6 +456,23 @@ function carpetaPertenece(estructuraId: string | null, carpeta: string | null): 
   if (!estructura) return false;
   const actual = carpeta.toLowerCase();
   return estructura.carpetas.some((ruta) => ruta.toLowerCase() === actual);
+}
+
+// Conserva la carpeta elegida, salvo que la plantilla ya apunte a una
+// subcarpeta más específica y la actual sea sólo su carpeta padre
+// (p. ej. «4.Calidad» cuando el modelo agregó «6. Plan de gestion de riesgo»).
+function resolverCarpeta(
+  estructuraId: string | null,
+  actual: string | null,
+  semantica?: string,
+): string | null {
+  const sugerida = sugerirCarpeta(estructuraId, semantica);
+  if (actual && carpetaPertenece(estructuraId, actual)) {
+    const refinada =
+      sugerida != null && sugerida.toLowerCase().startsWith(`${actual.toLowerCase()}/`);
+    return refinada ? sugerida : actual;
+  }
+  return sugerida ?? actual;
 }
 
 async function proyectoRef(db: Consulta, proyectoId: string): Promise<ProyectoRef> {
@@ -688,21 +722,13 @@ export async function asegurarFasesProyecto(
   );
   const sembradaPorClave = new Map(sembradas.map((fila) => [fila.plantillaClave, fila]));
   const fasesPorClave = new Map(fases.map((fase) => [fase.clave, fase]));
-  const carpetasValidas = new Set(
-    (proyecto.estructura ? (estructuraPorId(proyecto.estructura)?.carpetas ?? []) : []).map((ruta) =>
-      ruta.toLowerCase(),
-    ),
-  );
   for (const fasePlantilla of plantilla) {
     const fase = fasesPorClave.get(fasePlantilla.clave);
     if (!fase) continue;
     for (const [indice, item] of fasePlantilla.actividades.entries()) {
       const actual = sembradaPorClave.get(item.clave);
       if (!actual) continue;
-      const carpetaSugerida = sugerirCarpeta(proyecto.estructura, item.carpeta);
-      const conservarCarpeta =
-        actual.carpeta != null && carpetasValidas.has(actual.carpeta.toLowerCase());
-      const carpeta = conservarCarpeta ? actual.carpeta : carpetaSugerida ?? actual.carpeta;
+      const carpeta = resolverCarpeta(proyecto.estructura, actual.carpeta, item.carpeta);
       if (actual.faseId === fase.id && actual.orden === indice + 1 && carpeta === actual.carpeta) {
         continue;
       }
@@ -769,7 +795,6 @@ export async function sembrarChecklist(
     if (!fase) continue;
 
     for (const [indice, item] of fasePlantilla.actividades.entries()) {
-      const carpetaSugerida = sugerirCarpeta(proyecto.estructura, item.carpeta);
       const { rows: existentes } = await db.query<{ id: string; carpeta: string | null }>(
         "SELECT id, carpeta FROM edt_actividades WHERE proyecto_id = $1 AND plantilla_clave = $2",
         [proyectoId, item.clave],
@@ -777,9 +802,7 @@ export async function sembrarChecklist(
       if (existentes[0]) {
         const actual = existentes[0];
         actividadPorClave.set(item.clave, actual.id);
-        const carpeta = carpetaPertenece(proyecto.estructura, actual.carpeta)
-          ? actual.carpeta
-          : carpetaSugerida;
+        const carpeta = resolverCarpeta(proyecto.estructura, actual.carpeta, item.carpeta);
         await db.query(
           "UPDATE edt_actividades SET fase_id = $2, orden = $3, carpeta = $4 WHERE id = $1",
           [actual.id, fase.id, indice + 1, carpeta],
@@ -805,7 +828,7 @@ export async function sembrarChecklist(
           tipo,
           item.clave,
           requiereDocumento,
-          carpetaSugerida,
+          sugerirCarpeta(proyecto.estructura, item.carpeta),
           indice + 1,
         ],
       );

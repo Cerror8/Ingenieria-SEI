@@ -171,25 +171,13 @@ Para probar con el ejemplo, crea tres informes semanales (por ejemplo, 2026-08-0
 
 ### 4.7 Seguimiento
 
-Muestra avance técnico, avance presupuestal, indicadores, actividades del cronograma, entregables y alertas. El avance técnico se actualiza con un control deslizante y el botón **Actualizar avance**; el valor se guarda en el proyecto y alimenta el dashboard y la comparación presupuestal. La lista de actividades sale del Gantt y permite saltar a **Gestionar en Gantt**.
+Muestra cuatro tarjetas con barra y cifra: avance técnico, avance presupuestal, actividades del cronograma y entregables aprobados. El avance técnico se actualiza con un control deslizante y el botón **Actualizar avance**; el valor se guarda en el proyecto y alimenta el dashboard y la comparación presupuestal. La lista de actividades sale del Gantt y permite saltar a **Gestionar en Gantt**.
 
-Hoy este avance es manual; el cálculo automático desde tareas o EDT está pendiente (sección 6).
+La tarjeta **Curva S** compara el avance acumulado programado con el real, en dos gráficos: técnico y ejecución presupuestal. La línea programada se calcula en vivo (ponderada por la duración de las actividades del Gantt, o lineal entre las fechas del contrato si no hay actividades); la real sale de los cortes diarios que la API guarda cada vez que cambia el avance o la ejecución. El indicador superior resume si el proyecto está adelantado o atrasado y por cuántos días equivalentes. Con el ejemplo recién creado la curva ya se dibuja: la parte programada es completa y la real arranca en el corte del día.
 
-### 4.8 Indicadores
+El control manual sólo aparece cuando el proyecto no tiene actividades. Si existen actividades del EDT o del Gantt, el porcentaje se calcula solo con sus estados y la tarjeta muestra únicamente la cifra y la barra con la etiqueta «Automático desde EDT» o «Automático desde Gantt».
 
-El ejemplo no trae indicadores. La pestaña permite crear, editar y eliminar indicadores. Cada uno se registra con nombre, meta, avance, estado, responsable, fecha y un **origen del cumplimiento**:
-
-- **Automático (EDT)** —por defecto—: se elige una fase del EDT y el porcentaje se calcula con las actividades completadas, sin contar las marcadas «No aplica». Se actualiza solo al cambiar el EDT.
-- **Manual**: el porcentaje (0–100) se escribe a mano; al pasar de automático a manual arranca con el último valor calculado.
-
-Dentro del origen automático hay dos alcances:
-
-- **Toda la fase**: sin marcar actividades, el porcentaje cubre todas las actividades de la fase.
-- **Actividades específicas**: se marca un subconjunto de actividades de la fase y el porcentaje se calcula solo con ellas. Sirve para indicadores transversales (por ejemplo, el plan de gestión del riesgo) que dependen de varias actividades. Al cambiar de fase se limpia la selección.
-
-Los indicadores de origen EDT llevan un distintivo “EDT”, muestran la fase y el alcance (toda la fase o número de actividades). Además, **cada actividad del EDT muestra en su tarjeta los indicadores que dependen de ella**, lo que permite ver el vínculo desde ambos lados. Con el ejemplo recién creado, el dashboard del proyecto sigue mostrando “Sin indicadores registrados” hasta que se cree el primero.
-
-### 4.9 Auditoría
+### 4.8 Auditoría
 
 Registra las acciones del proyecto. El ejemplo deja al menos el evento de creación con usuario, fecha y detalle. El botón **Exportar** aún no tiene acción asociada.
 
@@ -198,9 +186,9 @@ Registra las acciones del proyecto. El ejemplo deja al menos el evento de creaci
 | Vista | Qué analiza | Con el ejemplo recién creado | Después de diligenciarlo |
 |---|---|---|---|
 | Dashboard global | 7 KPIs (total, activos, finalizados, retrasados, avance promedio, ejecución promedio, líneas activas), filtros por año, línea, estado, responsable y período; dona por estado; avance de activos; ejecución presupuestal por proyecto; proyectos por línea; próximos a finalizar; alertas de indicadores | El ejemplo suma en total, activos, avance promedio, ejecución promedio y línea; aparece en “Próximos a finalizar” con 245 días | Los promedios y gráficos se mueven con cada avance y presupuesto; las alertas requieren indicadores |
-| Dashboard del proyecto | Avance técnico, avance financiero, indicadores cumplidos, alertas activas; barras técnico vs. presupuestal; dona de estado de indicadores | 38 % técnico, 32 % financiero, 0 indicadores, 0 alertas | La dona se llena cuando existan indicadores; las alertas se activan con indicadores en riesgo o no cumplidos |
-| Seguimiento | Seis tarjetas: avance técnico, presupuestal, indicadores, actividades, entregables y alertas; tabla del cronograma | Actividades y entregables en cero | Refleja el Gantt, los documentos y el avance guardado |
-| EDT | Avance por etapa, actividades completadas, vencidas y porcentaje; indicadores que dependen de cada actividad | Vacío hasta cargar la plantilla | Muestra 6/8/6 y el avance de cada etapa; las vencidas se resaltan y las tarjetas listan sus indicadores |
+| Dashboard del proyecto | Resumen con avance técnico, ejecución presupuestal, fechas y datos del contrato | 38 % técnico, 32 % financiero y la ficha completa | Las barras y los datos cambian con cada actualización del proyecto |
+| Seguimiento | Cuatro tarjetas: avance técnico, presupuestal, actividades y entregables; curva S técnica y presupuestal; tabla del cronograma | Actividades y entregables en cero; la curva programada ya se dibuja y la real arranca en el corte del día | Refleja el Gantt, los documentos y el avance guardado; la curva real gana puntos con cada actualización |
+| EDT | Avance por etapa, actividades completadas, vencidas y porcentaje | Vacío hasta cargar la plantilla | Muestra 6/8/6 y el avance de cada etapa; las vencidas se resaltan |
 | Gantt | Línea de tiempo por meses, hitos, estados y avance por actividad | Vacío | Visualiza el cronograma y los hitos |
 | Presupuesto | Negociación vs. ejecución vs. alerta; tiempo vs. avance técnico vs. ejecución; advertencias; desembolsos y actas | Cuatro tarjetas y comparación con 32 %; movimientos en cero | Totales de desembolsos y actas, y alerta roja si se supera el umbral |
 | Formatos | Valores de referencia y análisis de tablas de archivos Excel/CSV (materiales, instrumentos y otras tablas) | Independiente del proyecto; disponible si hay valores cargados | Permite analizar tablas y prellenar registros, pero aún no se integra al presupuesto del proyecto |
@@ -222,7 +210,7 @@ Análisis que **sí** se pueden hacer hoy con el ejemplo:
 | 1 | Seguimiento automático | El avance técnico se captura con un control manual; el porcentaje de ejecución también es un dato manual | Calcular avance desde tareas, EDT y cronograma; recalcular ejecución desde movimientos | Alta |
 | 2 | Valores de referencia en el proyecto | Formatos permite analizar tablas Excel/CSV, pero no llevarlas al proyecto | Convertir materiales e instrumentos en ítems “Otros” del proyecto y sumarlos al presupuesto | Alta |
 | 3 | Análisis financiero ampliado | Hay tarjetas, comparación y movimientos, sin conciliación | Pagos por entidad contratante, ingresos vs. gastos, informe de déficit rojo/verde y contrapartidas | Alta |
-| 4 | Antecedentes del proyecto | La pestaña muestra un aviso; la asociación se gestiona en el módulo Antecedentes | Asociar antecedentes desde el detalle sin duplicar documentos | Media |
+| 4 | Antecedentes del proyecto | Módulo en pausa: oculto del menú y de las pestañas (`ANTECEDENTES_VISIBLE`), con la vista y la API conservadas | Reactivar la asociación de antecedentes desde el detalle sin duplicar documentos | Baja |
 | 5 | Exportar auditoría | El botón existe sin acción | Exportar el listado a Excel/CSV/PDF | Media |
 | 6 | Validación documental | El checklist EDT controla actividades, no documentos | Marcar documentos obligatorios por carpeta y alertar faltantes | Media |
 | 7 | Gantt multianual | Eje de doce meses con el año de inicio | Eje que cruce años y fechas completas en lugar de sólo mes | Media |
@@ -232,14 +220,16 @@ Análisis que **sí** se pueden hacer hoy con el ejemplo:
 Aclaraciones de alcance:
 
 - La ficha **FR-019** fue retirada del flujo y no debe reincorporarse.
-- El proyecto de ejemplo no crea datos en EDT, Gantt, presupuesto, documentos, indicadores ni informes; esas pestañas se alimentan con el recorrido de la sección 4.
+- El proyecto de ejemplo no crea documentos, informes ni desembolsos; esas pestañas se alimentan con el recorrido de la sección 4. Al crearlo (o al crear cualquier proyecto) sí se siembran las fases y el checklist EDT según el tipo de contrato.
 - La conciliación automática entre porcentaje de ejecución y movimientos es parte del punto 1/3, no un comportamiento esperado hoy.
 
 ## 7. Borrado y reinicio
 
 - El ejemplo recién creado **se puede eliminar**: menú de tres puntos → **Eliminar proyecto** (sólo admin), confirmando el código exacto `INT-EJEMPLO-001`.
-- Si se cargaron registros vinculados, la eliminación se bloquea y el mensaje indica el conteo por tipo: documentos, indicadores, actividades del Gantt, actividades del EDT, tareas de tablero e informes.
-- Los **desembolsos y actas parciales** no bloquean la eliminación: se eliminan en cascada con el proyecto. Si se necesitan como evidencia, expórtalos o regístralos en documentos antes de borrar.
+- Si hay registros vinculados, el diálogo muestra el conteo por tipo (documentos, indicadores, actividades del Gantt, actividades del EDT, tareas de tablero e informes) y bloquea el botón. Para continuar hay que marcar **«Entiendo que esta acción borra también los registros relacionados»**; entonces el botón cambia a **Eliminar con cascada** y vuelve a exigir el código exacto.
+- La cascada borra en una sola transacción: documentos (sus archivos físicos quedan en el almacenamiento), informes vinculados por código o por nombre, indicadores, actividades del Gantt, actividades y fases del EDT, tableros y sus tareas.
+- No bloquean ni se pierden en silencio: las **tareas personales** de los usuarios se conservan y quedan sin proyecto asociado. Los **desembolsos, ítems de presupuesto y cortes de la curva S** se eliminan con el proyecto.
+- La auditoría guarda el proyecto y los conteos previos y marca el borrado como `— (cascada)` cuando se usó este modo.
 - Para reiniciar la práctica: elimina el ejemplo, vuelve a pulsarlo y repite el recorrido. Si sólo se quiere limpiar el checklist EDT, se pueden borrar las actividades desde la pestaña EDT.
 
 ## 8. Publicación en Vercel

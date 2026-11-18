@@ -56,6 +56,21 @@ CREATE TRIGGER proyectos_touch
 BEFORE UPDATE ON proyectos
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 
+-- Cortes diarios de avance y ejecución para dibujar la curva S real de cada
+-- proyecto. La curva programada se calcula en vivo desde el Gantt.
+CREATE TABLE IF NOT EXISTS proyecto_avance_cortes (
+  id             BIGSERIAL PRIMARY KEY,
+  proyecto_id    TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  fecha_corte    DATE NOT NULL,
+  avance_real    INTEGER NOT NULL CHECK (avance_real BETWEEN 0 AND 100),
+  ejecucion_real INTEGER NOT NULL CHECK (ejecucion_real BETWEEN 0 AND 100),
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (proyecto_id, fecha_corte)
+);
+
+CREATE INDEX IF NOT EXISTS ix_proyecto_avance_cortes
+  ON proyecto_avance_cortes (proyecto_id, fecha_corte);
+
 -- ---------------------------------------------------------------------
 -- Indicadores por proyecto
 -- ---------------------------------------------------------------------

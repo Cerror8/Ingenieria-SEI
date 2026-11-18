@@ -6,6 +6,7 @@ import { pool, withTx, type Db } from "../db.js";
 import { ah, HttpError } from "../http.js";
 import { estructuraPorId } from "../lib/estructura.js";
 import { recalcularAvanceProyecto } from "../lib/avance.js";
+import { calcularCurvaS, registrarCorteAvance } from "../lib/curvaS.js";
 import { sembrarChecklist } from "../lib/edtFases.js";
 import { requireAdmin, type UsuarioSesion } from "../auth/session.js";
 
@@ -277,6 +278,16 @@ proyectos.get(
   }),
 );
 
+proyectos.get(
+  "/:id/curva-s",
+  ah(async (req, res) => {
+    const id = z.string().trim().min(1).parse(req.params.id);
+    const curva = await calcularCurvaS(pool, id);
+    if (!curva) throw new HttpError(404, "Proyecto no encontrado");
+    res.json(curva);
+  }),
+);
+
 proyectos.post(
   "/",
   ah(async (req, res) => {
@@ -347,6 +358,7 @@ proyectos.post(
       // El checklist de fases, actividades y tableros se crea junto con el proyecto:
       // si falla el sembrado, no queda un proyecto a medio configurar.
       await sembrarChecklist(db, id, datos.tipoContrato);
+      await registrarCorteAvance(db, id);
       return rows[0];
     });
 
@@ -514,6 +526,7 @@ proyectos.patch(
          VALUES ($1, 'Edición', 'Proyecto', $2, $3, $4)`,
         [usuario.nombre, id, JSON.stringify(actual), JSON.stringify(rows[0])],
       );
+      await registrarCorteAvance(db, id);
       return rows[0];
     });
     res.json({ proyecto });
@@ -639,7 +652,10 @@ proyectos.delete(
   requireAdmin,
   ah(async (req, res) => {
     const id = z.string().trim().min(1).parse(req.params.id);
-    const { confirmacion } = z.object({ confirmacion: z.string().min(1) }).strict().parse(req.body);
+    const { confirmacion, forzar } = z.object({
+      confirmacion: z.string().min(1),
+      forzar: z.boolean().optional().default(false),
+    }).strict().parse(req.body);
     if (confirmacion !== id) throw new HttpError(400, "Confirma la eliminación con el código exacto del proyecto.");
     const usuario = res.locals.usuario as UsuarioSesion;
 
@@ -655,17 +671,34 @@ proyectos.delete(
       await db.query("LOCK TABLE informes IN SHARE MODE");
       const relacionados = await contarRelacionados(db, proyecto);
       if (Object.values(relacionados).some((total) => total > 0)) {
-        const detalle = Object.entries(relacionados).map(([tipo, total]) => `${tipo}: ${total}`).join(", ");
-        throw new HttpError(409, `No se puede eliminar un proyecto con registros relacionados (${detalle}).`);
+        if (!forzar) {
+          const detalle = Object.entries(relacionados).map(([tipo, total]) => `${tipo}: ${total}`).join(", ");
+          throw new HttpError(409, `No se puede eliminar un proyecto con registros relacionados (${detalle}).`);
+        }
+        // Cascada explícita: los archivos binarios de documentos quedan huérfanos en el almacenamiento.
+        await db.query("DELETE FROM documentos WHERE proyecto_id = $1", [id]);
+        await db.query("DELETE FROM informes WHERE proyecto = $1 OR proyecto = $2", [id, proyecto.nombre]);
+        await db.query("DELETE FROM indicadores WHERE proyecto_id = $1", [id]);
+        await db.query("DELETE FROM actividades WHERE proyecto_id = $1", [id]);
+        await db.query("DELETE FROM tareas_tablero WHERE proyecto_id = $1", [id]);
+        await db.query("DELETE FROM edt_actividades WHERE proyecto_id = $1", [id]);
+        await db.query("DELETE FROM edt_fases WHERE proyecto_id = $1", [id]);
+        await db.query("DELETE FROM tableros WHERE proyecto_id = $1", [id]);
       }
 
       await db.query("DELETE FROM proyectos WHERE id = $1", [id]);
       await db.query(
         `INSERT INTO auditoria (usuario, accion, entidad, registro, valor_previo, valor_nuevo)
-         VALUES ($1, 'Eliminación', 'Proyecto', $2, $3, '—')`,
-        [usuario.nombre, id, JSON.stringify(proyecto)],
+         VALUES ($1, 'Eliminación', 'Proyecto', $2, $3, $4)`,
+        [
+          usuario.nombre,
+          id,
+          JSON.stringify({ proyecto, relacionados }),
+          forzar && Object.values(relacionados).some((total) => total > 0) ? "— (cascada)" : "—",
+        ],
       );
     });
     res.json({ ok: true });
   }),
 );
+

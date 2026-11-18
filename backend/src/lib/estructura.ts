@@ -41,6 +41,7 @@ export const ESTRUCTURAS: Estructura[] = [
       "4.Calidad/3. Plan social",
       "4.Calidad/4. sgsst",
       "4.Calidad/5.PIE",
+      "4.Calidad/6. Plan de gestion de riesgo",
       "5.Documentacion contractual",
       "5.Documentacion contractual/0.Contratista",
       "5.Documentacion contractual/0.Contratista/0.Proceso",

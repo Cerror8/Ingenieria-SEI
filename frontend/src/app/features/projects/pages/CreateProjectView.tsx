@@ -214,7 +214,7 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
         <ErrorModule mensaje={errorCarga} onRetry={() => setIntentoCarga(i => i + 1)} />
       ) : (
         <form ref={formularioRef} onSubmit={handleSave} noValidate className="space-y-5" aria-busy={guardando}>
-          <p className="text-sm text-gray-500">Los campos marcados con * son obligatorios. Los antecedentes se gestionan en la pestaña del detalle del proyecto.</p>
+          <p className="text-sm text-gray-500">Los campos marcados con * son obligatorios.</p>
           {editando && <p className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">Puede completar los datos contractuales faltantes de proyectos antiguos sin cambiar su código. Los campos aún no registrados son opcionales en esta edición; los datos obligatorios existentes deben conservarse.</p>}
           {errorCatalogos && (
             <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

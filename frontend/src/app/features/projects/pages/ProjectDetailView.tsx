@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   FileText, FolderOpen, Activity, ChevronRight,
-  Plus, Download, Eye, Edit2, ArrowLeft, X, Upload,
-  Clock, Sliders, Archive, FileUp, ListChecks, Trash2
+  Download, Eye, Edit2, ArrowLeft, X, Upload,
+  Clock, Sliders, Archive, FileUp, ListChecks
 } from "lucide-react";
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line
 } from "recharts";
-import type { AuditEntry, Desembolso, Document, GanttActivity, Indicator, Project } from "../../../types";
+import type { AuditEntry, Desembolso, Document, GanttActivity, Project } from "../../../types";
 import {
-  api, mapActividad, mapAuditoria, mapDesembolso, mapDocumento, mapIndicador, mapProyecto,
-  type EstructuraApi, type ResumenZipApi,
+  api, mapActividad, mapAuditoria, mapDesembolso, mapDocumento, mapProyecto,
+  type CurvaSApi, type EstructuraApi, type ResumenZipApi,
 } from "../../../api/client";
 import { CargandoModule, ErrorModule } from "../../../components/DataState";
 import { SubirDocumentoModal } from "../../documentos/SubirDocumentoModal";
@@ -19,13 +18,12 @@ import { ActualizarDocumentoModal } from "../../documentos/ActualizarDocumentoMo
 import { ChecklistDocumentalModal } from "../ChecklistDocumentalModal";
 import { EdtTab } from "../EdtTab";
 import { GanttTab } from "../GanttTab";
-import { IndicadorModal } from "../IndicadorModal";
 import { PresupuestoTab } from "../PresupuestoTab";
 import { InformesView } from "../../informes/InformesView";
-import { IND_CFG, ACT_STATUS_CFG, GANTT_MONTHS, PROJ_TABS } from "../../../constants";
+import { ACT_STATUS_CFG, GANTT_MONTHS, PROJ_TABS } from "../../../constants";
 import { fmt } from "../../../lib/format";
 import { chartColor } from "../../../lib/chartColors";
-import { StatusBadge, IndBadge, Bar2, Crumb } from "../../../components/shared";
+import { StatusBadge, Bar2, Crumb } from "../../../components/shared";
 
 export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, onEdit, onShowToast }: {
   projectId: string; initialTab?: string; onBack: () => void; onEdit: () => void;
@@ -38,8 +36,6 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
   const [guardandoAvance, setGuardandoAvance] = useState(false);
   const [mostrarSubida, setMostrarSubida] = useState(false);
   const [mostrarChecklist, setMostrarChecklist] = useState(false);
-  const [mostrarIndicador, setMostrarIndicador] = useState(false);
-  const [indicadorEditando, setIndicadorEditando] = useState<Indicator | null>(null);
   const [docEditando, setDocEditando] = useState<Document | null>(null);
   const [mostrarZip, setMostrarZip] = useState(false);
   const [zipArchivo, setZipArchivo] = useState<File | null>(null);
@@ -49,11 +45,11 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
 
   const [project, setProject] = useState<Project | null>(null);
   const [estructura, setEstructura] = useState<EstructuraApi | null>(null);
-  const [projIndicators, setProjIndicators] = useState<Indicator[]>([]);
   const [projDocs, setProjDocs] = useState<Document[]>([]);
   const [desembolsos, setDesembolsos] = useState<Desembolso[]>([]);
   const [auditoria, setAuditoria] = useState<AuditEntry[]>([]);
   const [ganttActivities, setGanttActivities] = useState<GanttActivity[]>([]);
+  const [curvaS, setCurvaS] = useState<CurvaSApi | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,9 +57,10 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
     setCargando(true);
     setError(null);
     try {
-      const [detalle, auditoriaRes] = await Promise.all([
+      const [detalle, auditoriaRes, curvaRes] = await Promise.all([
         api.proyecto(projectId),
         api.auditoria(projectId),
+        api.curvaS(projectId).catch(() => null),
       ]);
       const proyecto = mapProyecto(detalle.proyecto);
       setProject(proyecto);
@@ -75,10 +72,10 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
       }
       setEstructura(estructuraDetalle);
       setSeguimientoAvance(proyecto.progress);
-      setProjIndicators(detalle.indicadores.map(mapIndicador));
       setProjDocs(detalle.documentos.map(mapDocumento));
       setDesembolsos(detalle.desembolsos.map(mapDesembolso));
       setGanttActivities(detalle.actividades.map(mapActividad));
+      setCurvaS(curvaRes);
       setAuditoria(auditoriaRes.auditoria.map(mapAuditoria));
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar el proyecto.");
@@ -92,12 +89,15 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
   }, [cargar]);
 
   const recargarResumen = useCallback(async () => {
-    const detalle = await api.proyecto(projectId);
+    const [detalle, curvaRes] = await Promise.all([
+      api.proyecto(projectId),
+      api.curvaS(projectId).catch(() => null),
+    ]);
     setProject(mapProyecto(detalle.proyecto));
-    setProjIndicators(detalle.indicadores.map(mapIndicador));
     setProjDocs(detalle.documentos.map(mapDocumento));
     setDesembolsos(detalle.desembolsos.map(mapDesembolso));
     setGanttActivities(detalle.actividades.map(mapActividad));
+    setCurvaS(curvaRes);
   }, [projectId]);
 
   const recargarDocs = recargarResumen;
@@ -108,6 +108,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
     try {
       const { proyecto } = await api.actualizarProyecto(projectId, { avance: seguimientoAvance });
       setProject(mapProyecto(proyecto));
+      setCurvaS(await api.curvaS(projectId).catch(() => null));
       onShowToast("Avance técnico actualizado.");
     } catch (e) {
       onShowToast(e instanceof Error ? e.message : "No se pudo actualizar el avance.");
@@ -140,27 +141,6 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
     }
   };
 
-  const abrirNuevoIndicador = () => {
-    setIndicadorEditando(null);
-    setMostrarIndicador(true);
-  };
-
-  const abrirEdicionIndicador = (indicador: Indicator) => {
-    setIndicadorEditando(indicador);
-    setMostrarIndicador(true);
-  };
-
-  const eliminarIndicador = async (indicador: Indicator) => {
-    if (!window.confirm(`¿Eliminar el indicador “${indicador.name}”?`)) return;
-    try {
-      await api.eliminarIndicador(indicador.id);
-      await recargarResumen();
-      onShowToast("Indicador eliminado.");
-    } catch (e) {
-      onShowToast(e instanceof Error ? e.message : "No se pudo eliminar el indicador.");
-    }
-  };
-
   if (cargando) return <CargandoModule mensaje="Cargando detalle del proyecto…" />;
   if (error) return <ErrorModule mensaje={error} onRetry={() => void cargar()} />;
   if (!project) return <ErrorModule mensaje="Proyecto no encontrado." />;
@@ -176,22 +156,21 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
     return coincideTipo && coincideCarpeta;
   });
 
-  const indicadoresCumplidos = projIndicators.filter(i => i.status === "Cumplido").length;
-  const alertasActivas = projIndicators.filter(i => i.status === "En riesgo" || i.status === "No cumplido").length;
   const actividadesCompletadas = ganttActivities.filter(a => a.status === "Completada").length;
+  const avanceActividades = ganttActivities.length > 0
+    ? Math.round((actividadesCompletadas / ganttActivities.length) * 100)
+    : 0;
+  const entregablesAprobados = projDocs.filter(d => d.status === "Aprobado").length;
+  const avanceEntregables = projDocs.length > 0
+    ? Math.round((entregablesAprobados / projDocs.length) * 100)
+    : 0;
   const anioProyecto = Number(project.startIso.slice(0, 4)) || new Date().getFullYear();
-  const estadoIndicadores = (["Cumplido", "En riesgo", "No cumplido", "Pendiente"] as const)
-    .map(estado => ({
-      name: estado,
-      value: projIndicators.filter(i => i.status === estado).length,
-    }))
-    .filter(e => e.value > 0);
-  const COLOR_IND: Record<string, string> = {
-    Cumplido: "#10B981",
-    "En riesgo": "#F59E0B",
-    "No cumplido": "#EF4444",
-    Pendiente: "#94A3B8",
+  const conSigno = (valor: number) => `${valor > 0 ? "+" : ""}${valor}`;
+  const etiquetaCurva = (fecha: string) => {
+    const [anio, mes] = fecha.split("-");
+    return (GANTT_MONTHS[Number(mes) - 1] ?? mes).slice(0, 3) + " " + (anio ?? "").slice(2);
   };
+  const puntosCurva = curvaS?.puntos ?? [];
 
   return (
     <div className="space-y-4">
@@ -303,63 +282,95 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
               <h2 className="text-sm font-bold text-gray-800">Seguimiento del proyecto</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { label: "Avance técnico",     value: `${project.progress}%`,      color: "text-orange-700",   bg: "bg-orange-50" },
-                  { label: "Avance presupuestal",value: `${project.budgetExecuted}%`, color: "text-emerald-700",bg: "bg-emerald-50" },
-                  { label: "Indicadores",        value: `${indicadoresCumplidos} / ${projIndicators.length}`, color: "text-slate-700", bg: "bg-slate-50" },
-                  { label: "Actividades",        value: `${actividadesCompletadas} / ${ganttActivities.length}`, color: "text-orange-700", bg: "bg-orange-50" },
-                  { label: "Entregables",        value: String(projDocs.length),      color: "text-gray-700",   bg: "bg-gray-50" },
-                  { label: "Alertas",            value: String(alertasActivas),       color: "text-red-700",    bg: "bg-red-50" },
+                  { label: "Avance técnico", value: `${project.progress}%`, color: "text-orange-700", bar: project.progress, barColor: "bg-orange-500", hint: curvaS ? `Programado ${curvaS.resumen.avanceProgramadoHoy}%` : `${project.progress}% acumulado` },
+                  { label: "Avance presupuestal", value: `${project.budgetExecuted}%`, color: "text-emerald-700", bar: project.budgetExecuted, barColor: "bg-emerald-500", hint: curvaS ? `Programado ${curvaS.resumen.ejecucionProgramadaHoy}%` : `${project.budgetExecuted}% acumulado` },
+                  { label: "Actividades", value: `${actividadesCompletadas} / ${ganttActivities.length}`, color: "text-orange-700", bar: avanceActividades, barColor: "bg-amber-500", hint: `${avanceActividades}% completado` },
+                  { label: "Entregables", value: String(projDocs.length), color: "text-gray-700", bar: avanceEntregables, barColor: "bg-sky-500", hint: `${entregablesAprobados} aprobado(s)` },
                 ].map(k => (
                   <div key={k.label} className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-3">
                     <span className="absolute left-0 top-0 h-5 w-[3px] bg-[#F39200]" />
                     <p className="sei-label text-slate-400">{k.label}</p>
                     <p className={`sei-figure mt-0.5 text-2xl font-semibold ${k.color}`}>{k.value}</p>
+                    <div className="mt-2"><Bar2 value={k.bar} color={k.barColor} h="h-1.5" /></div>
+                    <p className="mt-1 text-[10px] text-slate-400">{k.hint}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {curvaS && (
                 <div className="rounded-lg border border-slate-200/80 p-4">
-                  <h3 className="sei-label mb-3 text-slate-500">Avance técnico y presupuestal</h3>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={[
-                      { name: "Técnico", valor: project.progress },
-                      { name: "Presupuestal", valor: project.budgetExecuted },
-                    ]} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                      <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis key="xaxis" dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis key="yaxis" tick={{ fontSize: 11 }} domain={[0, 100]} />
-                      <Tooltip key="tooltip" formatter={(v: number) => [`${v}%`, "Avance"]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
-                      <Bar key="bar" dataKey="valor" radius={[4, 4, 0, 0]} barSize={36}>
-                        <Cell key="tecnico" fill={chartColor(0)} />
-                        <Cell key="presupuestal" fill={chartColor(1)} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h3 className="sei-label text-slate-500">Curva S · avance acumulado</h3>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        Programación {curvaS.fuenteProgramacion === "Gantt"
+                          ? "ponderada por la duración de las actividades del Gantt"
+                          : "lineal entre las fechas del contrato"}
+                        {" · "}cortes reales desde {etiquetaCurva(curvaS.proyecto.fechaInicio)}.
+                      </p>
+                    </div>
+                    <span className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] ${
+                      curvaS.resumen.diasEquivalentes >= 0
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-red-200 bg-red-50 text-red-700"
+                    }`}>
+                      {curvaS.resumen.diasEquivalentes >= 0 ? "Adelantado" : "Atrasado"} {Math.abs(curvaS.resumen.diasEquivalentes)} días
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div>
+                      <p className="mb-1 text-xs font-semibold text-gray-700">
+                        Avance técnico
+                        <span className="ml-2 font-normal text-slate-400">
+                          Prog. {curvaS.resumen.avanceProgramadoHoy}% · Real {curvaS.resumen.avanceRealHoy}% ·{" "}
+                          <span className={curvaS.resumen.desviacionAvance >= 0 ? "text-emerald-600" : "text-red-600"}>
+                            {conSigno(curvaS.resumen.desviacionAvance)} pp
+                          </span>
+                        </span>
+                      </p>
+                      <ResponsiveContainer width="100%" height={190}>
+                        <LineChart data={puntosCurva} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
+                          <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis key="xaxis" dataKey="fecha" tick={{ fontSize: 10 }} tickFormatter={etiquetaCurva} interval="preserveStartEnd" minTickGap={18} />
+                          <YAxis key="yaxis" tick={{ fontSize: 10 }} domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
+                          <Tooltip key="tooltip" labelFormatter={etiquetaCurva} formatter={(v: number, nombre: string) => [v == null ? "—" : `${v}%`, nombre]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                          <Legend key="legend" iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                          <Line key="programado" type="monotone" dataKey="avanceProgramado" name="Programado" stroke={chartColor(0)} strokeDasharray="6 4" strokeWidth={2} dot={false} />
+                          <Line key="real" type="monotone" dataKey="avanceReal" name="Real" stroke={chartColor(1)} strokeWidth={2.5} dot={puntosCurva.length <= 14 ? { r: 2.5 } : false} connectNulls={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs font-semibold text-gray-700">
+                        Ejecución presupuestal
+                        <span className="ml-2 font-normal text-slate-400">
+                          Prog. {curvaS.resumen.ejecucionProgramadaHoy}% · Real {curvaS.resumen.ejecucionRealHoy}% ·{" "}
+                          <span className={curvaS.resumen.desviacionEjecucion >= 0 ? "text-emerald-600" : "text-red-600"}>
+                            {conSigno(curvaS.resumen.desviacionEjecucion)} pp
+                          </span>
+                        </span>
+                      </p>
+                      <ResponsiveContainer width="100%" height={190}>
+                        <LineChart data={puntosCurva} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
+                          <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis key="xaxis" dataKey="fecha" tick={{ fontSize: 10 }} tickFormatter={etiquetaCurva} interval="preserveStartEnd" minTickGap={18} />
+                          <YAxis key="yaxis" tick={{ fontSize: 10 }} domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
+                          <Tooltip key="tooltip" labelFormatter={etiquetaCurva} formatter={(v: number, nombre: string) => [v == null ? "—" : `${v}%`, nombre]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                          <Legend key="legend" iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                          <Line key="programado" type="monotone" dataKey="ejecucionProgramada" name="Programado" stroke={chartColor(2)} strokeDasharray="6 4" strokeWidth={2} dot={false} />
+                          <Line key="real" type="monotone" dataKey="ejecucionReal" name="Real" stroke={chartColor(3)} strokeWidth={2.5} dot={puntosCurva.length <= 14 ? { r: 2.5 } : false} connectNulls={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-lg border border-slate-200/80 p-4">
-                  <h3 className="sei-label mb-3 text-slate-500">Estado de indicadores</h3>
-                  {estadoIndicadores.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
-                      Sin indicadores registrados.
-                    </p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={160}>
-                      <PieChart>
-                        <Pie key="pie" data={estadoIndicadores} cx="50%" cy="50%" innerRadius={42} outerRadius={66} dataKey="value">
-                          {estadoIndicadores.map(e => <Cell key={e.name} fill={COLOR_IND[e.name]} />)}
-                        </Pie>
-                        <Tooltip key="tooltip" contentStyle={{ fontSize: 11, borderRadius: 6 }} />
-                        <Legend key="legend" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
+              )}
 
               <div className="rounded-lg border border-slate-200/80 p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-gray-800">Actualizar avance técnico</h3>
+                  <h3 className="text-sm font-bold text-gray-800">
+                    {project.progressSource === "Manual" ? "Actualizar avance técnico" : "Avance técnico"}
+                  </h3>
                   <span className="border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-slate-500">
                     {project.progressSource === "EDT"
                       ? "Automático desde EDT"
@@ -388,11 +399,18 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-lg border border-orange-100 bg-orange-50/60 px-3 py-3 text-xs leading-relaxed text-orange-900">
-                    El avance se calcula automáticamente con el promedio de las actividades
-                    {project.progressSource === "EDT" ? " del EDT" : " del cronograma Gantt"} y las
-                    tareas aprobadas que estén vinculadas. Para cambiarlo, actualiza esos estados;
-                    si eliminas todas las actividades, el control vuelve a ser manual.
+                  <div>
+                    <div className="flex items-end justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-700">Porcentaje de avance</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {project.progressSource === "EDT" ? "Calculado desde el EDT" : "Calculado desde el cronograma Gantt"}
+                          {" · "}se actualiza al cambiar el estado de las actividades.
+                        </p>
+                      </div>
+                      <span className="sei-figure flex-shrink-0 text-3xl font-semibold text-orange-700">{project.progress}%</span>
+                    </div>
+                    <div className="mt-3"><Bar2 value={project.progress} color="bg-orange-500" h="h-2.5" /></div>
                   </div>
                 )}
               </div>
@@ -477,89 +495,6 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
           )}
 
           {/* ── INDICADORES ── */}
-          {tab === "indicadores" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-gray-800">Indicadores del proyecto</h2>
-                  <p className="mt-0.5 text-[11px] text-slate-400">
-                    {indicadoresCumplidos} cumplido(s) de {projIndicators.length} · {alertasActivas} en alerta
-                  </p>
-                </div>
-                <button onClick={abrirNuevoIndicador} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> Nuevo indicador
-                </button>
-              </div>
-              {projIndicators.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-xs text-gray-400">
-                  Este proyecto aún no tiene indicadores. Crea el primero con «Nuevo indicador».
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {projIndicators.map(ind => (
-                    <div key={ind.id} className="rounded-lg border border-slate-200/80 p-4 hover:border-gray-200 transition-colors bg-white">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-[10px] text-gray-400 font-bold">{ind.id}</span>
-                            <IndBadge status={ind.status} />
-                            {ind.origen === "EDT" && (
-                              <span
-                                title={ind.edtFaseNombre ? `Cumplimiento calculado desde la fase «${ind.edtFaseNombre}» del EDT` : "Cumplimiento calculado desde el EDT"}
-                                className="border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-sky-700"
-                              >
-                                EDT
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm font-semibold text-gray-900 mt-1">{ind.name}</p>
-                          <div className="flex flex-wrap gap-4 mt-2">
-                            {[["Meta", ind.goal], ["Avance", ind.advance], ["Responsable", ind.responsible], ["Fecha", ind.date],
-                              ...(ind.origen === "EDT"
-                                ? [
-                                    ["Origen", `Automático · ${ind.edtFaseNombre ?? "fase del EDT"}`],
-                                    ["Alcance", ind.edtActividadesIds.length > 0
-                                      ? `${ind.edtActividadesIds.length} actividad(es)`
-                                      : "Toda la fase"],
-                                  ]
-                                : []),
-                            ].map(([k, v]) => (
-                              <span key={k} className="text-xs text-gray-400">{k}: <strong className="text-gray-700">{v}</strong></span>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-2 mt-3">
-                            <Bar2 value={ind.compliance} color={IND_CFG[ind.status].bar} h="h-2" />
-                            <span className="text-xs font-black text-gray-700 flex-shrink-0">{ind.compliance}%</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-0.5 flex-shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => abrirEdicionIndicador(ind)}
-                            title="Editar indicador"
-                            aria-label={`Editar indicador ${ind.name}`}
-                            className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void eliminarIndicador(ind)}
-                            title="Eliminar indicador"
-                            aria-label={`Eliminar indicador ${ind.name}`}
-                            className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* ── DOCUMENTOS ── */}
           {tab === "documentos" && (
             <div className="space-y-4">
@@ -804,15 +739,6 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
         documento={docEditando}
         onCerrar={() => setDocEditando(null)}
         onActualizado={() => void recargarDocs()}
-      />
-
-      <IndicadorModal
-        abierto={mostrarIndicador}
-        proyectoId={projectId}
-        indicador={indicadorEditando}
-        onCerrar={() => { setMostrarIndicador(false); setIndicadorEditando(null); }}
-        onGuardado={() => void recargarResumen()}
-        onShowToast={onShowToast}
       />
 
       {mostrarZip && (
