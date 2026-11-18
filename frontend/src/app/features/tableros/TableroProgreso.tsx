@@ -38,7 +38,7 @@ function Tarjeta({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-2">
         <span className="rounded-lg bg-orange-50 p-1.5 text-[#C2410C]">
           <Icono className="h-4 w-4" />

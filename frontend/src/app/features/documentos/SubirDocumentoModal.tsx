@@ -125,7 +125,7 @@ export function SubirDocumentoModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-sm font-bold text-gray-900">Cargar documento</h2>
           <button
@@ -147,7 +147,7 @@ export function SubirDocumentoModal({
                 required
                 value={proyectoSel}
                 onChange={(e) => setProyectoSel(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 <option value="">Selecciona un proyecto</option>
                 {proyectos.map((p) => (
@@ -164,7 +164,7 @@ export function SubirDocumentoModal({
                 id="tipo"
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -175,7 +175,7 @@ export function SubirDocumentoModal({
                 id="estado"
                 value={estado}
                 onChange={(e) => setEstado(e.target.value as (typeof ESTADOS)[number])}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
@@ -191,7 +191,7 @@ export function SubirDocumentoModal({
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
                 placeholder="v1.0"
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60"
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ export function SubirDocumentoModal({
                 id="carpeta"
                 value={carpeta}
                 onChange={(e) => setCarpeta(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 <option value="">Raíz del proyecto</option>
                 {carpetas.map((ruta) => (
@@ -224,7 +224,7 @@ export function SubirDocumentoModal({
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej.: Cronograma de obra v1.0 11nov26"
-              className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
             />
             <p className="text-[11px] text-slate-400">
               Si lo dejas vacío se arma automáticamente como <strong>documento – versión – fecha</strong>.
@@ -244,7 +244,7 @@ export function SubirDocumentoModal({
                 value={fechaDocumento}
                 onChange={(e) => setFechaDocumento(e.target.value)}
                 aria-describedby="fecha-documento-ayuda"
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60"
               />
               <p id="fecha-documento-ayuda" className="text-[11px] text-slate-400">
                 Fecha interna del documento, independiente de la fecha de subida.
@@ -261,7 +261,7 @@ export function SubirDocumentoModal({
                 disabled={enviando}
                 value={numeroDocumento}
                 onChange={(e) => setNumeroDocumento(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60"
               />
             </div>
           </div>

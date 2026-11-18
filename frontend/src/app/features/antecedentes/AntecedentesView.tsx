@@ -73,21 +73,21 @@ export function AntecedentesView() {
         ]}
       />
 
-      <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <div className="relative min-w-0 flex-1 sm:min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por código, línea o palabra clave…"
-              className="w-full rounded-lg border border-gray-200 bg-gray-50/50 py-2 pl-9 pr-3 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15" />
           </div>
-          <select value={linea} onChange={e => setLinea(e.target.value)} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 outline-none focus:border-orange-400">
+          <select value={linea} onChange={e => setLinea(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 outline-none focus:border-[#F39200]">
             <option value="Todas">Todas las líneas</option>
             {Array.from(new Set(documentos.map(d => proyectos.find(p => p.id === d.projectId)?.line).filter(Boolean))).map(l => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
-          <select value={tipo} onChange={e => setTipo(e.target.value)} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 outline-none focus:border-orange-400">
+          <select value={tipo} onChange={e => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 outline-none focus:border-[#F39200]">
             <option value="Todos">Todos los tipos</option>
             {tipos.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -95,8 +95,8 @@ export function AntecedentesView() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">Estructura</h3>
+        <div className="rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm">
+          <h3 className="sei-label mb-3 text-slate-500">Estructura</h3>
           {tree.length === 0 && (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-6 text-center text-xs text-gray-400">
               Aún no hay proyectos finalizados.
@@ -126,7 +126,7 @@ export function AntecedentesView() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm lg:col-span-2">
+        <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white shadow-sm lg:col-span-2">
           <div className="border-b border-gray-100 bg-gray-50/40 px-4 py-3">
             <h3 className="text-sm font-bold text-gray-800">Documentos ({filas.length})</h3>
           </div>
@@ -135,7 +135,7 @@ export function AntecedentesView() {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/60">
                   {["Nombre", "Código", "Línea", "Tipo", "Fecha", "Responsable", "Acciones"].map(h => (
-                    <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">{h}</th>
+                    <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left sei-label text-slate-500">{h}</th>
                   ))}
                 </tr>
               </thead>

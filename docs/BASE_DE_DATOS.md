@@ -143,6 +143,40 @@ CREATE INDEX IF NOT EXISTS ix_proyectos_lider ON app.proyectos (lider_id);
 
 Indicadores asociados a un proyecto (`proyecto_id` con `ON DELETE CASCADE`): `nombre`, `meta`, `avance` (texto libre), `cumplimiento` (0–100), `estado` (`Cumplido`, `En riesgo`, `No cumplido`, `Pendiente`), `responsable` y `fecha`.
 
+El cumplimiento puede ser manual o automático. `origen` vale `Manual` o `EDT` (**por defecto `EDT`**); en modo `EDT`, `edt_fase_id` apunta a una fase del proyecto (`ON DELETE SET NULL`) y el porcentaje se calcula al leerlo, sin contadores persistidos. La columna `cumplimiento` sigue existiendo como respaldo: al volver el indicador a modo `Manual` se siembra con el último valor calculado.
+
+El cálculo automático acepta dos alcances:
+
+- **Toda la fase** (sin actividades vinculadas): proporción de actividades completadas de la fase, sin contar las marcadas `no_aplica`.
+- **Actividades específicas**: cuando el indicador tiene filas en `app.indicadores_actividades`, el porcentaje se calcula solo sobre esas actividades (siempre dentro de la fase elegida). Esto permite indicadores transversales, como el plan de gestión del riesgo, que dependen de ciertas actividades repartidas en la fase.
+
+```sql
+ALTER TABLE app.indicadores ADD COLUMN IF NOT EXISTS origen TEXT NOT NULL DEFAULT 'EDT';
+ALTER TABLE app.indicadores ALTER COLUMN origen SET DEFAULT 'EDT';
+ALTER TABLE app.indicadores ADD COLUMN IF NOT EXISTS edt_fase_id UUID;
+CREATE INDEX IF NOT EXISTS ix_indicadores_fase ON app.indicadores (edt_fase_id);
+ALTER TABLE app.indicadores ADD CONSTRAINT indicadores_origen_check CHECK (origen IN ('Manual', 'EDT'));
+-- Debe ejecutarse después de crear app.edt_fases:
+ALTER TABLE app.indicadores ADD CONSTRAINT indicadores_edt_fase_fk
+  FOREIGN KEY (edt_fase_id) REFERENCES app.edt_fases(id) ON DELETE SET NULL;
+```
+
+La selección de actividades vive en una tabla puente; ambas claves son `ON DELETE CASCADE`, así que al borrar el indicador o la actividad el vínculo desaparece sin dejar registros huérfanos. La API valida que cada actividad pertenezca al proyecto y a la fase indicada.
+
+```sql
+CREATE TABLE IF NOT EXISTS app.indicadores_actividades (
+  indicador_id TEXT NOT NULL REFERENCES app.indicadores(id) ON DELETE CASCADE,
+  actividad_id UUID NOT NULL REFERENCES app.edt_actividades(id) ON DELETE CASCADE,
+  PRIMARY KEY (indicador_id, actividad_id)
+);
+CREATE INDEX IF NOT EXISTS ix_indicadores_actividades_actividad
+  ON app.indicadores_actividades (actividad_id);
+```
+
+`GET /api/edt/:id` devuelve en cada actividad la lista `indicadores` (id y nombre) que la referencian, para mostrarlas en la tarjeta del EDT.
+
+Al arrancar, `backend/src/lib/esquema.ts` aplica estas mismas modificaciones de forma idempotente sobre bases ya existentes.
+
 #### `app.documentos`
 
 Repositorio documental por proyecto: `nombre`, `tipo`, `version`, `fecha`, `usuario` y `estado` (`Aprobado`, `En revisión`, `Borrador`, `Rechazado`).

@@ -34,46 +34,62 @@ export function SectionHero({
 }) {
   return (
     <section
-      className={`sei-fade-up relative overflow-hidden rounded-2xl bg-[#1B1B1B] text-white shadow-sm ${
+      className={`sei-fade-up relative overflow-hidden rounded-xl border border-white/10 bg-[#1B1B1B] text-white ${
         compact ? "px-4 py-4 sm:px-5" : "px-5 py-6 sm:px-7"
       }`}
     >
-      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[#F39200]/15" />
-      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-white/5" />
+      <div className="sei-blueprint pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_right,black,transparent_75%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(243,146,0,0.16),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-[#F39200] via-[#F39200]/80 to-transparent" />
+      <div className="pointer-events-none absolute left-3 top-3 h-3 w-3 border-l border-t border-white/25" />
+      <div className="pointer-events-none absolute right-3 top-3 h-3 w-3 border-r border-t border-white/25" />
+      <div className="pointer-events-none absolute bottom-3 left-3 h-3 w-3 border-b border-l border-white/15" />
+      <div className="pointer-events-none absolute bottom-3 right-3 h-3 w-3 border-b border-r border-white/15" />
+
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F39200]/40 bg-[#F39200]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#FDBA74]">
-            {IconoEtiqueta && <IconoEtiqueta className="h-3 w-3" />}
-            {eyebrow}
+        <div className="min-w-0">
+          <span className="flex items-center gap-2 text-[#FDBA74]">
+            {IconoEtiqueta ? (
+              <IconoEtiqueta className="h-3.5 w-3.5" />
+            ) : (
+              <span className="h-1.5 w-1.5 bg-[#F39200]" />
+            )}
+            <span className="sei-label">{eyebrow}</span>
+            <span className="h-px w-8 bg-[#F39200]/60" />
           </span>
           <h1
-            className={`mt-3 font-black leading-tight tracking-tight ${
-              compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl"
+            className={`mt-2.5 font-bold leading-tight tracking-[-0.02em] ${
+              compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-[28px]"
             }`}
           >
             {title}
           </h1>
-          {subtitle && <p className="mt-1.5 max-w-2xl text-sm text-white/60">{subtitle}</p>}
+          {subtitle && <p className="mt-1.5 max-w-2xl text-sm text-white/55">{subtitle}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
+
       {kpis && kpis.length > 0 && (
-        <div className={`relative mt-5 grid grid-cols-2 gap-2 ${COLUMNAS_KPI[kpis.length] ?? "sm:grid-cols-4"}`}>
+        <div
+          className={`relative mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 ${
+            COLUMNAS_KPI[kpis.length] ?? "sm:grid-cols-4"
+          }`}
+        >
           {kpis.map((item, indice) => {
             const Icono = item.icon;
             return (
               <div
                 key={item.label}
                 style={{ animationDelay: `${80 + indice * 60}ms` }}
-                className="sei-pop rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5"
+                className="sei-pop bg-[#212224] px-3.5 py-3"
               >
-                <div className="flex items-center gap-2">
-                  <Icono className="h-3.5 w-3.5 text-[#FDBA74]" />
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-                    {item.label}
-                  </p>
+                <div className="flex items-center gap-1.5 text-white/45">
+                  <Icono className="h-3 w-3 text-[#F39200]" />
+                  <p className="sei-label">{item.label}</p>
                 </div>
-                <p className="mt-1 text-xl font-black leading-none text-white">{item.value}</p>
+                <p className="sei-figure mt-1.5 text-[22px] font-semibold leading-none text-white">
+                  {item.value}
+                </p>
               </div>
             );
           })}

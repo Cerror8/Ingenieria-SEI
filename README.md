@@ -263,6 +263,9 @@ Todas las rutas de dominio exigen sesión activa (`requireAuth`). Los endpoints 
 | `GET` | `/api/proyectos` · `GET /api/proyectos/:id` | Listado y detalle |
 | `POST` | `/api/proyectos` | Crea un proyecto |
 | `GET` | `/api/indicadores` | Indicadores (filtro `?proyectoId=`) |
+| `POST` | `/api/indicadores` | Crea un indicador; `origen` `EDT` (por defecto) con `edtFaseId` y `actividadesIds` opcional, o `Manual` |
+| `PATCH` | `/api/indicadores/:id` | Edita un indicador, incluido el origen, la fase y las actividades del EDT |
+| `DELETE` | `/api/indicadores/:id` | Elimina un indicador |
 | `GET` | `/api/documentos` | Documentos (filtros `?proyectoId=` y `?tipo=`) |
 | `POST` | `/api/documentos` | Carga un documento (`multipart/form-data` o JSON con `archivo` ya subido a Blob) |
 | `GET` | `/api/documentos/:id/archivo` | Abre el archivo; `?descargar=1` fuerza la descarga |

@@ -62,7 +62,7 @@ export function Sidebar({
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-shrink-0 select-none flex-col bg-[#1F2937] transition-[transform,width] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-shrink-0 select-none flex-col border-r border-white/10 bg-[#17181A] transition-[transform,width] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
           collapsed ? "lg:w-20" : "lg:w-56"
         } ${open ? "translate-x-0" : "-translate-x-full"}`}
         aria-label="Menú principal"
@@ -73,12 +73,12 @@ export function Sidebar({
           }`}
         >
           <div className={`flex items-center gap-3 ${collapsed ? "lg:justify-center" : ""}`}>
-            <div className="flex h-10 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white px-1 shadow-sm">
+            <div className="flex h-10 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm border border-white/15 bg-white px-1">
               <img src={logoSei} alt="Ingeniería SEI" className="h-8 w-auto max-w-full" />
             </div>
             <div className={collapsed ? "lg:hidden" : ""}>
-              <p className="text-xs font-black leading-tight tracking-wide text-white">INGENIERÍA</p>
-              <p className="text-xs font-black leading-tight tracking-wide text-[#F39200]">SEI</p>
+              <p className="font-mono text-[10px] font-medium leading-tight tracking-[0.18em] text-white/60">INGENIERÍA</p>
+              <p className="font-mono text-sm font-medium leading-tight tracking-[0.18em] text-[#F39200]">SEI</p>
             </div>
           </div>
 
@@ -111,7 +111,7 @@ export function Sidebar({
                     collapsed ? "lg:justify-center lg:px-2" : ""
                   } ${
                     activo
-                      ? "bg-[#F39200] text-[#1B1B1B] shadow-sm"
+                      ? "bg-white/[0.07] text-white shadow-[inset_2px_0_0_#F39200] [&>svg]:text-[#F39200]"
                       : "text-white/55 hover:bg-white/10 hover:text-white/85"
                   }`}
                 >
@@ -139,7 +139,7 @@ export function Sidebar({
                     collapsed ? "lg:justify-center lg:px-2" : ""
                   } ${
                     activo
-                      ? "bg-[#F39200] text-[#1B1B1B] shadow-sm"
+                      ? "bg-white/[0.07] text-white shadow-[inset_2px_0_0_#F39200] [&>svg]:text-[#F39200]"
                       : "text-white/55 hover:bg-white/10 hover:text-white/85"
                   }`}
                 >
@@ -164,7 +164,7 @@ export function Sidebar({
                         onClick={() => ir(hijo.id)}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${
                           currentView === hijo.id
-                            ? "bg-[#F39200] text-[#1B1B1B] shadow-sm"
+                            ? "bg-white/[0.06] text-white shadow-[inset_2px_0_0_#F39200] [&>svg]:text-[#F39200]"
                             : "text-white/55 hover:bg-white/10 hover:text-white/85"
                         }`}
                       >

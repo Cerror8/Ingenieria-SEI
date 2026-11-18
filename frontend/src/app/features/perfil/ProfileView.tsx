@@ -265,7 +265,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
       />
 
       <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-        <section className="rounded-xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+        <section className="rounded-lg border border-slate-200/80 bg-white p-6 text-center shadow-sm">
           <div className="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-orange-100 bg-orange-50">
             {mostrarFoto ? (
               <img
@@ -318,7 +318,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
         </section>
 
         <div className="space-y-5">
-          <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm">
             <h2 className="text-sm font-bold text-gray-800">Datos del perfil</h2>
             <p className="mt-0.5 text-xs text-gray-500">
               El nombre y la foto se usan en la barra superior, el calendario y los tableros.
@@ -336,7 +336,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                   required
                   minLength={2}
                   maxLength={120}
-                  className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                  className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                 />
               </div>
 
@@ -352,7 +352,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                     value={fotoUrl}
                     onChange={(e) => setFotoUrl(e.target.value)}
                     placeholder="https://…"
-                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                   />
                 </div>
                 <p className="mt-1 text-[11px] text-gray-400">
@@ -374,7 +374,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                     onChange={(e) => setTelefono(e.target.value)}
                     placeholder="300 123 4567"
                     maxLength={30}
-                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                   />
                 </div>
                 <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5">
@@ -413,7 +413,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
             </form>
           </section>
 
-          <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm">
             <h2 className="text-sm font-bold text-gray-800">Seguridad de la cuenta</h2>
             <p className="mt-0.5 text-xs text-gray-500">
               Cambia el correo con el que inicias sesión y tu contraseña.
@@ -438,7 +438,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                         onChange={(e) => setCorreo(e.target.value)}
                         required
                         maxLength={160}
-                        className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                        className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                       />
                     </div>
                   </div>
@@ -457,7 +457,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                       onChange={(e) => setClaveCorreo(e.target.value)}
                       required
                       autoComplete="current-password"
-                      className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                      className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                     />
                     <p className="mt-1 text-[11px] text-gray-400">
                       La pedimos para confirmar el cambio de correo.
@@ -497,7 +497,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                       onChange={(e) => setClaveActual(e.target.value)}
                       required
                       autoComplete="current-password"
-                      className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                      className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                     />
                   </div>
 
@@ -518,7 +518,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                         minLength={8}
                         maxLength={72}
                         autoComplete="new-password"
-                        className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                        className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                       />
                     </div>
                     <div>
@@ -537,7 +537,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                         minLength={8}
                         maxLength={72}
                         autoComplete="new-password"
-                        className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                        className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                       />
                     </div>
                   </div>
@@ -674,7 +674,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                           onChange={(e) => setClave2fa(e.target.value)}
                           placeholder="Contraseña actual"
                           autoComplete="current-password"
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                         />
                       )}
                       <input
@@ -684,7 +684,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                         }
                         placeholder="Código de 6 dígitos o código de respaldo"
                         maxLength={12}
-                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                       />
                       {error2fa && (
                         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
@@ -738,7 +738,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                         agrega esta clave manualmente:
                       </p>
                       <div className="flex items-center gap-2">
-                        <code className="min-w-0 flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 font-mono text-[11px] text-gray-700">
+                        <code className="min-w-0 flex-1 truncate rounded-lg border border-slate-300 bg-white px-2 py-1.5 font-mono text-[11px] text-gray-700">
                           {config2fa.secreto}
                         </code>
                         <button
@@ -767,7 +767,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                       placeholder="Código de 6 dígitos"
                       inputMode="numeric"
                       maxLength={6}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10 sm:max-w-[220px]"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15 sm:max-w-[220px]"
                     />
                     <button
                       type="button"
@@ -806,7 +806,7 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
                       onChange={(e) => setClave2fa(e.target.value)}
                       placeholder="Contraseña actual"
                       autoComplete="current-password"
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10 sm:max-w-sm"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15 sm:max-w-sm"
                     />
                   )}
                   {error2fa && (

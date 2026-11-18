@@ -177,7 +177,17 @@ Hoy este avance es manual; el cálculo automático desde tareas o EDT está pend
 
 ### 4.8 Indicadores
 
-El ejemplo no trae indicadores. La pestaña muestra el listado y los botones **Nuevo indicador** y editar, pero el módulo todavía es de sólo lectura: no hay formulario ni endpoints de creación, edición o borrado. Por eso el dashboard del proyecto mostrará “Sin indicadores registrados” y el panel global no tendrá alertas de indicadores.
+El ejemplo no trae indicadores. La pestaña permite crear, editar y eliminar indicadores. Cada uno se registra con nombre, meta, avance, estado, responsable, fecha y un **origen del cumplimiento**:
+
+- **Automático (EDT)** —por defecto—: se elige una fase del EDT y el porcentaje se calcula con las actividades completadas, sin contar las marcadas «No aplica». Se actualiza solo al cambiar el EDT.
+- **Manual**: el porcentaje (0–100) se escribe a mano; al pasar de automático a manual arranca con el último valor calculado.
+
+Dentro del origen automático hay dos alcances:
+
+- **Toda la fase**: sin marcar actividades, el porcentaje cubre todas las actividades de la fase.
+- **Actividades específicas**: se marca un subconjunto de actividades de la fase y el porcentaje se calcula solo con ellas. Sirve para indicadores transversales (por ejemplo, el plan de gestión del riesgo) que dependen de varias actividades. Al cambiar de fase se limpia la selección.
+
+Los indicadores de origen EDT llevan un distintivo “EDT”, muestran la fase y el alcance (toda la fase o número de actividades). Además, **cada actividad del EDT muestra en su tarjeta los indicadores que dependen de ella**, lo que permite ver el vínculo desde ambos lados. Con el ejemplo recién creado, el dashboard del proyecto sigue mostrando “Sin indicadores registrados” hasta que se cree el primero.
 
 ### 4.9 Auditoría
 
@@ -190,7 +200,7 @@ Registra las acciones del proyecto. El ejemplo deja al menos el evento de creaci
 | Dashboard global | 7 KPIs (total, activos, finalizados, retrasados, avance promedio, ejecución promedio, líneas activas), filtros por año, línea, estado, responsable y período; dona por estado; avance de activos; ejecución presupuestal por proyecto; proyectos por línea; próximos a finalizar; alertas de indicadores | El ejemplo suma en total, activos, avance promedio, ejecución promedio y línea; aparece en “Próximos a finalizar” con 245 días | Los promedios y gráficos se mueven con cada avance y presupuesto; las alertas requieren indicadores |
 | Dashboard del proyecto | Avance técnico, avance financiero, indicadores cumplidos, alertas activas; barras técnico vs. presupuestal; dona de estado de indicadores | 38 % técnico, 32 % financiero, 0 indicadores, 0 alertas | La dona se llena cuando existan indicadores; las alertas se activan con indicadores en riesgo o no cumplidos |
 | Seguimiento | Seis tarjetas: avance técnico, presupuestal, indicadores, actividades, entregables y alertas; tabla del cronograma | Actividades y entregables en cero | Refleja el Gantt, los documentos y el avance guardado |
-| EDT | Avance por etapa, actividades completadas, vencidas y porcentaje | Vacío hasta cargar la plantilla | Muestra 6/8/6 y el avance de cada etapa; las vencidas se resaltan |
+| EDT | Avance por etapa, actividades completadas, vencidas y porcentaje; indicadores que dependen de cada actividad | Vacío hasta cargar la plantilla | Muestra 6/8/6 y el avance de cada etapa; las vencidas se resaltan y las tarjetas listan sus indicadores |
 | Gantt | Línea de tiempo por meses, hitos, estados y avance por actividad | Vacío | Visualiza el cronograma y los hitos |
 | Presupuesto | Negociación vs. ejecución vs. alerta; tiempo vs. avance técnico vs. ejecución; advertencias; desembolsos y actas | Cuatro tarjetas y comparación con 32 %; movimientos en cero | Totales de desembolsos y actas, y alerta roja si se supera el umbral |
 | Formatos | Valores de referencia y análisis de tablas de archivos Excel/CSV (materiales, instrumentos y otras tablas) | Independiente del proyecto; disponible si hay valores cargados | Permite analizar tablas y prellenar registros, pero aún no se integra al presupuesto del proyecto |
@@ -209,22 +219,21 @@ Análisis que **sí** se pueden hacer hoy con el ejemplo:
 
 | # | Funcionalidad | Estado actual | Qué falta | Prioridad |
 |---|---|---|---|---|
-| 1 | CRUD de indicadores | La API sólo expone consulta; “Nuevo indicador” y editar no tienen acción | Formulario, endpoints de creación/edición/borrado y permisos | Alta |
-| 2 | Seguimiento automático | El avance técnico se captura con un control manual; el porcentaje de ejecución también es un dato manual | Calcular avance desde tareas, EDT y cronograma; recalcular ejecución desde movimientos | Alta |
-| 3 | Valores de referencia en el proyecto | Formatos permite analizar tablas Excel/CSV, pero no llevarlas al proyecto | Convertir materiales e instrumentos en ítems “Otros” del proyecto y sumarlos al presupuesto | Alta |
-| 4 | Análisis financiero ampliado | Hay tarjetas, comparación y movimientos, sin conciliación | Pagos por entidad contratante, ingresos vs. gastos, informe de déficit rojo/verde y contrapartidas | Alta |
-| 5 | Antecedentes del proyecto | La pestaña muestra un aviso; la asociación se gestiona en el módulo Antecedentes | Asociar antecedentes desde el detalle sin duplicar documentos | Media |
-| 6 | Exportar auditoría | El botón existe sin acción | Exportar el listado a Excel/CSV/PDF | Media |
-| 7 | Validación documental | El checklist EDT controla actividades, no documentos | Marcar documentos obligatorios por carpeta y alertar faltantes | Media |
-| 8 | Gantt multianual | Eje de doce meses con el año de inicio | Eje que cruce años y fechas completas en lugar de sólo mes | Media |
-| 9 | Días restantes | Se fijan al crear el proyecto | Recalcular desde la fecha de fin en cada consulta o con tarea programada | Baja |
-| 10 | Presupuesto por rubros | El presupuesto es global | Ítems/rubros con valores unitarios y totales | Baja |
+| 1 | Seguimiento automático | El avance técnico se captura con un control manual; el porcentaje de ejecución también es un dato manual | Calcular avance desde tareas, EDT y cronograma; recalcular ejecución desde movimientos | Alta |
+| 2 | Valores de referencia en el proyecto | Formatos permite analizar tablas Excel/CSV, pero no llevarlas al proyecto | Convertir materiales e instrumentos en ítems “Otros” del proyecto y sumarlos al presupuesto | Alta |
+| 3 | Análisis financiero ampliado | Hay tarjetas, comparación y movimientos, sin conciliación | Pagos por entidad contratante, ingresos vs. gastos, informe de déficit rojo/verde y contrapartidas | Alta |
+| 4 | Antecedentes del proyecto | La pestaña muestra un aviso; la asociación se gestiona en el módulo Antecedentes | Asociar antecedentes desde el detalle sin duplicar documentos | Media |
+| 5 | Exportar auditoría | El botón existe sin acción | Exportar el listado a Excel/CSV/PDF | Media |
+| 6 | Validación documental | El checklist EDT controla actividades, no documentos | Marcar documentos obligatorios por carpeta y alertar faltantes | Media |
+| 7 | Gantt multianual | Eje de doce meses con el año de inicio | Eje que cruce años y fechas completas en lugar de sólo mes | Media |
+| 8 | Días restantes | Se fijan al crear el proyecto | Recalcular desde la fecha de fin en cada consulta o con tarea programada | Baja |
+| 9 | Presupuesto por rubros | El presupuesto es global | Ítems/rubros con valores unitarios y totales | Baja |
 
 Aclaraciones de alcance:
 
 - La ficha **FR-019** fue retirada del flujo y no debe reincorporarse.
 - El proyecto de ejemplo no crea datos en EDT, Gantt, presupuesto, documentos, indicadores ni informes; esas pestañas se alimentan con el recorrido de la sección 4.
-- La conciliación automática entre porcentaje de ejecución y movimientos es parte del punto 2/4, no un comportamiento esperado hoy.
+- La conciliación automática entre porcentaje de ejecución y movimientos es parte del punto 1/3, no un comportamiento esperado hoy.
 
 ## 7. Borrado y reinicio
 

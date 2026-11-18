@@ -21,7 +21,7 @@ const ROLES: { id: Rol; label: string; badge: string }[] = [
 ];
 
 const campoCls =
-  "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15";
 
 function iniciales(nombre: string) {
   return nombre
@@ -349,7 +349,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
                         setRolesSolicitud((prev) => ({ ...prev, [u.id]: e.target.value as Rol }))
                       }
                       aria-label={`Rol para ${u.nombre}`}
-                      className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#EA580C] disabled:opacity-60"
+                      className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#F39200] disabled:opacity-60"
                     >
                       {ROLES.map((r) => (
                         <option key={r.id} value={r.id}>
@@ -383,7 +383,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
         </section>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white shadow-sm">
         <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -391,7 +391,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre, correo o rol…"
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
           <span className="text-xs font-medium text-gray-400">
@@ -406,7 +406,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
                 {["Usuario", "Rol", "Estado", "Tareas", "2FA", "Último acceso", "Alta"].map((h) => (
                   <th
                     key={h}
-                    className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500"
+                    className="whitespace-nowrap px-4 py-2.5 text-left sei-label text-slate-500"
                   >
                     {h}
                   </th>
@@ -462,7 +462,7 @@ export function UsuariosView({ onShowToast }: { onShowToast: (msg: string) => vo
                             )
                           }
                           aria-label={`Rol de ${u.nombre}`}
-                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#F39200] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {ROLES.map((r) => (
                             <option key={r.id} value={r.id}>

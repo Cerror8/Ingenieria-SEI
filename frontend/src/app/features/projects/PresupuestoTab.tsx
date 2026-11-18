@@ -102,8 +102,8 @@ export function PresupuestoTab({
           { label: "Presupuesto de alerta", valor: alerta, tc: alertaSuperada ? "text-red-700" : "text-amber-700", bg: alertaSuperada ? "bg-red-50" : "bg-amber-50" },
           { label: "Valor total del contrato", valor: proyecto.budget, tc: "text-emerald-700", bg: "bg-emerald-50" },
         ].map((tarjeta) => (
-          <div key={tarjeta.label} className={`${tarjeta.bg} rounded-xl border border-gray-100 p-3`}>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{tarjeta.label}</p>
+          <div key={tarjeta.label} className={`${tarjeta.bg} rounded-lg border border-slate-200/80 p-3`}>
+            <p className="sei-label text-slate-500">{tarjeta.label}</p>
             <p className={`mt-1 text-lg font-black ${tarjeta.tc}`}>{fmt(tarjeta.valor)}</p>
           </div>
         ))}
@@ -125,7 +125,7 @@ export function PresupuestoTab({
         </button>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-gray-100 p-4">
+      <div className="space-y-3 rounded-lg border border-slate-200/80 p-4">
         {comparaciones.map((fila) => (
           <div key={fila.label}>
             <div className="mb-1.5 flex items-center justify-between gap-3">
@@ -152,7 +152,7 @@ export function PresupuestoTab({
 
       <OtrosValores proyecto={proyecto} onShowToast={onShowToast} />
 
-      <div className="overflow-hidden rounded-xl border border-gray-100">
+      <div className="overflow-hidden rounded-lg border border-slate-200/80">
         <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-bold text-gray-800">Desembolsos y cobro de actas parciales</h3>
@@ -175,7 +175,7 @@ export function PresupuestoTab({
                 {["Fecha", "Clase", "N.º acta", "Concepto", "Valor", "Acciones"].map((titulo) => (
                   <th
                     key={titulo}
-                    className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 ${titulo === "Valor" ? "text-right" : "text-left"}`}
+                    className={`px-4 py-2.5 sei-label text-slate-500 ${titulo === "Valor" ? "text-right" : "text-left"}`}
                   >
                     {titulo}
                   </th>
@@ -219,7 +219,7 @@ export function PresupuestoTab({
                 ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-gray-200 bg-gray-50">
+              <tr className="border-t border-slate-300 bg-white">
                 <td colSpan={4} className="px-4 py-2.5 text-sm font-bold text-gray-900">Total registrado</td>
                 <td className="px-4 py-2.5 text-right text-sm font-bold text-orange-700">{fmt(totalDesembolsado + totalActas)}</td>
                 <td />
@@ -292,7 +292,7 @@ function EditarPresupuestos({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <form onSubmit={(e) => void guardar(e)} className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <form onSubmit={(e) => void guardar(e)} className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-sm font-bold text-gray-900">Ajustar presupuestos</h2>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -320,7 +320,7 @@ function EditarPresupuestos({
                 step={1}
                 value={campo.valor}
                 onChange={(e) => campo.set(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
           ))}
@@ -388,7 +388,7 @@ function NuevoDesembolso({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <form onSubmit={(e) => void guardar(e)} className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <form onSubmit={(e) => void guardar(e)} className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-sm font-bold text-gray-900">Registrar desembolso o acta parcial</h2>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -403,7 +403,7 @@ function NuevoDesembolso({
                 id="desembolso-clase"
                 value={clase}
                 onChange={(e) => setClase(e.target.value as Desembolso["clase"])}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
               >
                 <option value="Desembolso">Desembolso</option>
                 <option value="Acta parcial">Cobro de acta parcial</option>
@@ -416,7 +416,7 @@ function NuevoDesembolso({
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
           </div>
@@ -430,7 +430,7 @@ function NuevoDesembolso({
                 onChange={(e) => setNumeroActa(e.target.value)}
                 maxLength={80}
                 placeholder="Acta 4"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
           )}
@@ -444,7 +444,7 @@ function NuevoDesembolso({
               maxLength={200}
               required
               placeholder="Anticipo, acta parcial 4, desembolso de obra…"
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
 
@@ -459,7 +459,7 @@ function NuevoDesembolso({
               onChange={(e) => setValor(e.target.value)}
               required
               placeholder="0"
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
 
@@ -592,7 +592,7 @@ function OtrosValores({
   const diferencia = resumen?.diferencia ?? presupuesto - total;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-gray-100">
+    <section className="overflow-hidden rounded-lg border border-slate-200/80">
       <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
@@ -641,15 +641,15 @@ function OtrosValores({
                 const cfg = CATEGORIA_CFG[categoria];
                 const dato = resumen?.porCategoria[categoria] ?? { items: 0, total: 0 };
                 return (
-                  <div key={categoria} className={`${cfg.card} rounded-xl border border-gray-100 p-3`}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{categoria}</p>
+                  <div key={categoria} className={`${cfg.card} rounded-lg border border-slate-200/80 p-3`}>
+                    <p className="sei-label text-slate-500">{categoria}</p>
                     <p className={`mt-1 text-lg font-black ${cfg.tc}`}>{fmt(dato.total)}</p>
                     <p className="mt-0.5 text-[10px] text-gray-400">{dato.items} valor(es)</p>
                   </div>
                 );
               })}
               <div className={`rounded-xl border p-3 ${diferencia < 0 ? "border-red-200 bg-red-50" : "border-emerald-100 bg-emerald-50"}`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Total valores</p>
+                <p className="sei-label text-slate-500">Total valores</p>
                 <p className={`mt-1 text-lg font-black ${diferencia < 0 ? "text-red-700" : "text-emerald-700"}`}>{fmt(total)}</p>
                 <p className="mt-0.5 text-[10px] font-semibold text-gray-500">
                   {diferencia < 0
@@ -661,14 +661,14 @@ function OtrosValores({
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <label htmlFor="valores-filtro-tipo" className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <label htmlFor="valores-filtro-tipo" className="sei-label text-slate-500">
                   Tipo de proyecto
                 </label>
                 <select
                   id="valores-filtro-tipo"
                   value={filtro}
                   onChange={(e) => setFiltro(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none transition focus:border-[#EA580C] sm:w-64"
+                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none transition focus:border-[#F39200] sm:w-64"
                 >
                   <option value="todos">Todas las líneas aplicables</option>
                   {linea && <option value="linea">Solo {linea}</option>}
@@ -687,7 +687,7 @@ function OtrosValores({
                     {["Valor", "Categoría", "Unidad", "Cantidad", "Valor unitario", "Valor total", "Tipo", "Acciones"].map((titulo) => (
                       <th
                         key={titulo}
-                        className={`px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 ${
+                        className={`px-3 py-2.5 sei-label text-slate-500 ${
                           ["Valor unitario", "Valor total"].includes(titulo) ? "text-right" : "text-left"
                         }`}
                       >
@@ -750,7 +750,7 @@ function OtrosValores({
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-gray-200 bg-gray-50">
+                  <tr className="border-t border-slate-300 bg-white">
                     <td colSpan={5} className="px-3 py-2.5 text-sm font-bold text-gray-900">
                       Total visualizado ({visibles.length})
                     </td>
@@ -861,7 +861,7 @@ function EditorValorProyecto({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <form onSubmit={(e) => void guardar(e)} className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <form onSubmit={(e) => void guardar(e)} className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-sm font-bold text-gray-900">
             {valor ? "Editar valor del proyecto" : "Agregar valor al proyecto"}
@@ -881,7 +881,7 @@ function EditorValorProyecto({
               maxLength={200}
               required
               placeholder="Cemento, multímetro, transporte…"
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
 
@@ -892,7 +892,7 @@ function EditorValorProyecto({
                 id="valor-categoria"
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value as CategoriaValorProyecto)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {CATEGORIAS.map((opcion) => (
                   <option key={opcion} value={opcion}>{opcion}</option>
@@ -907,7 +907,7 @@ function EditorValorProyecto({
                 onChange={(e) => setUnidad(e.target.value)}
                 maxLength={40}
                 placeholder="Und, m², kg…"
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
             <div>
@@ -920,7 +920,7 @@ function EditorValorProyecto({
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value)}
                 required
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
             <div>
@@ -933,7 +933,7 @@ function EditorValorProyecto({
                 value={valorUnitario}
                 onChange={(e) => setValorUnitario(e.target.value)}
                 required
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
           </div>
@@ -944,7 +944,7 @@ function EditorValorProyecto({
               id="valor-tipo"
               value={tipoProyecto}
               onChange={(e) => setTipoProyecto(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
             >
               <option value="">Aplica a todos los tipos</option>
               {linea && <option value={linea}>Solo {linea}</option>}
@@ -1135,7 +1135,7 @@ function ImportarValores({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div role="dialog" aria-modal="true" aria-label="Importar valores de una tabla analizada" className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Importar valores de una tabla analizada" className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-gray-900">Importar valores de una tabla analizada</h2>
@@ -1159,7 +1159,7 @@ function ImportarValores({
                 value={valorId}
                 disabled={cargandoReferencias}
                 onChange={(e) => void elegirReferencia(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60"
               >
                 <option value="">{cargandoReferencias ? "Cargando archivos…" : "Selecciona un archivo"}</option>
                 {referencias.map((referencia) => (
@@ -1178,7 +1178,7 @@ function ImportarValores({
                 value={tablaId}
                 disabled={!valorId || cargandoTablas}
                 onChange={(e) => void elegirTabla(valorId, e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60"
               >
                 <option value="">
                   {!valorId
@@ -1202,7 +1202,7 @@ function ImportarValores({
 
           {tabla && !cargandoFilas && (
             <>
-              <div className="rounded-xl border border-gray-100 p-3">
+              <div className="rounded-lg border border-slate-200/80 p-3">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">Mapeo de columnas</h3>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   {[
@@ -1219,7 +1219,7 @@ function ImportarValores({
                         id={campo.id}
                         value={campo.valor}
                         onChange={(e) => campo.set(e.target.value)}
-                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:border-[#EA580C] focus:outline-none"
+                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:border-[#F39200] focus:outline-none"
                       >
                         <option value="">— Sin columna —</option>
                         {tabla.columnas.map((columna) => (
@@ -1243,7 +1243,7 @@ function ImportarValores({
                     id="importar-categoria"
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value as CategoriaValorProyecto)}
-                    className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none"
+                    className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none"
                   >
                     {CATEGORIAS.map((opcion) => (
                       <option key={opcion} value={opcion}>{opcion}</option>
@@ -1256,7 +1256,7 @@ function ImportarValores({
                     id="importar-tipo"
                     value={tipoProyecto}
                     onChange={(e) => setTipoProyecto(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#EA580C] focus:outline-none"
+                    className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#F39200] focus:outline-none"
                   >
                     <option value="">Aplica a todos los tipos</option>
                     {linea && <option value={linea}>Solo {linea}</option>}
@@ -1270,7 +1270,7 @@ function ImportarValores({
                     onChange={(e) => setBusqueda(e.target.value)}
                     maxLength={120}
                     placeholder="Buscar por nombre o unidad"
-                    className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                    className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
                   />
                 </div>
               </div>

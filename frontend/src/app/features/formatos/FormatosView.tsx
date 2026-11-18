@@ -125,7 +125,7 @@ export function FormatosView() {
         </div>
       )}
 
-      <section className="sei-fade-up rounded-2xl border border-gray-100 bg-white">
+      <section className="sei-fade-up rounded-lg border border-gray-100 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#C2410C]/10">
@@ -225,7 +225,7 @@ export function FormatosView() {
         )}
       </section>
 
-      <section className="sei-fade-up rounded-2xl border border-gray-100 bg-white">
+      <section className="sei-fade-up rounded-lg border border-gray-100 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#C2410C]/10">
@@ -391,7 +391,7 @@ export function FormatosView() {
 function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h3 className="text-sm font-bold text-gray-900">{titulo}</h3>
           <button

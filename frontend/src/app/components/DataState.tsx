@@ -2,7 +2,7 @@ import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 
 export function CargandoModule({ mensaje = "Cargando información…" }: { mensaje?: string }) {
   return (
-    <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-xl border border-gray-100 bg-white shadow-sm">
+    <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg border border-slate-200/80 bg-white shadow-sm">
       <Loader2 className="h-6 w-6 animate-spin text-[#C2410C]" />
       <p className="text-sm font-medium text-gray-500">{mensaje}</p>
     </div>

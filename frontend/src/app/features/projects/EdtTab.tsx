@@ -19,6 +19,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Target,
   Trash2,
   UserPlus,
   X,
@@ -47,7 +48,7 @@ import { SubirDocumentoModal } from "../documentos/SubirDocumentoModal";
 const TIPOS: EdtTipoActividad[] = ["Actividad", "Documento", "Acta"];
 
 const campoCls =
-  "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10 disabled:opacity-60";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60";
 
 const ESTADO_CFG: Record<EdtEstado, { clases: string; icono: typeof CheckCircle2 }> = {
   Completado: { clases: "border-emerald-200 bg-emerald-50 text-emerald-700", icono: CheckCircle2 },
@@ -533,7 +534,7 @@ export function EdtTab({
                           }
                           placeholder="Buscar en esta fase…"
                           aria-label={`Buscar actividades en ${fase.nombre}`}
-                          className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pl-7 pr-2 text-[11px] text-slate-700 outline-none focus:border-[#EA580C] focus:bg-white"
+                          className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pl-7 pr-2 text-[11px] text-slate-700 outline-none focus:border-[#F39200] focus:bg-white"
                         />
                       </div>
                     </div>
@@ -1073,6 +1074,21 @@ function TarjetaActividad({
         </div>
       )}
 
+      {actividad.indicadores.length > 0 && (
+        <div className="mt-1.5 space-y-1 rounded-lg border border-sky-100 bg-sky-50/60 px-2 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-sky-500">
+            Indicadores que dependen de esta actividad
+          </p>
+          {actividad.indicadores.map((indicador) => (
+            <p key={indicador.id} className="flex items-center gap-1 text-[10px] text-sky-800">
+              <Target className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{indicador.nombre}</span>
+              <span className="ml-auto shrink-0 font-mono text-[9px] text-sky-400">{indicador.id}</span>
+            </p>
+          ))}
+        </div>
+      )}
+
       {requisitosVisibles.length > 0 && (
         <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-2 py-1.5">
           <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
@@ -1240,7 +1256,7 @@ function ModalCorreo({
         </div>
 
         <form onSubmit={enviar} className="space-y-4 px-5 py-5">
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-600">
+          <div className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-600">
             <p className="font-semibold text-slate-800">{actividad.nombre}</p>
             <p className="mt-0.5">
               Para: {contacto ? `${contacto.nombre} <${contacto.email}>` : "Sin persona externa"}
@@ -1632,7 +1648,7 @@ function ModalActividad({
                 ))}
               </select>
             </div>
-            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 sm:col-span-2">
+            <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 sm:col-span-2">
               <input
                 type="checkbox"
                 checked={requiereDocumento}
@@ -1643,7 +1659,7 @@ function ModalActividad({
                 Exige un documento cargado para completarse
               </span>
             </label>
-            <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 sm:col-span-2">
+            <label className="flex items-start gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 sm:col-span-2">
               <input
                 type="checkbox"
                 checked={noAplica}
@@ -1665,7 +1681,7 @@ function ModalActividad({
               La actividad no podrá completarse hasta que estos requisitos estén completos y, si son
               documentos, tengan archivo cargado.
             </p>
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-300 bg-white p-2">
               {opcionesRequisito.length === 0 ? (
                 <p className="px-2 py-3 text-center text-[11px] text-slate-400">
                   No hay otras actividades para vincular.
@@ -1703,7 +1719,7 @@ function ModalActividad({
               Marca los formatos que esta actividad debe diligenciar o entregar. Se crean y editan
               en el módulo Formatos.
             </p>
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-300 bg-white p-2">
               {formatos.length === 0 ? (
                 <p className="px-2 py-3 text-center text-[11px] text-slate-400">
                   No hay formatos activos. Créalos en el módulo Formatos para asignarlos aquí.

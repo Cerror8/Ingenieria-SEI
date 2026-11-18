@@ -193,7 +193,7 @@ export function ChecklistDocumentalModal({ abierto, proyectoId, onCerrar, onActu
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[86vh] sm:rounded-2xl">
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[86vh] sm:rounded-lg">
         <header className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900">
@@ -284,7 +284,7 @@ export function ChecklistDocumentalModal({ abierto, proyectoId, onCerrar, onActu
                   {actividades.filter((a) => !a.noAplica).length}
                 </span>
               </div>
-              <ul className="divide-y divide-gray-50 overflow-hidden rounded-xl border border-gray-100">
+              <ul className="divide-y divide-gray-50 overflow-hidden rounded-lg border border-slate-200/80">
                 {actividades.map((actividad) => {
                   const completada = actividad.estado === "Completado";
                   const recibidos = documentosPorActividad.get(actividad.id) ?? [];

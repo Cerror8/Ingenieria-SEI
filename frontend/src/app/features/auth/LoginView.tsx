@@ -40,7 +40,7 @@ function GoogleIcon() {
 }
 
 const campoCls =
-  "w-full rounded-lg border border-[#E4E4E4] bg-[#FAFAFA] py-2.5 pl-10 pr-3 text-sm text-[#1B1B1B] outline-none transition placeholder:text-[#B3B2B2] focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15";
+  "w-full rounded-md border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-[#1B1B1B] outline-none transition placeholder:text-slate-400 focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15";
 
 export function LoginView() {
   const { iniciarSesion, verificar2fa } = useAuth();
@@ -105,18 +105,19 @@ export function LoginView() {
   return (
     <div className="min-h-screen bg-[#F5F5F4] lg:grid lg:grid-cols-[45%_55%]">
       {/* Panel de marca */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#1B1B1B] px-10 py-12 lg:flex">
+      <aside className="sei-blueprint relative hidden flex-col justify-between overflow-hidden bg-[#1B1B1B] px-10 py-12 lg:flex">
         <div
           aria-hidden="true"
-          className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[22px] border-[#F39200]/15"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(243,146,0,0.18),transparent_60%)]"
         />
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full border-[26px] border-white/5"
-        />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-[#F39200] via-[#F39200]/70 to-transparent" />
+        <div className="pointer-events-none absolute left-4 top-4 h-4 w-4 border-l border-t border-white/25" />
+        <div className="pointer-events-none absolute right-4 top-4 h-4 w-4 border-r border-t border-white/25" />
+        <div className="pointer-events-none absolute bottom-4 left-4 h-4 w-4 border-b border-l border-white/15" />
+        <div className="pointer-events-none absolute bottom-4 right-4 h-4 w-4 border-b border-r border-white/15" />
 
         <div className="relative">
-          <div className="inline-flex rounded-2xl bg-white px-5 py-4 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.65)]">
+          <div className="inline-flex rounded-sm border border-white/15 bg-white px-5 py-4 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.65)]">
             <img
               src={logoSei}
               alt="Sebastián Escandón · Ingeniero Civil"
@@ -124,7 +125,8 @@ export function LoginView() {
             />
           </div>
 
-          <h1 className="mt-9 text-4xl font-black leading-[1.05] tracking-tight text-white">
+          <p className="sei-label mt-9 text-[#FDBA74]">Ingeniería civil · Pasto, Nariño</p>
+          <h1 className="mt-2 text-4xl font-bold leading-[1.05] tracking-[-0.02em] text-white">
             Ingeniería
             <span className="ml-2 text-[#F39200]">SEI</span>
           </h1>
@@ -134,19 +136,17 @@ export function LoginView() {
         </div>
 
         <div className="relative space-y-4">
-          <div className="h-1 w-16 rounded-full bg-[#F39200]" />
-          <div className="flex flex-wrap gap-2">
-            {["Proyectos", "EDT", "Presupuesto", "Tableros", "Documentos"].map((modulo) => (
-              <span
-                key={modulo}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/60"
-              >
+          <div className="sei-rule w-40" />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+            {["Proyectos", "EDT", "Presupuesto", "Tableros", "Documentos"].map((modulo, indice) => (
+              <span key={modulo} className="flex items-center gap-3">
+                {indice > 0 && <span className="h-3 w-px bg-white/15" />}
                 {modulo}
               </span>
             ))}
           </div>
-          <p className="text-[11px] text-white/35">
-            Sebastián Escandón Ingeniero Civil · Pasto, Nariño
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/30">
+            Sebastián Escandón · Ingeniero civil
           </p>
         </div>
       </aside>
@@ -160,14 +160,12 @@ export function LoginView() {
               alt="Sebastián Escandón · Ingeniero Civil"
               className="h-16 w-auto"
             />
-            <span className="rounded-full bg-[#FFF3E2] px-3 py-1 text-[11px] font-black tracking-wide text-[#B45309]">
-              SEI
-            </span>
+            <span className="sei-label bg-[#F39200]/15 px-3 py-1 text-[#9A3412]">SEI</span>
           </div>
 
           {paso === "codigo" ? (
             <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFF3E2] text-[#B45309]">
+              <div className="flex h-12 w-12 items-center justify-center bg-[#F39200]/12 text-[#9A3412] shadow-[inset_3px_0_0_#F39200]">
                 <ShieldCheck className="h-6 w-6" />
               </div>
               <h2 className="mt-4 text-2xl font-bold tracking-tight text-[#1B1B1B]">
@@ -180,7 +178,7 @@ export function LoginView() {
 
               <form className="mt-8 space-y-4" onSubmit={onVerificar}>
                 <div className="space-y-1.5">
-                  <label htmlFor="codigo" className="text-xs font-semibold text-[#3F3F3F]">
+                  <label htmlFor="codigo" className="sei-label text-slate-500">
                     Código de verificación
                   </label>
                   <div className="relative">
@@ -203,7 +201,7 @@ export function LoginView() {
                 {mensajeError && (
                   <p
                     role="alert"
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
                   >
                     {mensajeError}
                   </p>
@@ -212,7 +210,7 @@ export function LoginView() {
                 <button
                   type="submit"
                   disabled={enviando || codigo.trim().length < 6}
-                  className="w-full rounded-lg bg-[#F39200] py-2.5 text-sm font-bold text-[#1B1B1B] shadow-sm transition hover:bg-[#DE8500] focus:outline-none focus:ring-4 focus:ring-[#F39200]/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-md bg-[#F39200] py-2.5 text-sm font-semibold text-[#1B1B1B] transition hover:bg-[#FFAA2B] focus:outline-none focus:ring-4 focus:ring-[#F39200]/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {enviando ? "Verificando…" : "Verificar e ingresar"}
                 </button>
@@ -240,7 +238,7 @@ export function LoginView() {
 
               <form className="mt-8 space-y-4" onSubmit={onSubmit}>
                 <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-xs font-semibold text-[#3F3F3F]">
+                  <label htmlFor="email" className="sei-label text-slate-500">
                     Correo
                   </label>
                   <div className="relative">
@@ -259,7 +257,7 @@ export function LoginView() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-xs font-semibold text-[#3F3F3F]">
+                  <label htmlFor="password" className="sei-label text-slate-500">
                     Contraseña
                   </label>
                   <div className="relative">
@@ -292,7 +290,7 @@ export function LoginView() {
                   >
                     ¿Olvidaste tu contraseña?
                   </a>
-                  <span className="inline-flex items-center gap-1 font-semibold text-[#B3B2B2]">
+                  <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-slate-400">
                     <ShieldCheck className="h-3.5 w-3.5 text-[#F39200]" />
                     Acceso protegido
                   </span>
@@ -301,7 +299,7 @@ export function LoginView() {
                 {mensajeError && (
                   <p
                     role="alert"
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
                   >
                     {mensajeError}
                   </p>
@@ -310,7 +308,7 @@ export function LoginView() {
                 <button
                   type="submit"
                   disabled={enviando}
-                  className="w-full rounded-lg bg-[#F39200] py-2.5 text-sm font-bold text-[#1B1B1B] shadow-sm transition hover:bg-[#DE8500] focus:outline-none focus:ring-4 focus:ring-[#F39200]/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-md bg-[#F39200] py-2.5 text-sm font-semibold text-[#1B1B1B] transition hover:bg-[#FFAA2B] focus:outline-none focus:ring-4 focus:ring-[#F39200]/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {enviando ? "Ingresando…" : "Iniciar sesión"}
                 </button>
@@ -318,9 +316,7 @@ export function LoginView() {
 
               <div className="my-6 flex items-center gap-3">
                 <div className="h-px flex-1 bg-[#ECECEC]" />
-                <span className="text-[11px] font-medium uppercase tracking-wide text-[#B3B2B2]">
-                  o
-                </span>
+                <span className="sei-label text-slate-400">o</span>
                 <div className="h-px flex-1 bg-[#ECECEC]" />
               </div>
 
@@ -329,7 +325,7 @@ export function LoginView() {
                 onClick={() => {
                   window.location.href = api.urlGoogle;
                 }}
-                className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-[#E4E4E4] bg-white py-2.5 text-sm font-semibold text-[#3F3F3F] transition hover:bg-[#FAFAFA] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
+                className="flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
               >
                 <GoogleIcon />
                 Acceder con Google

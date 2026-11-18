@@ -122,26 +122,26 @@ export function GanttTab({
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-100">
+        <div className="overflow-hidden rounded-lg border border-slate-200/80">
           <div className="overflow-x-auto">
             <div style={{ minWidth: 960 }}>
               <div className="flex border-b border-gray-100 bg-gray-50/70">
-                <div className="w-52 flex-shrink-0 border-r border-gray-100 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <div className="w-52 flex-shrink-0 border-r border-gray-100 px-4 py-2.5 sei-label text-slate-500">
                   Actividad
                 </div>
-                <div className="hidden w-28 flex-shrink-0 border-r border-gray-100 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 sm:block">
+                <div className="hidden w-28 flex-shrink-0 border-r border-gray-100 px-3 py-2.5 sei-label text-slate-500 sm:block">
                   Responsable
                 </div>
-                <div className="w-16 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <div className="w-16 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 sei-label text-slate-500">
                   Inicio
                 </div>
-                <div className="w-16 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <div className="w-16 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 sei-label text-slate-500">
                   Fin
                 </div>
-                <div className="w-12 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <div className="w-12 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 sei-label text-slate-500">
                   Dur.
                 </div>
-                <div className="w-12 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <div className="w-12 flex-shrink-0 border-r border-gray-100 px-2 py-2.5 sei-label text-slate-500">
                   Av.
                 </div>
                 <div className="grid flex-1 grid-cols-12">
@@ -351,7 +351,7 @@ function EditorActividad({
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
       <form
         onSubmit={(evento) => void guardar(evento)}
-        className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+        className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-lg"
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="text-sm font-bold text-gray-900">
@@ -378,7 +378,7 @@ function EditorActividad({
               onChange={(e) => setNombre(e.target.value)}
               maxLength={200}
               required
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
 
@@ -390,7 +390,7 @@ function EditorActividad({
               id="gantt-responsable"
               value={responsable}
               onChange={(e) => setResponsable(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
             >
               <option value="">Sin asignar</option>
               {anteriorSinUsuario && (
@@ -413,7 +413,7 @@ function EditorActividad({
                 id="gantt-mes-inicio"
                 value={mesInicio}
                 onChange={(e) => setMesInicio(Number(e.target.value))}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {GANTT_MONTHS.map((mes, indice) => (
                   <option key={mes} value={indice + 1}>{mes}</option>
@@ -428,7 +428,7 @@ function EditorActividad({
                 id="gantt-mes-fin"
                 value={mesFin}
                 onChange={(e) => setMesFin(Number(e.target.value))}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {GANTT_MONTHS.map((mes, indice) => (
                   <option key={mes} value={indice + 1}>{mes}</option>
@@ -446,7 +446,7 @@ function EditorActividad({
                 max={100}
                 value={avance}
                 onChange={(e) => setAvance(Number(e.target.value))}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
             <div>
@@ -457,7 +457,7 @@ function EditorActividad({
                 id="gantt-estado"
                 value={estado}
                 onChange={(e) => setEstado(e.target.value as EstadoActividad)}
-                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:ring-4 focus:ring-orange-500/10"
+                className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {ESTADOS.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
               </select>

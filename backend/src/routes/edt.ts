@@ -77,6 +77,15 @@ const CAMPOS_FORMATOS = `
   ), '[]'::json) AS formatos
 `;
 
+const CAMPOS_INDICADORES = `
+  COALESCE((
+    SELECT json_agg(json_build_object('id', i.id, 'nombre', i.nombre) ORDER BY i.nombre)
+      FROM indicadores_actividades ia
+      JOIN indicadores i ON i.id = ia.indicador_id
+     WHERE ia.actividad_id = a.id
+  ), '[]'::json) AS indicadores
+`;
+
 const fechaSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha debe tener formato AAAA-MM-DD")
@@ -191,7 +200,7 @@ async function faseDeRuta(id: string): Promise<FaseEdt> {
 
 async function actividadDeRuta(id: string): Promise<ActividadFila> {
   const { rows } = await pool.query<ActividadFila>(
-    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}, ${CAMPOS_FORMATOS}
+    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}, ${CAMPOS_FORMATOS}, ${CAMPOS_INDICADORES}
        FROM edt_actividades a WHERE a.id = $1`,
     [id],
   );
@@ -436,7 +445,7 @@ async function listarFases(proyecto: ProyectoRef): Promise<FaseEdt[]> {
 
 async function listar(proyectoId: string): Promise<ActividadFila[]> {
   const { rows } = await pool.query<ActividadFila>(
-    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}, ${CAMPOS_FORMATOS}
+    `SELECT ${CAMPOS}, ${CAMPOS_REQUISITOS}, ${CAMPOS_FORMATOS}, ${CAMPOS_INDICADORES}
        FROM edt_actividades a
       WHERE a.proyecto_id = $1
       ORDER BY a.etapa, a.orden, a.creado_en`,

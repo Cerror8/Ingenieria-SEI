@@ -187,6 +187,10 @@ export type IndicadorApi = {
   responsable: string;
   fecha: string;
   proyectoId: string;
+  origen: "Manual" | "EDT";
+  edtFaseId: string | null;
+  edtFaseNombre: string | null;
+  edtActividadesIds: string[];
 };
 
 export type DocumentoApi = {
@@ -272,6 +276,7 @@ export type EdtActividadApi = {
   tareas: number;
   requisitos: EdtRequisitoApi[];
   formatos: Array<{ id: string; nombre: string }>;
+  indicadores: Array<{ id: string; nombre: string }>;
 };
 
 export type EdtPlantillaApi = {
@@ -401,6 +406,19 @@ export type NuevoDesembolso = {
   valor: number;
   clase?: DesembolsoApi["clase"];
   numeroActa?: string | null;
+};
+
+export type NuevoIndicador = {
+  nombre: string;
+  meta: string;
+  avance?: string;
+  cumplimiento?: number;
+  estado?: IndicatorStatus;
+  responsable?: string;
+  fecha: string;
+  origen?: "Manual" | "EDT";
+  edtFaseId?: string | null;
+  actividadesIds?: string[];
 };
 
 export type DetalleProyectoApi = {
@@ -636,7 +654,12 @@ export const mapIndicador = (i: IndicadorApi): Indicator => ({
   status: i.estado,
   responsible: i.responsable,
   date: fechaCorta(i.fecha),
+  dateIso: i.fecha,
   projectId: i.proyectoId,
+  origen: i.origen,
+  edtFaseId: i.edtFaseId,
+  edtFaseNombre: i.edtFaseNombre,
+  edtActividadesIds: i.edtActividadesIds,
 });
 
 export const mapDocumento = (d: DocumentoApi): Document => ({
@@ -820,6 +843,18 @@ export const api = {
 
   indicadores: (proyectoId?: string) =>
     request<{ indicadores: IndicadorApi[] }>(`/indicadores${query({ proyectoId })}`),
+  crearIndicador: (proyectoId: string, datos: NuevoIndicador) =>
+    request<{ indicador: IndicadorApi }>("/indicadores", {
+      method: "POST",
+      body: { proyectoId, ...datos },
+    }),
+  actualizarIndicador: (id: string, datos: Partial<NuevoIndicador>) =>
+    request<{ indicador: IndicadorApi }>(`/indicadores/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: datos,
+    }),
+  eliminarIndicador: (id: string) =>
+    request<{ ok: boolean }>(`/indicadores/${encodeURIComponent(id)}`, { method: "DELETE" }),
   documentos: (proyectoId?: string, tipo?: string, edtActividadId?: string) =>
     request<{ documentos: DocumentoApi[] }>(
       `/documentos${query({ proyectoId, tipo, edtActividadId })}`,

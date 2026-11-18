@@ -23,8 +23,8 @@ const FORM_INICIAL = {
 type Campo = keyof typeof FORM_INICIAL;
 const PREFIJOS = ["OBR", "INT", "CON"];
 const LINEAS_PROYECTO = ["Obra", "Interventoría", "Consultoría"];
-const inputCls = "w-full min-w-0 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:opacity-60 read-only:bg-gray-100";
-const labelCls = "mb-1.5 block text-xs font-semibold text-gray-700";
+const inputCls = "w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-60 read-only:bg-gray-100";
+const labelCls = "mb-1.5 block sei-label text-slate-500";
 
 // El cambio entre alta y edición reinicia el formulario sin reutilizar datos de otro proyecto.
 export function CreateProjectView(props: Props) {
@@ -221,7 +221,7 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
               {errorCatalogos} <button type="button" disabled={guardando} onClick={() => setIntentoCatalogos(i => i + 1)} className="font-semibold underline">Reintentar carga de catálogos</button>
             </div>
           )}
-          <fieldset disabled={guardando} className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+          <fieldset disabled={guardando} className="min-w-0 rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
             <legend className="px-1 text-base font-bold text-gray-900">Datos contrato</legend>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {editando ? (
@@ -256,7 +256,7 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
             </div>
           </fieldset>
 
-          <fieldset disabled={guardando} className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+          <fieldset disabled={guardando} className="min-w-0 rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
             <legend className="px-1 text-base font-bold text-gray-900">Organización</legend>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {campo("organizadores", "Organizadores (opcional)", { placeholder: "Texto libre" })}
@@ -301,7 +301,7 @@ function ProjectForm({ onBack, onSave, proyectoId }: Props) {
             </div>
           </fieldset>
 
-          <fieldset disabled={guardando} className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+          <fieldset disabled={guardando} className="min-w-0 rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
             <legend className="px-1 text-base font-bold text-gray-900">Fechas / valor</legend>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {campo("fechaAsignacion", "Fecha de asignación", { type: "date", required: contractualObligatorio("fechaAsignacion") })}

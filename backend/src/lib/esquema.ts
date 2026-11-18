@@ -434,6 +434,41 @@ export function asegurarEsquema(): Promise<void> {
       await pool.query(
         "ALTER TABLE formatos ADD COLUMN IF NOT EXISTS es_referencia BOOLEAN NOT NULL DEFAULT false",
       );
+      await pool.query("ALTER TABLE indicadores ADD COLUMN IF NOT EXISTS origen TEXT NOT NULL DEFAULT 'EDT'");
+      await pool.query("ALTER TABLE indicadores ALTER COLUMN origen SET DEFAULT 'EDT'");
+      await pool.query("ALTER TABLE indicadores ADD COLUMN IF NOT EXISTS edt_fase_id UUID");
+      await pool.query("CREATE INDEX IF NOT EXISTS ix_indicadores_fase ON indicadores (edt_fase_id)");
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS indicadores_actividades (
+          indicador_id TEXT NOT NULL REFERENCES indicadores(id) ON DELETE CASCADE,
+          actividad_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+          PRIMARY KEY (indicador_id, actividad_id)
+        )
+      `);
+      await pool.query(
+        "CREATE INDEX IF NOT EXISTS ix_indicadores_actividades_actividad ON indicadores_actividades (actividad_id)",
+      );
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+             WHERE conrelid = 'indicadores'::regclass
+               AND conname = 'indicadores_origen_check'
+          ) THEN
+            ALTER TABLE indicadores ADD CONSTRAINT indicadores_origen_check
+              CHECK (origen IN ('Manual', 'EDT'));
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+             WHERE conrelid = 'indicadores'::regclass
+               AND conname = 'indicadores_edt_fase_fk'
+          ) THEN
+            ALTER TABLE indicadores ADD CONSTRAINT indicadores_edt_fase_fk
+              FOREIGN KEY (edt_fase_id) REFERENCES edt_fases(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
+      `);
       await pool.query(
         `INSERT INTO formatos (id, nombre, descripcion, campos, valor_id, creado_por, es_referencia)
          VALUES (

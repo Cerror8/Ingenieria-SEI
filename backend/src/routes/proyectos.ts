@@ -33,8 +33,28 @@ export const CAMPOS_PROYECTO = `
 `;
 
 export const CAMPOS_INDICADOR = `
-  id, nombre, meta, avance, cumplimiento, estado, responsable,
-  fecha, proyecto_id AS "proyectoId"
+  id, nombre, meta, avance,
+  CASE WHEN origen = 'EDT' AND edt_fase_id IS NOT NULL THEN
+    COALESCE((
+      SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE a.estado = 'Completado') / NULLIF(COUNT(*), 0))::int
+        FROM edt_actividades a
+       WHERE a.no_aplica = false
+         AND CASE
+           WHEN EXISTS (
+             SELECT 1 FROM indicadores_actividades ia WHERE ia.indicador_id = indicadores.id
+           ) THEN a.id IN (
+             SELECT ia.actividad_id FROM indicadores_actividades ia WHERE ia.indicador_id = indicadores.id
+           )
+           ELSE a.fase_id = indicadores.edt_fase_id
+         END
+    ), 0)
+  ELSE cumplimiento END AS cumplimiento,
+  estado, responsable, fecha, proyecto_id AS "proyectoId",
+  origen, edt_fase_id AS "edtFaseId",
+  (SELECT f.nombre FROM edt_fases f WHERE f.id = indicadores.edt_fase_id) AS "edtFaseNombre",
+  ARRAY(
+    SELECT ia.actividad_id FROM indicadores_actividades ia WHERE ia.indicador_id = indicadores.id
+  ) AS "edtActividadesIds"
 `;
 
 export const CAMPOS_DOCUMENTO = `
@@ -66,7 +86,7 @@ export const CAMPOS_DESEMBOLSO = `
   proyecto_id AS "proyectoId"
 `;
 
-const fechaSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Usa el formato AAAA-MM-DD")
+export const fechaSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Usa el formato AAAA-MM-DD")
   .refine((valor) => {
     const fecha = new Date(`${valor}T00:00:00.000Z`);
     return !valor.startsWith("0000") && !Number.isNaN(fecha.getTime()) &&
@@ -247,7 +267,7 @@ proyectos.get(
 
     const [{ rows: indicadores }, { rows: documentos }, { rows: actividades }, { rows: desembolsos }] =
       await Promise.all([
-        pool.query(`SELECT ${CAMPOS_INDICADOR} FROM indicadores WHERE proyecto_id = $1 ORDER BY id`, [id]),
+        pool.query(`SELECT ${CAMPOS_INDICADOR} FROM indicadores WHERE proyecto_id = $1 ORDER BY creado_en, id`, [id]),
         pool.query(`SELECT ${CAMPOS_DOCUMENTO} FROM documentos WHERE proyecto_id = $1 ORDER BY ${ORDEN_DOCUMENTOS}`, [id]),
         pool.query(`SELECT ${CAMPOS_ACTIVIDAD} FROM actividades WHERE proyecto_id = $1 ORDER BY mes_inicio, id`, [id]),
         pool.query(`SELECT ${CAMPOS_DESEMBOLSO} FROM desembolsos WHERE proyecto_id = $1 ORDER BY fecha, creado_en`, [id]),

@@ -120,7 +120,7 @@ function esGestorDe(tarea: TareaTablero, usuarioId: string, rol: string) {
 }
 
 const campoCls =
-  "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15";
 
 export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }) {
   const { usuario } = useAuth();
@@ -453,7 +453,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
         </div>
       )}
 
-      <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+      <div className="rounded-lg border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
             Tablero guía
@@ -470,14 +470,14 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar tarea, proyecto, fase o responsable…"
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
           <select
             value={filtroProyecto}
             onChange={(e) => setFiltroProyecto(e.target.value)}
             aria-label="Filtrar por proyecto"
-            className="truncate rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] sm:max-w-[280px]"
+            className="truncate rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#F39200] sm:max-w-[280px]"
           >
             <option value="">Todos los proyectos</option>
             {proyectosGeneral.map((proyecto) => (
@@ -491,7 +491,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             onChange={(e) => setFiltroFase(e.target.value)}
             aria-label="Filtrar por fase"
             disabled={fasesDisponibles.length === 0}
-            className="truncate rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] disabled:opacity-50 sm:max-w-[220px]"
+            className="truncate rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#F39200] disabled:opacity-50 sm:max-w-[220px]"
           >
             <option value="">Todas las fases</option>
             {fasesDisponibles.map((fase) => (
@@ -504,7 +504,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
             value={plazo}
             onChange={(e) => setPlazo(e.target.value as FiltroPlazo)}
             aria-label="Filtrar por plazo"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C]"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#F39200]"
           >
             {PLAZOS.map((opcion) => (
               <option key={opcion.id} value={opcion.id}>

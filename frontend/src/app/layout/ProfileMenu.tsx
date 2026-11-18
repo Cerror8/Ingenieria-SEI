@@ -50,7 +50,7 @@ export function ProfileMenu({ onNavigate }: { onNavigate: (v: string) => void })
         onClick={() => setAbierto((valor) => !valor)}
         aria-haspopup="menu"
         aria-expanded={abierto}
-        className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-gray-100"
+        className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-slate-100"
       >
         {usuario?.fotoUrl ? (
           <img
@@ -60,8 +60,8 @@ export function ProfileMenu({ onNavigate }: { onNavigate: (v: string) => void })
             className="h-8 w-8 rounded-full border border-gray-200 object-cover"
           />
         ) : (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C2410C]/10">
-            <span className="text-xs font-black text-[#C2410C]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F39200]/15">
+            <span className="font-mono text-[11px] font-medium text-[#9A3412]">
               {usuario ? iniciales(usuario.nombre) : "SE"}
             </span>
           </div>
@@ -82,12 +82,12 @@ export function ProfileMenu({ onNavigate }: { onNavigate: (v: string) => void })
       {abierto && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl"
+          className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
         >
-          <div className="border-b border-gray-100 px-4 py-3">
-            <p className="truncate text-sm font-bold text-gray-800">{usuario?.nombre}</p>
-            <p className="truncate text-xs text-gray-500">{usuario?.email}</p>
-            <span className="mt-2 inline-flex rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#9A3412]">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <p className="truncate text-[13px] font-semibold text-[#1B1B1B]">{usuario?.nombre}</p>
+            <p className="truncate font-mono text-[11px] text-slate-500">{usuario?.email}</p>
+            <span className="sei-label mt-2 inline-flex bg-[#F39200]/15 px-2 py-0.5 text-[#9A3412]">
               {usuario ? ROL_ETIQUETA[usuario.rol] : "Sin sesión"}
             </span>
           </div>
@@ -97,30 +97,30 @@ export function ProfileMenu({ onNavigate }: { onNavigate: (v: string) => void })
               type="button"
               onClick={() => ir("perfil")}
               role="menuitem"
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-[#1B1B1B]"
             >
-              <UserRound className="h-4 w-4 text-gray-400" />
+              <UserRound className="h-4 w-4 text-slate-400" />
               Mi perfil
             </button>
             <button
               type="button"
               onClick={() => ir("calendario")}
               role="menuitem"
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-[#1B1B1B]"
             >
-              <CalendarDays className="h-4 w-4 text-gray-400" />
+              <CalendarDays className="h-4 w-4 text-slate-400" />
               Mi calendario
             </button>
             <button
               type="button"
               onClick={() => ir("mi-tablero")}
               role="menuitem"
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-[#1B1B1B]"
             >
-              <ClipboardList className="h-4 w-4 text-gray-400" />
+              <ClipboardList className="h-4 w-4 text-slate-400" />
               Mi tablero
             </button>
-            <div className="my-1 h-px bg-gray-100" />
+            <div className="my-1 h-px bg-slate-200" />
             <button
               type="button"
               onClick={() => {
@@ -128,7 +128,7 @@ export function ProfileMenu({ onNavigate }: { onNavigate: (v: string) => void })
                 void cerrarSesion();
               }}
               role="menuitem"
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-50"
             >
               <LogOut className="h-4 w-4" />
               Cerrar sesión

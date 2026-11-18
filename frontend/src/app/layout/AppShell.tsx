@@ -85,7 +85,7 @@ export function AppShell() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
+    <div className="sei-blueprint-light flex h-screen overflow-hidden bg-[#F8FAFC]">
       <Sidebar
         currentView={view}
         onNavigate={navigate}
@@ -95,7 +95,7 @@ export function AppShell() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-10 flex flex-shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-white px-4 py-3 shadow-sm sm:px-6">
+        <header className="z-10 flex flex-shrink-0 items-center justify-between gap-2 border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
               type="button"
@@ -125,8 +125,8 @@ export function AppShell() {
           </div>
 
           <div className="flex flex-shrink-0 items-center gap-2 sm:gap-4">
-            <div className="hidden items-center gap-1.5 text-[11px] font-medium text-gray-400 sm:flex">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+            <div className="hidden items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400 sm:flex">
+              <span className="h-1.5 w-1.5 bg-emerald-500" />
               Sesión activa
             </div>
             <NotificationsMenu onNavigate={navigate} />
@@ -134,7 +134,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="sei-app flex-1 overflow-y-auto p-4 sm:p-6">
           {view === "dashboard" && (
             <DashboardView
               onProjectSelect={selectProject}

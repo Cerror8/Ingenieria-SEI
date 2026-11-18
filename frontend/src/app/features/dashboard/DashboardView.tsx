@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { api, mapIndicador, mapProyecto, type DashboardApi } from "../../api/client";
 import { StatusBadge, IndBadge, Bar2, KpiCard } from "../../components/shared";
+import { chartColor } from "../../lib/chartColors";
 import { SectionHero } from "../../components/SectionHero";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
 import type { Indicator, Project } from "../../types";
@@ -104,16 +105,16 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
         ]}
       />
 
-      <div className="sei-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+      <div className="sei-fade-up flex flex-wrap items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Filter className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-        <label htmlFor="dashboard-linea" className="text-xs font-semibold text-gray-600">
+        <label htmlFor="dashboard-linea" className="sei-label text-slate-500">
           Línea de investigación
         </label>
         <select
           id="dashboard-linea"
           value={linea}
           onChange={(e) => setLinea(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-[#F39200]"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-[#F39200]"
         >
           <option value="">Todas las líneas</option>
           {linea && !opcionesLinea.includes(linea) && <option value={linea}>{linea}</option>}
@@ -142,8 +143,8 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold text-gray-800">Proyectos por estado</h3>
+        <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm">
+          <h3 className="sei-label mb-4 text-slate-500">Proyectos por estado</h3>
           {kpis.total === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
               Sin proyectos registrados.
@@ -157,7 +158,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
                       <Cell key={`donut-${i}`} fill={e.color} opacity={activeSeg && activeSeg !== e.name ? 0.35 : 1} cursor="pointer" />
                     ))}
                   </Pie>
-                  <Tooltip key="tooltip" formatter={(v: number, n: string) => [v, n]} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                  <Tooltip key="tooltip" formatter={(v: number, n: string) => [v, n]} contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #e5e7eb" }} />
                 </PieChart>
               </div>
               <div className="flex-1 space-y-2">
@@ -167,7 +168,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
                       <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: d.color }} />
                       <span className="text-xs text-gray-600">{d.name}</span>
                     </div>
-                    <span className="text-xs font-bold text-gray-800">{d.value}</span>
+                    <span className="sei-figure text-xs font-semibold text-gray-800">{d.value}</span>
                   </div>
                 ))}
               </div>
@@ -175,14 +176,14 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           )}
         </div>
 
-        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold text-gray-800">Avance de proyectos activos</h3>
+        <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm">
+          <h3 className="sei-label mb-4 text-slate-500">Avance de proyectos activos</h3>
           <div className="space-y-3.5">
             {datos.avances.map(d => (
               <div key={d.id}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="max-w-[220px] truncate text-xs text-gray-600">{d.nombre}</span>
-                  <span className="ml-2 text-xs font-bold text-gray-800">{d.avance}%</span>
+                  <span className="sei-figure ml-2 text-xs font-semibold text-gray-800">{d.avance}%</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                   <div className="h-2 rounded-full" style={{ width: `${d.avance}%`, backgroundColor: d.avance >= 70 ? "#10B981" : d.avance >= 40 ? "#EA580C" : "#F59E0B" }} />
@@ -199,8 +200,8 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold text-gray-800">Ejecución presupuestal por proyecto (%)</h3>
+        <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm">
+          <h3 className="sei-label mb-4 text-slate-500">Ejecución presupuestal por proyecto (%)</h3>
           {datos.presupuestos.length === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
               Sin proyectos con presupuesto registrado.
@@ -211,15 +212,19 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
                 <CartesianGrid key="grid" strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis key="xaxis" type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
                 <YAxis key="yaxis" type="category" dataKey="id" tick={{ fontSize: 10 }} width={118} />
-                <Tooltip key="tooltip" formatter={(v: number) => [`${v}%`, "Ejecución"]} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-                <Bar key="bar" dataKey="ejecucionPct" name="Ejecución" fill="#EA580C" radius={[0, 4, 4, 0]} barSize={13} />
+                <Tooltip key="tooltip" formatter={(v: number) => [`${v}%`, "Ejecución"]} contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #e5e7eb" }} />
+                <Bar key="bar" dataKey="ejecucionPct" name="Ejecución" radius={[0, 4, 4, 0]} barSize={13}>
+                  {datos.presupuestos.map((d, i) => (
+                    <Cell key={`presupuesto-${d.id}`} fill={chartColor(i)} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold text-gray-800">Proyectos por línea de investigación</h3>
+        <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm">
+          <h3 className="sei-label mb-4 text-slate-500">Proyectos por línea de investigación</h3>
           {lineas.length === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
               Sin líneas de investigación registradas.
@@ -230,8 +235,12 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
                 <CartesianGrid key="grid" strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis key="xaxis" type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
                 <YAxis key="yaxis" type="category" dataKey="line" tick={{ fontSize: 10 }} width={138} />
-                <Tooltip key="tooltip" contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-                <Bar key="bar" dataKey="count" name="Proyectos" fill="#C2410C" radius={[0, 4, 4, 0]} barSize={13} />
+                <Tooltip key="tooltip" contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #e5e7eb" }} />
+                <Bar key="bar" dataKey="count" name="Proyectos" radius={[0, 4, 4, 0]} barSize={13}>
+                  {lineas.map((l, i) => (
+                    <Cell key={`linea-${l.line}`} fill={chartColor(i)} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -239,8 +248,8 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-gray-800">Próximos a finalizar</h3>
+        <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm">
+          <h3 className="sei-label mb-3 text-slate-500">Próximos a finalizar</h3>
           <div className="space-y-3">
             {proximos.map(p => (
               <div key={p.id} onClick={() => onProjectSelect(p.id)} className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 p-3 transition-all hover:border-orange-100 hover:bg-orange-50/20">
@@ -259,8 +268,8 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
                   </div>
                 </div>
                 <div className="flex-shrink-0 px-2 text-center">
-                  <span className="text-xl font-black text-orange-700">{p.daysLeft}</span>
-                  <p className="text-[10px] font-medium text-gray-400">días</p>
+                  <span className="sei-figure text-xl font-semibold text-[#9A3412]">{p.daysLeft}</span>
+                  <p className="sei-label text-slate-400">días</p>
                 </div>
               </div>
             ))}
@@ -272,8 +281,8 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           </div>
         </div>
 
-        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-gray-800">Alertas de indicadores</h3>
+        <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm">
+          <h3 className="sei-label mb-3 text-slate-500">Alertas de indicadores</h3>
           <div className="space-y-2.5">
             {alertas.map(ind => (
               <div key={ind.id} className={`rounded-lg border p-3 ${ind.status === "No cumplido" ? "border-red-100 bg-red-50/30" : "border-amber-100 bg-amber-50/30"}`}>
@@ -283,7 +292,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
                     <p className="mt-0.5 text-xs text-gray-400">{ind.projectId}</p>
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-xs text-gray-500">Cumplimiento:</span>
-                      <span className="text-xs font-bold text-gray-700">{ind.compliance}%</span>
+                      <span className="sei-figure text-xs font-semibold text-gray-700">{ind.compliance}%</span>
                       <div className="flex-1">
                         <Bar2 value={ind.compliance} color={ind.status === "No cumplido" ? "bg-red-500" : "bg-amber-500"} h="h-1.5" />
                       </div>

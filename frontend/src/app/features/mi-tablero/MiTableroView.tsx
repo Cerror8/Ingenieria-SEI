@@ -61,7 +61,7 @@ const BORDE_URGENCIA: Record<NivelUrgencia, string> = {
 };
 
 const campoCls =
-  "w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15";
 
 type Formulario = {
   id: string | null;
@@ -99,7 +99,7 @@ function TarjetaResumen({
   tono: string;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-2.5">
         <span className={`rounded-lg p-1.5 ${tono}`}>
           <Icono className="h-4 w-4" />
@@ -379,7 +379,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
         />
       </div>
 
-      <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-200/80 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center">
         <div>
           <p className="text-xs font-bold text-slate-700">Filtrar por proyecto</p>
           <p className="text-[11px] text-slate-400">
@@ -392,7 +392,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
           value={filtroProyecto}
           onChange={(e) => setFiltroProyecto(e.target.value)}
           aria-label="Filtrar tareas por proyecto"
-          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#EA580C] sm:ml-auto sm:w-auto sm:min-w-[280px]"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 outline-none focus:border-[#F39200] sm:ml-auto sm:w-auto sm:min-w-[280px]"
         >
           <option value="">Todos los proyectos</option>
           {proyectos.map((proyecto) => (
@@ -752,7 +752,7 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
         )}
       </section>
 
-      <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 text-[11px] text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-200/80 bg-white px-4 py-3 text-[11px] text-slate-400 sm:flex-row sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5" />
           Las tareas personales con fecha límite se sincronizan con tu calendario personal.

@@ -76,11 +76,11 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-label={`Notificaciones${total ? `: ${total} tareas próximas a vencer` : ""}`}
-        className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
+        className="relative rounded-md p-2 transition-colors hover:bg-slate-100"
       >
-        <Bell className="h-4 w-4 text-gray-400" />
+        <Bell className="h-4 w-4 text-slate-400" />
         {total > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+          <span className="sei-figure absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center bg-[#F39200] px-1 text-[9px] font-semibold text-[#1B1B1B]">
             {total > 9 ? "9+" : total}
           </span>
         )}
@@ -89,12 +89,12 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
       {abierto && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl"
+          className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
         >
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
-              <p className="text-sm font-bold text-gray-800">Notificaciones</p>
-              <p className="text-[11px] text-gray-500">
+              <p className="sei-label text-[#1B1B1B]">Notificaciones</p>
+              <p className="mt-1 text-[11px] leading-snug text-slate-500">
                 {total > 0
                   ? `${total} ${
                       total === 1
@@ -139,7 +139,7 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
                       setAbierto(false);
                       onNavigate("tableros");
                     }}
-                    className={`flex w-full items-start gap-3 border-l-4 px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
+                    className={`flex w-full items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${
                       COLOR_PRIORIDAD[item.prioridad]
                     }`}
                   >
@@ -177,7 +177,7 @@ export function NotificationsMenu({ onNavigate }: { onNavigate: (v: string) => v
               setAbierto(false);
               onNavigate("tableros");
             }}
-            className="flex w-full items-center justify-center gap-1 border-t border-gray-100 px-4 py-2.5 text-xs font-semibold text-[#9A3412] transition-colors hover:bg-orange-50"
+            className="sei-label flex w-full items-center justify-center gap-1 border-t border-slate-200 px-4 py-2.5 text-[#9A3412] transition-colors hover:bg-[#F39200]/10"
           >
             Ir a Tareas generales
             <ChevronRight className="h-3.5 w-3.5" />

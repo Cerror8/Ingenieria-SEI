@@ -76,6 +76,25 @@ CREATE TABLE IF NOT EXISTS indicadores (
 CREATE INDEX IF NOT EXISTS ix_indicadores_proyecto ON indicadores (proyecto_id);
 CREATE INDEX IF NOT EXISTS ix_indicadores_estado ON indicadores (estado);
 
+-- Origen automático por defecto: el cumplimiento se calcula con las actividades
+-- del EDT (toda la fase o una selección). «Manual» queda como caso puntual.
+ALTER TABLE indicadores ADD COLUMN IF NOT EXISTS origen TEXT NOT NULL DEFAULT 'EDT';
+ALTER TABLE indicadores ALTER COLUMN origen SET DEFAULT 'EDT';
+ALTER TABLE indicadores ADD COLUMN IF NOT EXISTS edt_fase_id UUID;
+CREATE INDEX IF NOT EXISTS ix_indicadores_fase ON indicadores (edt_fase_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'indicadores'::regclass
+       AND conname = 'indicadores_origen_check'
+  ) THEN
+    ALTER TABLE indicadores ADD CONSTRAINT indicadores_origen_check
+      CHECK (origen IN ('Manual', 'EDT'));
+  END IF;
+END $$;
+
 DROP TRIGGER IF EXISTS indicadores_touch ON indicadores;
 CREATE TRIGGER indicadores_touch
 BEFORE UPDATE ON indicadores
@@ -166,6 +185,18 @@ CREATE TRIGGER edt_fases_touch
 BEFORE UPDATE ON edt_fases
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'indicadores'::regclass
+       AND conname = 'indicadores_edt_fase_fk'
+  ) THEN
+    ALTER TABLE indicadores ADD CONSTRAINT indicadores_edt_fase_fk
+      FOREIGN KEY (edt_fase_id) REFERENCES edt_fases(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS edt_actividades (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   proyecto_id        TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
@@ -232,6 +263,17 @@ DROP TRIGGER IF EXISTS edt_actividades_touch ON edt_actividades;
 CREATE TRIGGER edt_actividades_touch
 BEFORE UPDATE ON edt_actividades
 FOR EACH ROW EXECUTE FUNCTION app.touch_actualizado_en();
+
+-- Un indicador automático puede limitar su cálculo a actividades concretas de
+-- su fase. Sin filas aquí, el cumplimiento cubre toda la fase vinculada.
+CREATE TABLE IF NOT EXISTS indicadores_actividades (
+  indicador_id TEXT NOT NULL REFERENCES indicadores(id) ON DELETE CASCADE,
+  actividad_id UUID NOT NULL REFERENCES edt_actividades(id) ON DELETE CASCADE,
+  PRIMARY KEY (indicador_id, actividad_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_indicadores_actividades_actividad
+  ON indicadores_actividades (actividad_id);
 
 -- Un documento del checklist puede exigir que otro esté completo y cargado
 -- antes de poder completarse (por ejemplo, el acta de inicio necesita el

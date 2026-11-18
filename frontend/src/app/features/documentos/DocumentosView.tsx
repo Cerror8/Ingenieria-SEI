@@ -232,10 +232,10 @@ export function DocumentosView() {
         ]}
       />
 
-      <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="sei-fade-up rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <div className="min-w-0">
-            <label htmlFor="buscar-documentos" className="mb-1.5 block text-xs font-semibold text-gray-700">Buscar documentos</label>
+            <label htmlFor="buscar-documentos" className="mb-1.5 block sei-label text-slate-500">Buscar documentos</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
@@ -244,12 +244,12 @@ export function DocumentosView() {
                 placeholder="Nombre, acta, archivo, usuario…"
                 value={busqueda}
                 onChange={(event) => setBusqueda(event.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
               />
             </div>
           </div>
           <div>
-            <label htmlFor="filtrar-proyecto-documentos" className="mb-1.5 block text-xs font-semibold text-gray-700">Proyecto</label>
+            <label htmlFor="filtrar-proyecto-documentos" className="mb-1.5 block sei-label text-slate-500">Proyecto</label>
             <select
               id="filtrar-proyecto-documentos"
               value={proyectoFiltro}
@@ -257,7 +257,7 @@ export function DocumentosView() {
                 setProyectoFiltro(event.target.value);
                 setCarpetaFiltro("");
               }}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15"
             >
               <option value="">Todos los proyectos</option>
               {proyectos.map((proyecto) => {
@@ -271,13 +271,13 @@ export function DocumentosView() {
             </select>
           </div>
           <div>
-            <label htmlFor="filtrar-carpeta-documentos" className="mb-1.5 block text-xs font-semibold text-gray-700">Carpeta</label>
+            <label htmlFor="filtrar-carpeta-documentos" className="mb-1.5 block sei-label text-slate-500">Carpeta</label>
             <select
               id="filtrar-carpeta-documentos"
               value={carpetaFiltro}
               onChange={(event) => setCarpetaFiltro(event.target.value)}
               disabled={!proyectoFiltro}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-[#F39200] focus:outline-none focus:ring-4 focus:ring-[#F39200]/15 disabled:opacity-50"
             >
               <option value="">Todas las carpetas</option>
               {carpetas.map((carpeta) => (
@@ -408,7 +408,7 @@ export function DocumentosView() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="sei-fade-up rounded-xl border border-dashed border-gray-200 bg-white px-4 py-14 text-center">
+        <div className="sei-fade-up rounded-lg border border-dashed border-slate-300 bg-white px-4 py-14 text-center">
           <FolderOpen className="mx-auto h-8 w-8 text-gray-300" />
           <p className="mt-3 text-sm font-semibold text-gray-600">No hay documentos con estos filtros.</p>
           <p className="mt-1 text-xs text-gray-500">Ajusta la búsqueda o carga un documento nuevo.</p>
@@ -423,7 +423,7 @@ export function DocumentosView() {
               <article
                 key={doc.id}
                 style={{ animationDelay: `${Math.min(indice, 12) * 35}ms` }}
-                className="sei-fade-up sei-lift flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm"
+                className="sei-fade-up sei-lift flex flex-col overflow-hidden rounded-lg border border-slate-200/80 bg-white shadow-sm"
               >
                 <div className="flex items-start gap-3 border-b border-gray-50 p-4">
                   <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border ${estilo.clase}`}>
@@ -463,32 +463,32 @@ export function DocumentosView() {
 
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-2 px-4 py-3 text-[11px]">
                   <div className="min-w-0">
-                    <dt className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Proyecto</dt>
+                    <dt className="sei-label text-slate-400">Proyecto</dt>
                     <dd className="truncate font-mono font-bold text-orange-700">{doc.projectId}</dd>
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-[9px] font-bold uppercase tracking-wider text-gray-400">N.º acta / doc.</dt>
+                    <dt className="sei-label text-slate-400">N.º acta / doc.</dt>
                     <dd className="truncate font-mono text-gray-600" title={doc.documentNumber ?? undefined}>
                       {doc.documentNumber ?? "—"}
                     </dd>
                   </div>
                   <div className="col-span-2 min-w-0">
-                    <dt className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Carpeta</dt>
+                    <dt className="sei-label text-slate-400">Carpeta</dt>
                     <dd className={`inline-flex max-w-full items-center gap-1 truncate ${doc.folder ? "text-orange-700/80" : "text-amber-700"}`} title={doc.folder ?? "Sin carpeta"}>
                       <FolderOpen className="h-3 w-3 shrink-0" />
                       <span className="truncate">{doc.folder ?? "Sin carpeta"}</span>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Fecha documento</dt>
+                    <dt className="sei-label text-slate-400">Fecha documento</dt>
                     <dd className="text-gray-600">{doc.documentDate}</dd>
                   </div>
                   <div>
-                    <dt className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Subido</dt>
+                    <dt className="sei-label text-slate-400">Subido</dt>
                     <dd className="text-gray-500">{doc.date}</dd>
                   </div>
                   <div className="col-span-2 min-w-0">
-                    <dt className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Usuario</dt>
+                    <dt className="sei-label text-slate-400">Usuario</dt>
                     <dd className="truncate text-gray-600">{doc.user}</dd>
                   </div>
                 </dl>

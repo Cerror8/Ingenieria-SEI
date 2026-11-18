@@ -52,7 +52,7 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
       />
 
       {active.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
           <Activity className="h-8 w-8 text-gray-300" />
           <p className="text-sm font-semibold text-gray-600">No hay proyectos en ejecución</p>
           <p className="text-xs text-gray-400">Los proyectos activos aparecerán aquí automáticamente.</p>
@@ -60,7 +60,7 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {active.map(p => (
-            <div key={p.id} onClick={() => onSelectProject(p.id)} className="sei-lift cursor-pointer rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:border-orange-100">
+            <div key={p.id} onClick={() => onSelectProject(p.id)} className="sei-lift cursor-pointer rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm hover:border-orange-100">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <span className="font-mono text-xs font-black text-orange-700">{p.id}</span>

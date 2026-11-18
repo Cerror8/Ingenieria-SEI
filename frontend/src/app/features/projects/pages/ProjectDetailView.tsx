@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   FileText, FolderOpen, Activity, ChevronRight,
   Plus, Download, Eye, Edit2, ArrowLeft, X, Upload,
-  Clock, Sliders, Archive, FileUp, ListChecks
+  Clock, Sliders, Archive, FileUp, ListChecks, Trash2
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -19,10 +19,12 @@ import { ActualizarDocumentoModal } from "../../documentos/ActualizarDocumentoMo
 import { ChecklistDocumentalModal } from "../ChecklistDocumentalModal";
 import { EdtTab } from "../EdtTab";
 import { GanttTab } from "../GanttTab";
+import { IndicadorModal } from "../IndicadorModal";
 import { PresupuestoTab } from "../PresupuestoTab";
 import { InformesView } from "../../informes/InformesView";
 import { IND_CFG, ACT_STATUS_CFG, GANTT_MONTHS, PROJ_TABS } from "../../../constants";
 import { fmt } from "../../../lib/format";
+import { chartColor } from "../../../lib/chartColors";
 import { StatusBadge, IndBadge, Bar2, Crumb } from "../../../components/shared";
 
 export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, onEdit, onShowToast }: {
@@ -36,6 +38,8 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
   const [guardandoAvance, setGuardandoAvance] = useState(false);
   const [mostrarSubida, setMostrarSubida] = useState(false);
   const [mostrarChecklist, setMostrarChecklist] = useState(false);
+  const [mostrarIndicador, setMostrarIndicador] = useState(false);
+  const [indicadorEditando, setIndicadorEditando] = useState<Indicator | null>(null);
   const [docEditando, setDocEditando] = useState<Document | null>(null);
   const [mostrarZip, setMostrarZip] = useState(false);
   const [zipArchivo, setZipArchivo] = useState<File | null>(null);
@@ -90,6 +94,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
   const recargarResumen = useCallback(async () => {
     const detalle = await api.proyecto(projectId);
     setProject(mapProyecto(detalle.proyecto));
+    setProjIndicators(detalle.indicadores.map(mapIndicador));
     setProjDocs(detalle.documentos.map(mapDocumento));
     setDesembolsos(detalle.desembolsos.map(mapDesembolso));
     setGanttActivities(detalle.actividades.map(mapActividad));
@@ -132,6 +137,27 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
       setZipError(e instanceof Error ? e.message : "No se pudo actualizar desde el ZIP.");
     } finally {
       setZipEnviando(false);
+    }
+  };
+
+  const abrirNuevoIndicador = () => {
+    setIndicadorEditando(null);
+    setMostrarIndicador(true);
+  };
+
+  const abrirEdicionIndicador = (indicador: Indicator) => {
+    setIndicadorEditando(indicador);
+    setMostrarIndicador(true);
+  };
+
+  const eliminarIndicador = async (indicador: Indicator) => {
+    if (!window.confirm(`¿Eliminar el indicador “${indicador.name}”?`)) return;
+    try {
+      await api.eliminarIndicador(indicador.id);
+      await recargarResumen();
+      onShowToast("Indicador eliminado.");
+    } catch (e) {
+      onShowToast(e instanceof Error ? e.message : "No se pudo eliminar el indicador.");
     }
   };
 
@@ -180,14 +206,16 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-mono text-sm font-black text-orange-700">{project.id}</span>
                 <StatusBadge status={project.status} />
-                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                <span className={`border px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] ${
                   project.tipoContrato === "Obra"
-                    ? "border-orange-200 bg-orange-50 text-orange-700"
-                    : "border-sky-200 bg-sky-50 text-sky-700"
+                    ? "border-[#F39200]/40 bg-[#F39200]/10 text-[#9A3412]"
+                    : "border-slate-300 bg-slate-100 text-slate-600"
                 }`}>
                   {project.tipoContrato}
                 </span>
-                <span className="text-sm text-gray-400">Avance: <strong className="text-gray-900">{project.progress}%</strong></span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                  Avance <strong className="sei-figure ml-1 font-semibold text-[#1B1B1B]">{project.progress}%</strong>
+                </span>
               </div>
               <h1 className="text-lg font-bold text-gray-900 mt-1 leading-tight">{project.name}</h1>
             </div>
@@ -203,12 +231,12 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto scrollbar-hide border-b border-gray-100">
+      <div className="bg-white rounded-lg border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="scrollbar-hide overflow-x-auto border-b border-slate-200/80">
           <div className="flex min-w-max">
             {PROJ_TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? "border-[#F39200] text-[#9A3412] bg-[#F39200]/10" : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}>
+                className={`whitespace-nowrap border-b-2 px-4 py-3 font-mono text-[11px] font-medium uppercase tracking-[0.12em] transition-colors ${tab === t.id ? "border-[#F39200] text-[#1B1B1B]" : "border-transparent text-slate-400 hover:border-slate-300 hover:text-slate-700"}`}>
                 {t.label}
               </button>
             ))}
@@ -222,22 +250,23 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
             <div className="space-y-5">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: "Avance técnico", value: `${project.progress}%`, color: "bg-orange-600", bg: "bg-orange-50", tc: "text-orange-800" },
+                  { label: "Avance técnico", value: `${project.progress}%`, color: "bg-[#F39200]", bg: "bg-orange-50", tc: "text-[#9A3412]" },
                   { label: "Ejec. presupuestal", value: `${project.budgetExecuted}%`, color: "bg-emerald-500", bg: "bg-emerald-50", tc: "text-emerald-800" },
                   { label: "Inicio", value: project.startDate, color: "", bg: "bg-gray-50", tc: "text-gray-800" },
                   { label: "Finalización", value: project.endDate, color: "", bg: "bg-gray-50", tc: "text-gray-800" },
                 ].map(k => (
-                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{k.label}</p>
-                    <p className={`text-xl font-black mt-1 ${k.tc}`}>{k.value}</p>
-                    {k.color && <Bar2 value={parseInt(k.value)} color={k.color} h="h-1.5" />}
+                  <div key={k.label} className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-3">
+                    <span className="absolute left-0 top-0 h-5 w-[3px] bg-[#F39200]" />
+                    <p className="sei-label text-slate-400">{k.label}</p>
+                    <p className={`sei-figure mt-1 text-xl font-semibold ${k.tc}`}>{k.value}</p>
+                    {k.color && <div className="mt-2"><Bar2 value={parseInt(k.value)} color={k.color} h="h-1.5" /></div>}
                   </div>
                 ))}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-800 mb-3">Información del proyecto</h3>
-                  <div className="space-y-0 rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-50">
+                  <h3 className="mb-3 border-b border-slate-200 pb-2 text-[13px] font-semibold text-[#1B1B1B]">Información del proyecto</h3>
+                  <div className="space-y-0 rounded-lg border border-slate-200/80 overflow-hidden divide-y divide-gray-50">
                     {([
                       { label: "Nombre corto", value: project.nombreCorto || "—", fila: "bg-orange-50/60", valor: "text-[#C2410C] font-extrabold text-base" },
                       { label: "N.º de contrato", value: project.numeroContrato || "—", fila: "bg-indigo-50/60", valor: "font-mono text-indigo-700 font-bold" },
@@ -254,15 +283,15 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                       { label: "Fecha de creación", value: project.creadoEn },
                     ] as Array<{ label: string; value: string; fila?: string; valor?: string }>).map(r => (
                       <div key={r.label} className={`flex gap-3 px-4 py-2.5 ${r.fila ?? ""}`}>
-                        <span className="w-32 text-xs font-semibold text-gray-400 flex-shrink-0">{r.label}</span>
+                        <span className="sei-label w-32 flex-shrink-0 text-slate-400">{r.label}</span>
                         <span className={`text-sm text-gray-900 ${r.valor ?? ""}`}>{r.value}</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-gray-800 mb-3">Objetivo general</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed p-4 bg-gray-50 rounded-xl border border-gray-100">{project.objective}</p>
+                  <h3 className="mb-3 border-b border-slate-200 pb-2 text-[13px] font-semibold text-[#1B1B1B]">Objetivo general</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed p-4 bg-gray-50 rounded-lg border border-slate-200/80">{project.objective}</p>
                 </div>
               </div>
             </div>
@@ -281,16 +310,17 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                   { label: "Entregables",        value: String(projDocs.length),      color: "text-gray-700",   bg: "bg-gray-50" },
                   { label: "Alertas",            value: String(alertasActivas),       color: "text-red-700",    bg: "bg-red-50" },
                 ].map(k => (
-                  <div key={k.label} className={`${k.bg} rounded-xl p-3`}>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{k.label}</p>
-                    <p className={`text-2xl font-black mt-0.5 ${k.color}`}>{k.value}</p>
+                  <div key={k.label} className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-3">
+                    <span className="absolute left-0 top-0 h-5 w-[3px] bg-[#F39200]" />
+                    <p className="sei-label text-slate-400">{k.label}</p>
+                    <p className={`sei-figure mt-0.5 text-2xl font-semibold ${k.color}`}>{k.value}</p>
                   </div>
                 ))}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <h3 className="text-xs font-bold text-gray-700 mb-3">Avance técnico y presupuestal (%)</h3>
+                <div className="rounded-lg border border-slate-200/80 p-4">
+                  <h3 className="sei-label mb-3 text-slate-500">Avance técnico y presupuestal</h3>
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={[
                       { name: "Técnico", valor: project.progress },
@@ -299,13 +329,16 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                       <CartesianGrid key="grid" strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis key="xaxis" dataKey="name" tick={{ fontSize: 11 }} />
                       <YAxis key="yaxis" tick={{ fontSize: 11 }} domain={[0, 100]} />
-                      <Tooltip key="tooltip" formatter={(v: number) => [`${v}%`, "Avance"]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
-                      <Bar key="bar" dataKey="valor" fill="#EA580C" radius={[4, 4, 0, 0]} barSize={36} />
+                      <Tooltip key="tooltip" formatter={(v: number) => [`${v}%`, "Avance"]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                      <Bar key="bar" dataKey="valor" radius={[4, 4, 0, 0]} barSize={36}>
+                        <Cell key="tecnico" fill={chartColor(0)} />
+                        <Cell key="presupuestal" fill={chartColor(1)} />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <h3 className="text-xs font-bold text-gray-700 mb-3">Estado de indicadores</h3>
+                <div className="rounded-lg border border-slate-200/80 p-4">
+                  <h3 className="sei-label mb-3 text-slate-500">Estado de indicadores</h3>
                   {estadoIndicadores.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
                       Sin indicadores registrados.
@@ -316,7 +349,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                         <Pie key="pie" data={estadoIndicadores} cx="50%" cy="50%" innerRadius={42} outerRadius={66} dataKey="value">
                           {estadoIndicadores.map(e => <Cell key={e.name} fill={COLOR_IND[e.name]} />)}
                         </Pie>
-                        <Tooltip key="tooltip" contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+                        <Tooltip key="tooltip" contentStyle={{ fontSize: 11, borderRadius: 6 }} />
                         <Legend key="legend" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                       </PieChart>
                     </ResponsiveContainer>
@@ -324,10 +357,10 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                 </div>
               </div>
 
-              <div className="rounded-xl border border-gray-100 p-5 space-y-4">
+              <div className="rounded-lg border border-slate-200/80 p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-bold text-gray-800">Actualizar avance técnico</h3>
-                  <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
+                  <span className="border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-slate-500">
                     {project.progressSource === "EDT"
                       ? "Automático desde EDT"
                       : project.progressSource === "Gantt"
@@ -364,7 +397,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                 )}
               </div>
 
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="rounded-lg border border-slate-200/80 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/40">
                   <h3 className="text-sm font-bold text-gray-800">Actividades del cronograma</h3>
                   <button onClick={() => setTab("gantt")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
@@ -376,7 +409,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                     <thead>
                       <tr className="bg-gray-50/60 border-b border-gray-100">
                         {["Actividad", "Responsable", "Inicio", "Fin", "Avance", "Estado"].map(h => (
-                          <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">{h}</th>
+                          <th key={h} className="text-left px-4 py-2.5 sei-label text-slate-500">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -447,38 +480,83 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
           {tab === "indicadores" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-gray-800">Indicadores del proyecto</h2>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
+                <div>
+                  <h2 className="text-sm font-bold text-gray-800">Indicadores del proyecto</h2>
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    {indicadoresCumplidos} cumplido(s) de {projIndicators.length} · {alertasActivas} en alerta
+                  </p>
+                </div>
+                <button onClick={abrirNuevoIndicador} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Nuevo indicador
                 </button>
               </div>
-              <div className="space-y-3">
-                {projIndicators.map(ind => (
-                  <div key={ind.id} className="rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors bg-white">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-[10px] text-gray-400 font-bold">{ind.id}</span>
-                          <IndBadge status={ind.status} />
+              {projIndicators.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-xs text-gray-400">
+                  Este proyecto aún no tiene indicadores. Crea el primero con «Nuevo indicador».
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {projIndicators.map(ind => (
+                    <div key={ind.id} className="rounded-lg border border-slate-200/80 p-4 hover:border-gray-200 transition-colors bg-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[10px] text-gray-400 font-bold">{ind.id}</span>
+                            <IndBadge status={ind.status} />
+                            {ind.origen === "EDT" && (
+                              <span
+                                title={ind.edtFaseNombre ? `Cumplimiento calculado desde la fase «${ind.edtFaseNombre}» del EDT` : "Cumplimiento calculado desde el EDT"}
+                                className="border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-sky-700"
+                              >
+                                EDT
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900 mt-1">{ind.name}</p>
+                          <div className="flex flex-wrap gap-4 mt-2">
+                            {[["Meta", ind.goal], ["Avance", ind.advance], ["Responsable", ind.responsible], ["Fecha", ind.date],
+                              ...(ind.origen === "EDT"
+                                ? [
+                                    ["Origen", `Automático · ${ind.edtFaseNombre ?? "fase del EDT"}`],
+                                    ["Alcance", ind.edtActividadesIds.length > 0
+                                      ? `${ind.edtActividadesIds.length} actividad(es)`
+                                      : "Toda la fase"],
+                                  ]
+                                : []),
+                            ].map(([k, v]) => (
+                              <span key={k} className="text-xs text-gray-400">{k}: <strong className="text-gray-700">{v}</strong></span>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2 mt-3">
+                            <Bar2 value={ind.compliance} color={IND_CFG[ind.status].bar} h="h-2" />
+                            <span className="text-xs font-black text-gray-700 flex-shrink-0">{ind.compliance}%</span>
+                          </div>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900 mt-1">{ind.name}</p>
-                        <div className="flex flex-wrap gap-4 mt-2">
-                          {[["Meta", ind.goal], ["Avance", ind.advance], ["Responsable", ind.responsible], ["Fecha", ind.date]].map(([k, v]) => (
-                            <span key={k} className="text-xs text-gray-400">{k}: <strong className="text-gray-700">{v}</strong></span>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-2 mt-3">
-                          <Bar2 value={ind.compliance} color={IND_CFG[ind.status].bar} h="h-2" />
-                          <span className="text-xs font-black text-gray-700 flex-shrink-0">{ind.compliance}%</span>
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicionIndicador(ind)}
+                            title="Editar indicador"
+                            aria-label={`Editar indicador ${ind.name}`}
+                            className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void eliminarIndicador(ind)}
+                            title="Eliminar indicador"
+                            aria-label={`Eliminar indicador ${ind.name}`}
+                            className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-                      <button className="p-1.5 text-gray-300 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -555,7 +633,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                     value={docFolder}
                     onChange={(e) => setDocFolder(e.target.value)}
                     aria-label="Filtrar documentos por carpeta"
-                    className="ml-auto rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 focus:border-orange-400 focus:outline-none"
+                    className="ml-auto rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 focus:border-[#F39200] focus:outline-none"
                   >
                     <option value="Todas">Todas las carpetas</option>
                     {carpetas.map((carpeta) => (
@@ -564,13 +642,13 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
                   </select>
                 )}
               </div>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="rounded-lg border border-slate-200/80 overflow-hidden">
                 <div className="overflow-x-auto">
                 <table className="w-full min-w-[1000px] text-sm">
                   <thead>
                     <tr className="bg-gray-50/60 border-b border-gray-100">
                       {["Nombre", "N.º documento", "Tipo", "Versión", "Fecha documento", "Fecha subida", "Usuario", "Estado", "Acciones"].map(h => (
-                        <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">{h}</th>
+                        <th key={h} className="text-left px-4 py-2.5 sei-label text-slate-500">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -651,7 +729,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
           {tab === "antecedentes" && (
             <div className="space-y-3">
               <h2 className="text-sm font-bold text-gray-800">Antecedentes asociados</h2>
-              <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-xs text-gray-400">
+              <p className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-xs text-gray-400">
                 Este proyecto no tiene antecedentes asociados. Los antecedentes se relacionan desde el
                 módulo Antecedentes y no duplican los documentos.
               </p>
@@ -672,7 +750,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
               </div>
               <div className="space-y-2">
                 {auditoria.map((entry, i) => (
-                  <div key={i} className="rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors">
+                  <div key={i} className="rounded-lg border border-slate-200/80 p-4 hover:border-gray-200 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 flex-wrap">
@@ -728,9 +806,18 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
         onActualizado={() => void recargarDocs()}
       />
 
+      <IndicadorModal
+        abierto={mostrarIndicador}
+        proyectoId={projectId}
+        indicador={indicadorEditando}
+        onCerrar={() => { setMostrarIndicador(false); setIndicadorEditando(null); }}
+        onGuardado={() => void recargarResumen()}
+        onShowToast={onShowToast}
+      />
+
       {mostrarZip && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+          <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
               <h2 className="text-sm font-bold text-gray-900">Actualizar documentos desde ZIP</h2>
               <button

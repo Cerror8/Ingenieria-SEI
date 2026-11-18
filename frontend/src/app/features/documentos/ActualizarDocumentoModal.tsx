@@ -116,7 +116,7 @@ export function ActualizarDocumentoModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-lg">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-gray-900">Actualizar documento</h2>
@@ -142,7 +142,7 @@ export function ActualizarDocumentoModal({
                 id="edit-tipo"
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -153,7 +153,7 @@ export function ActualizarDocumentoModal({
                 id="edit-estado"
                 value={estado}
                 onChange={(e) => setEstado(e.target.value as DocStatus)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
@@ -167,7 +167,7 @@ export function ActualizarDocumentoModal({
                 id="edit-carpeta"
                 value={carpeta}
                 onChange={(e) => setCarpeta(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
               >
                 <option value="">Raíz del proyecto</option>
                 {carpetas.map((ruta) => (
@@ -187,7 +187,7 @@ export function ActualizarDocumentoModal({
               maxLength={200}
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
             />
           </div>
 

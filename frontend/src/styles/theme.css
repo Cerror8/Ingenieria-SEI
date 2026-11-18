@@ -36,6 +36,11 @@
   --chart-4: #94A3B8;
   --chart-5: #0F766E;
   --radius: 0.5rem;
+  --font-ui: "Archivo Variable", "Archivo", system-ui, -apple-system, sans-serif;
+  --font-code: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Trazo técnico: retícula de plano y reglas de 1px */
+  --grid-line: rgba(27, 27, 27, 0.055);
+  --grid-line-dark: rgba(255, 255, 255, 0.055);
   --sidebar: #1F2937;
   --sidebar-foreground: #F8FAFC;
   --sidebar-primary: #F39200;
@@ -84,6 +89,8 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-brand-orange: var(--brand-orange);
@@ -135,6 +142,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-variant-numeric: tabular-nums;
   }
 
   /**
@@ -148,26 +156,29 @@
 
   h1 {
     font-size: var(--text-2xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
   }
 
   h2 {
     font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.35;
   }
 
   h3 {
     font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
   }
 
   h4 {
     font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: 600;
+    line-height: 1.45;
   }
 
   label {
@@ -230,6 +241,80 @@
   .sei-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 14px 28px -16px rgba(27, 27, 27, 0.35);
+  }
+
+  /* Retícula de plano sobre superficies oscuras y claras */
+  .sei-blueprint {
+    background-image:
+      linear-gradient(to right, var(--grid-line-dark) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line-dark) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: -1px -1px;
+  }
+
+  .sei-blueprint-light {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: -1px -1px;
+  }
+
+  /* Etiqueta técnica: monoespaciada, mayúsculas, tracking amplio */
+  .sei-label {
+    font-family: var(--font-code);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* Cifras de plano: alineadas y ligeramente condensadas */
+  .sei-figure {
+    font-family: var(--font-code);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* Regla fina con remate naranja, como cota de plano */
+  .sei-rule {
+    height: 2px;
+    background: linear-gradient(to right, var(--brand-orange) 0 56px, rgba(255, 255, 255, 0.14) 56px);
+  }
+
+  .sei-rule-light {
+    height: 1px;
+    background: linear-gradient(to right, var(--brand-orange) 0 40px, rgba(27, 27, 27, 0.12) 40px);
+  }
+
+  /* Tablas de datos dentro del área de trabajo */
+  .sei-app table thead tr {
+    background-color: transparent;
+  }
+
+  .sei-app table thead th {
+    font-family: var(--font-code);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .sei-app table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  .sei-app table tbody tr:hover {
+    background-color: rgba(243, 146, 0, 0.04);
+  }
+
+  .sei-app table tbody td {
+    border-bottom: 1px solid rgba(27, 27, 27, 0.06);
+  }
+
+  .sei-app table tbody tr:last-child td {
+    border-bottom: 0;
   }
 }
 

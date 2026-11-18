@@ -95,7 +95,12 @@ export interface Indicator {
   status: IndicatorStatus;
   responsible: string;
   date: string;
+  dateIso: string;
   projectId: string;
+  origen: "Manual" | "EDT";
+  edtFaseId: string | null;
+  edtFaseNombre: string | null;
+  edtActividadesIds: string[];
 }
 
 export interface Document {

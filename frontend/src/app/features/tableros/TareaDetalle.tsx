@@ -432,7 +432,7 @@ export function TareaDetalle({
                 value={tarea.responsableId ?? ""}
                 disabled={accion !== null}
                 onChange={(e) => void asignar(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#EA580C] disabled:opacity-60"
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#F39200] disabled:opacity-60"
               >
                 <option value="">Sin asignar</option>
                 {usuariosAsignables.map((u) => (
@@ -460,7 +460,7 @@ export function TareaDetalle({
                 value={tarea.edtActividadId ?? ""}
                 disabled={accion !== null}
                 onChange={(e) => void vincularEdt(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#EA580C] disabled:opacity-60"
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#F39200] disabled:opacity-60"
               >
                 <option value="">Sin vincular al EDT</option>
                 {[...edtActividades]
@@ -716,7 +716,7 @@ export function TareaDetalle({
                         : "Escribe un comentario…"
                     }
                     aria-label="Comentario"
-                    className="min-w-0 flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 text-xs text-slate-700 outline-none transition focus:border-[#EA580C] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                    className="min-w-0 flex-1 resize-none rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-700 outline-none transition focus:border-[#F39200] focus:bg-white focus:ring-4 focus:ring-[#F39200]/15"
                   />
                   <button
                     type="submit"
