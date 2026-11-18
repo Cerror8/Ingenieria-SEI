@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
+import { SectionHero } from "../../components/SectionHero";
 import type { Rol } from "../../types";
 
 const ROL_ETIQUETA: Record<Rol, string> = {
@@ -255,12 +256,13 @@ export function ProfileView({ onShowToast }: { onShowToast: (msg: string) => voi
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Mi perfil</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          Personaliza cómo apareces en Ingeniería SEI y revisa los datos de tu cuenta.
-        </p>
-      </div>
+      <SectionHero
+        compact
+        eyebrow="Mi espacio"
+        icon={UserRound}
+        title="Mi perfil"
+        subtitle="Personaliza cómo apareces en Ingeniería SEI y revisa los datos de tu cuenta."
+      />
 
       <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
         <section className="rounded-xl border border-gray-100 bg-white p-6 text-center shadow-sm">

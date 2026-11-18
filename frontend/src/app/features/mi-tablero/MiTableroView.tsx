@@ -27,6 +27,7 @@ import type {
   UsuarioAsignable,
 } from "../../types";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { SectionHero } from "../../components/SectionHero";
 import { calcularUrgencia, fechaCorta, type NivelUrgencia } from "../../lib/urgencia";
 import { TareaDetalle } from "../tableros/TareaDetalle";
 
@@ -312,35 +313,38 @@ export function MiTableroView({ onNavigate }: { onNavigate: (v: string) => void 
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Mi tablero</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Tareas de todos tus proyectos asignados y tus propias tareas personales.
-          </p>
-          {usuario && (
-            <p className="mt-1 text-[11px] font-semibold text-slate-400">{usuario.nombre}</p>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => onNavigate("calendario")}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
-          >
-            <CalendarDays className="h-4 w-4" />
-            Ver calendario
-          </button>
-          <button
-            type="button"
-            onClick={abrirNueva}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva tarea personal
-          </button>
-        </div>
-      </div>
+      <SectionHero
+        eyebrow="Mi espacio"
+        icon={ClipboardList}
+        title="Mi tablero"
+        subtitle="Tareas de todos tus proyectos asignados y tus propias tareas personales."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => onNavigate("calendario")}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
+            >
+              <CalendarDays className="h-4 w-4" />
+              Ver calendario
+            </button>
+            <button
+              type="button"
+              onClick={abrirNueva}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-semibold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B]"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva tarea personal
+            </button>
+          </>
+        }
+        kpis={[
+          { label: "Tareas de proyectos", value: resumen.proyectoTotal, icon: ClipboardList },
+          { label: "Tareas personales", value: resumen.personalTotal, icon: CalendarDays },
+          { label: "Completadas", value: resumen.proyectoCompletadas + resumen.personalesCompletadas, icon: CheckCircle2 },
+          { label: "Vencidas", value: resumen.vencidas, icon: AlertTriangle },
+        ]}
+      />
 
       {aviso && (
         <div className="flex items-start justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5">

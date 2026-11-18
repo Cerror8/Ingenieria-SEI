@@ -22,6 +22,8 @@ import {
   type ProyectoApi,
 } from "../../api/client";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { SectionHero } from "../../components/SectionHero";
+import { SegmentedTabs } from "../../components/SegmentedTabs";
 import type { Document } from "../../types";
 import { SubirDocumentoModal } from "./SubirDocumentoModal";
 import { ActualizarDocumentoModal } from "./ActualizarDocumentoModal";
@@ -209,47 +211,26 @@ export function DocumentosView() {
 
   return (
     <div className="space-y-5">
-      <section className="sei-fade-up relative overflow-hidden rounded-2xl bg-[#1B1B1B] px-5 py-6 text-white shadow-sm sm:px-7">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[#F39200]/15" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-white/5" />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F39200]/40 bg-[#F39200]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#FDBA74]">
-              <FolderOpen className="h-3 w-3" /> Repositorio documental
-            </span>
-            <h1 className="mt-3 text-2xl font-black leading-tight tracking-tight sm:text-3xl">Documentos</h1>
-            <p className="mt-1.5 max-w-xl text-sm text-white/60">
-              Actas, informes, antecedentes y evidencias de cada proyecto, con versiones y trazabilidad.
-            </p>
-          </div>
+      <SectionHero
+        eyebrow="Repositorio documental"
+        icon={FolderOpen}
+        title="Documentos"
+        subtitle="Actas, informes, antecedentes y evidencias de cada proyecto, con versiones y trazabilidad."
+        actions={
           <button
             onClick={() => setMostrarSubida(true)}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-bold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B]"
           >
             <Upload className="h-4 w-4" />Cargar documento
           </button>
-        </div>
-        <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            { label: "Documentos", valor: resumen.total, icon: FileText },
-            { label: "Proyectos con archivos", valor: resumen.proyectos, icon: FolderKanban },
-            { label: "Aprobados", valor: resumen.aprobados, icon: CheckCircle2 },
-            { label: "En revisión", valor: resumen.revision, icon: Clock },
-          ].map((item, indice) => (
-            <div
-              key={item.label}
-              style={{ animationDelay: `${80 + indice * 60}ms` }}
-              className="sei-pop rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5"
-            >
-              <div className="flex items-center gap-2">
-                <item.icon className="h-3.5 w-3.5 text-[#FDBA74]" />
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">{item.label}</p>
-              </div>
-              <p className="mt-1 text-xl font-black leading-none text-white">{item.valor}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        }
+        kpis={[
+          { label: "Documentos", value: resumen.total, icon: FileText },
+          { label: "Proyectos con archivos", value: resumen.proyectos, icon: FolderKanban },
+          { label: "Aprobados", value: resumen.aprobados, icon: CheckCircle2 },
+          { label: "En revisión", value: resumen.revision, icon: Clock },
+        ]}
+      />
 
       <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
@@ -309,33 +290,17 @@ export function DocumentosView() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5 rounded-xl bg-slate-100/70 p-1" role="tablist" aria-label="Filtrar documentos por tipo">
-          {CATEGORIAS.map((categoria) => {
-            const activa = cat === categoria;
-            return (
-              <button
-                key={categoria}
-                type="button"
-                role="tab"
-                aria-selected={activa}
-                onClick={() => setCat(categoria)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                  activa
-                    ? "bg-white text-[#9A3412] shadow-sm"
-                    : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
-                }`}
-              >
-                {categoria}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-                    activa ? "bg-orange-100 text-[#9A3412]" : "bg-slate-200/80 text-slate-500"
-                  }`}
-                >
-                  {conteos[categoria] ?? 0}
-                </span>
-              </button>
-            );
-          })}
+        <div className="mt-3">
+          <SegmentedTabs
+            ariaLabel="Filtrar documentos por tipo"
+            value={cat}
+            onChange={setCat}
+            tabs={CATEGORIAS.map((categoria) => ({
+              id: categoria,
+              label: categoria,
+              count: conteos[categoria] ?? 0,
+            }))}
+          />
         </div>
 
         {proyectoActivo && (

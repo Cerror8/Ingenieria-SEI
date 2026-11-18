@@ -139,6 +139,21 @@ export function asegurarEsquema(): Promise<void> {
       await pool.query(
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS whatsapp_opt_in BOOLEAN NOT NULL DEFAULT false",
       );
+      // 2FA: el login y el callback de Google leen estas columnas; sin ellas todo inicio de sesión falla.
+      await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_secret TEXT");
+      await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_habilitado_en TIMESTAMPTZ");
+      await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS totp_codigos TEXT[]");
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS desafios_2fa (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE,
+          expira_en TIMESTAMPTZ NOT NULL,
+          intentos INT NOT NULL DEFAULT 0,
+          creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query("CREATE INDEX IF NOT EXISTS ix_desafios_2fa_expira ON desafios_2fa (expira_en)");
       await pool.query(`
         CREATE TABLE IF NOT EXISTS edt_actividades (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

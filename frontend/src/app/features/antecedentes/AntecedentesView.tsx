@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Download, Eye, FileText, FolderOpen, Link2, Search, Tag } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, Download, Eye, FileText, FolderKanban, FolderOpen, Link2, Search, Tag } from "lucide-react";
 import { api, mapDocumento, mapProyecto } from "../../api/client";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { SectionHero } from "../../components/SectionHero";
 import type { Document, Project } from "../../types";
 
 export function AntecedentesView() {
@@ -56,16 +57,23 @@ export function AntecedentesView() {
       return coincideTexto && coincideLinea && coincideTipo;
     });
 
+  const documentosHistoricos = documentos.filter(doc => finalizados.some(p => p.id === doc.projectId)).length;
+
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Antecedentes de proyectos</h1>
-          <p className="mt-0.5 text-sm text-gray-500">Repositorio histórico de proyectos</p>
-        </div>
-      </div>
+      <SectionHero
+        eyebrow="Área proyectos"
+        icon={Archive}
+        title="Antecedentes de proyectos"
+        subtitle="Repositorio histórico de proyectos finalizados y su documentación."
+        kpis={[
+          { label: "Proyectos históricos", value: finalizados.length, icon: FolderKanban },
+          { label: "Líneas", value: lineas.length, icon: Tag },
+          { label: "Documentos", value: documentosHistoricos, icon: FileText },
+        ]}
+      />
 
-      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <div className="relative min-w-0 flex-1 sm:min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

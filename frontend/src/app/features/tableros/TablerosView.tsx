@@ -21,6 +21,7 @@ import type {
   UsuarioAsignable,
 } from "../../types";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { SectionHero } from "../../components/SectionHero";
 import { calcularUrgencia, fechaCorta, type NivelUrgencia } from "../../lib/urgencia";
 import { TableroProgreso } from "./TableroProgreso";
 import { TareaDetalle } from "./TareaDetalle";
@@ -380,12 +381,12 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
   if (!tableros.length) {
     return (
       <div className="space-y-5">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Tablero de asignación de trabajo</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Todavía no hay tableros creados en la base de datos.
-          </p>
-        </div>
+        <SectionHero
+          eyebrow="Área proyectos"
+          icon={CalendarDays}
+          title="Tablero de asignación de trabajo"
+          subtitle="Todavía no hay tableros creados en la base de datos."
+        />
 
         {aviso && (
           <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
@@ -405,7 +406,7 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
           <button
             type="button"
             onClick={() => onNavigate("projects")}
-            className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9A3412]"
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-semibold text-[#1B1B1B] transition-colors hover:bg-[#FFAA2B]"
           >
             Ir a Proyectos
           </button>
@@ -420,24 +421,28 @@ export function TablerosView({ onNavigate }: { onNavigate: (v: string) => void }
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Tareas generales</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            {contexto} · Actividades y tareas de todas las fases y tableros
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+      <SectionHero
+        eyebrow="Área proyectos"
+        icon={CalendarDays}
+        title="Tareas generales"
+        subtitle={`${contexto} · Actividades y tareas de todas las fases y tableros`}
+        actions={
           <button
             type="button"
             onClick={abrirNuevaTarea}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-semibold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B]"
           >
             <Plus className="h-4 w-4" />
             Nueva tarea
           </button>
-        </div>
-      </div>
+        }
+        kpis={[
+          { label: "Tareas", value: tareas.length, icon: Circle },
+          { label: "En curso", value: tareas.filter((t) => t.columna === "en-curso").length, icon: Clock },
+          { label: "En revisión", value: tareas.filter((t) => t.columna === "en-revision").length, icon: Search },
+          { label: "Completadas", value: tareas.filter((t) => t.columna === "completado").length, icon: CheckCircle2 },
+        ]}
+      />
 
       {aviso && (
         <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

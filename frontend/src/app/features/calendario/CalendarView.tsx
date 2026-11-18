@@ -17,6 +17,7 @@ import type {
   TareaCalendario,
 } from "../../types";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { SectionHero } from "../../components/SectionHero";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -271,22 +272,28 @@ export function CalendarView() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Calendario</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Fechas límite de las tareas y tu agenda personal de reuniones.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => abrirNuevo()}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo evento
-        </button>
-      </div>
+      <SectionHero
+        eyebrow="Mi espacio"
+        icon={CalendarDays}
+        title="Calendario"
+        subtitle="Fechas límite de las tareas y tu agenda personal de reuniones."
+        actions={
+          <button
+            type="button"
+            onClick={() => abrirNuevo()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-semibold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B]"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo evento
+          </button>
+        }
+        kpis={[
+          { label: "Tareas con fecha", value: datos.tareas.filter((t) => Boolean(t.fechaLimite)).length, icon: Clock },
+          { label: "Eventos", value: datos.eventos.length, icon: CalendarDays },
+          { label: "Día seleccionado", value: `${tareasDelDia.length} tareas`, icon: Clock },
+          { label: "Eventos del día", value: eventosDelDia.length, icon: CalendarDays },
+        ]}
+      />
 
       {aviso && (
         <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-semibold text-[#9A3412]">

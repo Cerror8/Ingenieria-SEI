@@ -9,6 +9,8 @@ import { useAuth } from "../../../auth/AuthProvider";
 import { fmt } from "../../../lib/format";
 import { StatusBadge, Bar2 } from "../../../components/shared";
 import { CargandoModule } from "../../../components/DataState";
+import { SectionHero } from "../../../components/SectionHero";
+import { SegmentedTabs } from "../../../components/SegmentedTabs";
 import type { Project } from "../../../types";
 
 type Props = {
@@ -141,22 +143,13 @@ export function ProjectsListView({
       {paraEliminar && usuario?.rol === "admin" && (
         <DeleteProjectDialog proyecto={paraEliminar} onClose={() => setParaEliminar(null)} onDeleted={eliminado} />
       )}
-      <section className="sei-fade-up relative overflow-hidden rounded-2xl bg-[#1B1B1B] px-5 py-6 text-white shadow-sm sm:px-7">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[#F39200]/15" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-white/5" />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F39200]/40 bg-[#F39200]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#FDBA74]">
-              <FolderKanban className="h-3 w-3" /> Área proyectos
-            </span>
-            <h1 className="mt-3 text-2xl font-black leading-tight tracking-tight sm:text-3xl">
-              Proyectos de Ingeniería SEI
-            </h1>
-            <p className="mt-1.5 max-w-xl text-sm text-white/60">
-              Planificación, contratación, supervisión y control en un solo lugar.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <SectionHero
+        eyebrow="Área proyectos"
+        icon={FolderKanban}
+        title="Proyectos de Ingeniería SEI"
+        subtitle="Planificación, contratación, supervisión y control en un solo lugar."
+        actions={
+          <>
             {usuario?.rol === "admin" && (
               <button type="button" onClick={() => void crearEjemplo()} disabled={creandoEjemplo} title="Crea un proyecto guía con datos realistas, sin documentos ni actividades vinculadas" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-60">
                 <BookOpen className="h-4 w-4" />{creandoEjemplo ? "Creando ejemplo…" : "Proyecto de ejemplo"}
@@ -165,29 +158,15 @@ export function ProjectsListView({
             <button type="button" onClick={onCreateProject} disabled={!usuario} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-bold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B] disabled:opacity-60">
               <Plus className="h-4 w-4" />Nuevo proyecto
             </button>
-          </div>
-        </div>
-        <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            { label: "Proyectos", valor: resumen.total, icon: FolderKanban },
-            { label: "En ejecución", valor: resumen.activos, icon: Activity },
-            { label: "Finalizados", valor: resumen.finalizados, icon: CheckCircle2 },
-            { label: "Avance promedio", valor: `${resumen.avance}%`, icon: TrendingUp },
-          ].map((item, indice) => (
-            <div
-              key={item.label}
-              style={{ animationDelay: `${80 + indice * 60}ms` }}
-              className="sei-pop rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5"
-            >
-              <div className="flex items-center gap-2">
-                <item.icon className="h-3.5 w-3.5 text-[#FDBA74]" />
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">{item.label}</p>
-              </div>
-              <p className="mt-1 text-xl font-black leading-none text-white">{item.valor}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+          </>
+        }
+        kpis={[
+          { label: "Proyectos", value: resumen.total, icon: FolderKanban },
+          { label: "En ejecución", value: resumen.activos, icon: Activity },
+          { label: "Finalizados", value: resumen.finalizados, icon: CheckCircle2 },
+          { label: "Avance promedio", value: `${resumen.avance}%`, icon: TrendingUp },
+        ]}
+      />
       {aviso && <p role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{aviso}</p>}
       {error && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -198,34 +177,12 @@ export function ProjectsListView({
       {cargando && <p role="status" className="text-xs text-gray-500">Actualizando proyectos…</p>}
 
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap gap-1.5 rounded-xl bg-slate-100/70 p-1" role="tablist" aria-label="Filtrar proyectos por estado">
-          {ESTADO_TABS.map(tab => {
-            const activo = statusFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={activo}
-                onClick={() => setStatusFilter(tab.id)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                  activo
-                    ? "bg-white text-[#9A3412] shadow-sm"
-                    : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
-                }`}
-              >
-                {tab.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-                    activo ? "bg-orange-100 text-[#9A3412]" : "bg-slate-200/80 text-slate-500"
-                  }`}
-                >
-                  {conteos[tab.id] ?? 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedTabs
+          ariaLabel="Filtrar proyectos por estado"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          tabs={ESTADO_TABS.map(tab => ({ ...tab, count: conteos[tab.id] ?? 0 }))}
+        />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0">
             <label htmlFor="buscar-proyectos" className="mb-1.5 block text-xs font-semibold text-gray-700">Buscar proyectos</label>

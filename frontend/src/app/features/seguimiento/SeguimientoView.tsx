@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Activity } from "lucide-react";
+import { AlertTriangle, Activity, PlayCircle, TrendingUp } from "lucide-react";
 import { api, mapProyecto } from "../../api/client";
 import { StatusBadge, Bar2 } from "../../components/shared";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
+import { SectionHero } from "../../components/SectionHero";
 import type { Project } from "../../types";
 
 export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: string) => void }) {
@@ -31,13 +32,24 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
   if (error) return <ErrorModule mensaje={error} onRetry={() => void cargar()} />;
 
   const active = proyectos.filter(p => p.status.startsWith("En ejecución") || p.status === "En formulación");
+  const enEjecucion = active.filter(p => p.status.startsWith("En ejecución")).length;
+  const avance = active.length ? Math.round(active.reduce((suma, p) => suma + p.progress, 0) / active.length) : 0;
+  const porVencer = active.filter(p => p.daysLeft > 0 && p.daysLeft < 30).length;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Seguimiento</h1>
-        <p className="mt-0.5 text-sm text-gray-500">Estado en tiempo real de los proyectos en curso</p>
-      </div>
+      <SectionHero
+        eyebrow="Área proyectos"
+        icon={Activity}
+        title="Seguimiento"
+        subtitle="Estado en tiempo real de los proyectos en curso."
+        kpis={[
+          { label: "Activos", value: active.length, icon: Activity },
+          { label: "En ejecución", value: enEjecucion, icon: PlayCircle },
+          { label: "Avance promedio", value: `${avance}%`, icon: TrendingUp },
+          { label: "Por vencer (<30 d)", value: porVencer, icon: AlertTriangle },
+        ]}
+      />
 
       {active.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
@@ -48,7 +60,7 @@ export function SeguimientoView({ onSelectProject }: { onSelectProject: (id: str
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {active.map(p => (
-            <div key={p.id} onClick={() => onSelectProject(p.id)} className="cursor-pointer rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-orange-100 hover:shadow-md">
+            <div key={p.id} onClick={() => onSelectProject(p.id)} className="sei-lift cursor-pointer rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:border-orange-100">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <span className="font-mono text-xs font-black text-orange-700">{p.id}</span>

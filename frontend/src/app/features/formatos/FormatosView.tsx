@@ -21,6 +21,7 @@ import {
   type ValorTablaApi,
 } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
+import { SectionHero } from "../../components/SectionHero";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
 import { AnalizarValorModal } from "./AnalizarValorModal";
 import { ValorPreviewModal } from "./ValorPreviewModal";
@@ -104,13 +105,19 @@ export function FormatosView() {
   if (valores === null || formatos === null) return <CargandoModule mensaje="Cargando Formatos…" />;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Formatos</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Valores de referencia preestablecidos y formatos que se diligencian desde la plataforma.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <SectionHero
+        eyebrow="Formatos institucionales"
+        icon={ClipboardList}
+        title="Formatos"
+        subtitle="Valores de referencia preestablecidos y formatos que se diligencian desde la plataforma."
+        kpis={[
+          { label: "Valores de referencia", value: valores.length, icon: FolderDown },
+          { label: "Formatos", value: formatos.length, icon: ClipboardList },
+          { label: "Registros", value: formatos.reduce((suma, f) => suma + f.totalRegistros, 0), icon: Send },
+          { label: "De referencia", value: formatos.filter((f) => f.esReferencia).length, icon: FileSpreadsheet },
+        ]}
+      />
 
       {aviso && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
@@ -118,7 +125,7 @@ export function FormatosView() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-gray-100 bg-white">
+      <section className="sei-fade-up rounded-2xl border border-gray-100 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#C2410C]/10">
@@ -135,7 +142,7 @@ export function FormatosView() {
             <button
               type="button"
               onClick={() => setModalValor(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#9A3412]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#F39200] px-3.5 py-2 text-xs font-bold text-[#1B1B1B] transition-colors hover:bg-[#FFAA2B]"
             >
               <Plus className="h-3.5 w-3.5" />
               Subir valor
@@ -218,7 +225,7 @@ export function FormatosView() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-gray-100 bg-white">
+      <section className="sei-fade-up rounded-2xl border border-gray-100 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#C2410C]/10">
@@ -235,7 +242,7 @@ export function FormatosView() {
             <button
               type="button"
               onClick={() => setModalFormato(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#9A3412]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#F39200] px-3.5 py-2 text-xs font-bold text-[#1B1B1B] transition-colors hover:bg-[#FFAA2B]"
             >
               <Plus className="h-3.5 w-3.5" />
               Nuevo formato

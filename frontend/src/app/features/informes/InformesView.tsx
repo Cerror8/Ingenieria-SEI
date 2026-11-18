@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarRange, ChevronDown, ChevronUp, Layers, Send } from "lucide-react";
+import { CalendarRange, ChevronDown, ChevronUp, FileText, Layers, Send } from "lucide-react";
 import { api, fechaCorta, mapInforme, mapProyecto, ApiError } from "../../api/client";
+import { SectionHero } from "../../components/SectionHero";
+import { SegmentedTabs } from "../../components/SegmentedTabs";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
 import type { Project, Report } from "../../types";
 
@@ -154,13 +156,18 @@ export function InformesView({ proyectoId }: { proyectoId?: string }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Informes de proyectos</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          El informe semanal es el registro base; el mensual reúne los semanales y el trimestral
-          reúne los mensuales.
-        </p>
-      </div>
+      <SectionHero
+        eyebrow="Área proyectos"
+        icon={FileText}
+        title="Informes de proyectos"
+        subtitle="El informe semanal es el registro base; el mensual reúne los semanales y el trimestral reúne los mensuales."
+        kpis={[
+          { label: "Informes", value: informes.length, icon: FileText },
+          { label: "Semanales", value: resumen.semanales, icon: CalendarRange },
+          { label: "Mensuales", value: resumen.mensuales, icon: Layers },
+          { label: "Trimestrales", value: resumen.trimestrales, icon: Send },
+        ]}
+      />
 
       {aviso && (
         <p role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
@@ -332,31 +339,16 @@ export function InformesView({ proyectoId }: { proyectoId?: string }) {
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Semanales", valor: resumen.semanales },
-              { label: "Mensuales", valor: resumen.mensuales },
-              { label: "Trimestrales", valor: resumen.trimestrales },
-            ].map((dato) => (
-              <div key={dato.label} className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{dato.label}</p>
-                <p className="mt-1 text-xl font-black text-gray-900">{dato.valor}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {TIPOS.map((tipo) => (
-              <button
-                key={tipo}
-                type="button"
-                onClick={() => setFiltro(tipo)}
-                className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${filtro === tipo ? "border-[#C2410C] bg-[#C2410C] text-white" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-100"}`}
-              >
-                {tipo}
-              </button>
-            ))}
-          </div>
+          <SegmentedTabs
+            ariaLabel="Filtrar informes por tipo"
+            value={filtro}
+            onChange={(id) => setFiltro(id as TipoFiltro)}
+            tabs={TIPOS.map((tipo) => ({
+              id: tipo,
+              label: tipo,
+              count: tipo === "Todos" ? informes.length : resumen[`${tipo.toLowerCase()}es` as "semanales" | "mensuales" | "trimestrales"],
+            }))}
+          />
 
           {visibles.length === 0 ? (
             <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-400">

@@ -5,7 +5,6 @@ import {
   Briefcase,
   CheckCircle,
   DollarSign,
-  Download,
   FileText,
   Filter,
   Percent,
@@ -25,6 +24,7 @@ import {
 } from "recharts";
 import { api, mapIndicador, mapProyecto, type DashboardApi } from "../../api/client";
 import { StatusBadge, IndBadge, Bar2, KpiCard } from "../../components/shared";
+import { SectionHero } from "../../components/SectionHero";
 import { CargandoModule, ErrorModule } from "../../components/DataState";
 import type { Indicator, Project } from "../../types";
 
@@ -71,6 +71,9 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
   }
 
   const kpis = datos.kpis;
+  const periodo = datos.periodo.hasta !== datos.periodo.desde
+    ? `Período activo: ${datos.periodo.desde} – ${datos.periodo.hasta}`
+    : `Período activo: ${datos.periodo.desde}`;
   const estados = datos.estados.map((e) => ({
     name: e.nombre,
     value: e.total,
@@ -83,22 +86,25 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Resumen proyectos</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Período activo: {datos.periodo.desde}
-            {datos.periodo.hasta !== datos.periodo.desde ? ` – ${datos.periodo.hasta}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={onOpenReports} className="inline-flex items-center gap-2 rounded-lg bg-[#C2410C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9A3412]">
+      <SectionHero
+        eyebrow="Área proyectos"
+        icon={Briefcase}
+        title="Resumen proyectos"
+        subtitle={periodo}
+        actions={
+          <button onClick={onOpenReports} className="inline-flex items-center gap-2 rounded-lg bg-[#F39200] px-4 py-2 text-sm font-semibold text-[#1B1B1B] shadow-sm transition-colors hover:bg-[#FFAA2B]">
             <FileText className="h-4 w-4" />Ir a informes
           </button>
-        </div>
-      </div>
+        }
+        kpis={[
+          { label: "Total proyectos", value: kpis.total, icon: Briefcase },
+          { label: "Activos", value: kpis.activos, icon: Activity },
+          { label: "Finalizados", value: kpis.finalizados, icon: CheckCircle },
+          { label: "Retrasados", value: kpis.retrasados, icon: AlertTriangle },
+        ]}
+      />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+      <div className="sei-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         <Filter className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
         <label htmlFor="dashboard-linea" className="text-xs font-semibold text-gray-600">
           Línea de investigación
@@ -107,7 +113,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           id="dashboard-linea"
           value={linea}
           onChange={(e) => setLinea(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-[#EA580C]"
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 outline-none focus:border-[#F39200]"
         >
           <option value="">Todas las líneas</option>
           {linea && !opcionesLinea.includes(linea) && <option value={linea}>{linea}</option>}
@@ -119,7 +125,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           <button
             type="button"
             onClick={() => setLinea("")}
-            className="text-xs font-semibold text-[#C2410C] hover:underline"
+            className="text-xs font-semibold text-[#9A3412] hover:underline"
           >
             Limpiar filtro
           </button>
@@ -129,18 +135,14 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <KpiCard title="Total Proyectos" value={String(kpis.total)} icon={Briefcase} color="text-[#C2410C]" bg="bg-orange-50" />
-        <KpiCard title="Activos" value={String(kpis.activos)} icon={Activity} color="text-orange-600" bg="bg-orange-50" />
-        <KpiCard title="Finalizados" value={String(kpis.finalizados)} icon={CheckCircle} color="text-green-600" bg="bg-green-50" />
-        <KpiCard title="Retrasados" value={String(kpis.retrasados)} icon={AlertTriangle} color="text-red-600" bg="bg-red-50" />
-        <KpiCard title="Avance Prom." value={`${kpis.avancePromedio}%`} icon={Percent} color="text-slate-600" bg="bg-slate-50" />
-        <KpiCard title="Ejec. Presup." value={`${kpis.ejecucionPromedio}%`} icon={DollarSign} color="text-amber-600" bg="bg-amber-50" />
-        <KpiCard title="Líneas Activas" value={String(kpis.lineasActivas)} icon={Tag} color="text-slate-600" bg="bg-slate-50" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard title="Avance promedio" value={`${kpis.avancePromedio}%`} icon={Percent} color="text-slate-600" bg="bg-slate-50" />
+        <KpiCard title="Ejecución presupuestal" value={`${kpis.ejecucionPromedio}%`} icon={DollarSign} color="text-amber-600" bg="bg-amber-50" />
+        <KpiCard title="Líneas activas" value={String(kpis.lineasActivas)} icon={Tag} color="text-slate-600" bg="bg-slate-50" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-bold text-gray-800">Proyectos por estado</h3>
           {kpis.total === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
@@ -173,7 +175,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-bold text-gray-800">Avance de proyectos activos</h3>
           <div className="space-y-3.5">
             {datos.avances.map(d => (
@@ -197,7 +199,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-bold text-gray-800">Ejecución presupuestal por proyecto (%)</h3>
           {datos.presupuestos.length === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
@@ -216,7 +218,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-bold text-gray-800">Proyectos por línea de investigación</h3>
           {lineas.length === 0 ? (
             <p className="rounded-lg border border-dashed border-gray-200 px-3 py-10 text-center text-xs text-gray-400">
@@ -237,7 +239,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-gray-800">Próximos a finalizar</h3>
           <div className="space-y-3">
             {proximos.map(p => (
@@ -270,7 +272,7 @@ export function DashboardView({ onProjectSelect, onOpenReports }: {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="sei-fade-up rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-gray-800">Alertas de indicadores</h3>
           <div className="space-y-2.5">
             {alertas.map(ind => (

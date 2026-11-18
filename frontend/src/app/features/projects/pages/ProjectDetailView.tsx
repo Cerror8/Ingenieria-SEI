@@ -192,7 +192,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
               <h1 className="text-lg font-bold text-gray-900 mt-1 leading-tight">{project.name}</h1>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => setTab("informes")} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-[#C2410C] text-white rounded-lg hover:bg-[#9A3412] transition-colors">
+              <button onClick={() => setTab("informes")} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-[#F39200] text-[#1B1B1B] rounded-lg hover:bg-[#FFAA2B] transition-colors">
                 <FileText className="w-3.5 h-3.5" /> Informes
               </button>
               <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors bg-white">
@@ -208,7 +208,7 @@ export function ProjectDetailView({ projectId, initialTab = "resumen", onBack, o
           <div className="flex min-w-max">
             {PROJ_TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? "border-[#C2410C] text-[#C2410C] bg-orange-50/30" : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}>
+                className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? "border-[#F39200] text-[#9A3412] bg-[#F39200]/10" : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}>
                 {t.label}
               </button>
             ))}
